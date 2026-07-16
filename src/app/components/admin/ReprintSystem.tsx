@@ -18,13 +18,10 @@ interface PrintJob {
   total: number;
 }
 
-const PZ = '#F9002B';
+import { getBackendUrl } from '../../context/AppContext';
 
-const BACKEND_URL = (() => {
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BACKEND_URL) return (import.meta as any).env.VITE_BACKEND_URL;
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') return 'http://localhost:3001';
-  return typeof window !== 'undefined' ? window.location.origin : '';
-})();
+const PZ = '#F9002B';
+const BACKEND_URL = getBackendUrl();
 
 function getToken() {
   return typeof window !== 'undefined' ? sessionStorage.getItem('pizzora_token') : '';

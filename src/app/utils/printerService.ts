@@ -10,6 +10,7 @@
  */
 
 export type PrinterStatus = 'online' | 'offline' | 'connecting' | 'not_installed';
+import { getBackendUrl } from '../context/AppContext';
 
 export interface PrinterSettings {
   printerName: string;
@@ -421,12 +422,7 @@ export const printerService = new QZTrayService();
 export async function generateInvoiceNumber(): Promise<string> {
   try {
     const token = sessionStorage.getItem('pizzora_token');
-    const BACKEND_URL = (() => {
-      if ((import.meta as any).env.VITE_BACKEND_URL) return (import.meta as any).env.VITE_BACKEND_URL;
-      if ((import.meta as any).env.VITE_API_URL) return (import.meta as any).env.VITE_API_URL;
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') return 'http://localhost:3001';
-      return window.location.origin;
-    })();
+    const BACKEND_URL = getBackendUrl();
 
     // 2 second strict timeout to prevent delaying the POS checkout
     const controller = new AbortController();
@@ -469,12 +465,7 @@ export async function logPrintJob(job: {
 }): Promise<void> {
   try {
     const token = sessionStorage.getItem('pizzora_token');
-    const BACKEND_URL = (() => {
-      if ((import.meta as any).env.VITE_BACKEND_URL) return (import.meta as any).env.VITE_BACKEND_URL;
-      if ((import.meta as any).env.VITE_API_URL) return (import.meta as any).env.VITE_API_URL;
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') return 'http://localhost:3001';
-      return window.location.origin;
-    })();
+    const BACKEND_URL = getBackendUrl();
 
     // 2 second strict timeout
     const controller = new AbortController();
