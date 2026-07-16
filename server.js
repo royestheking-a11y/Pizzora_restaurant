@@ -294,6 +294,7 @@ async function processDbAction(action) {
     // Table Orders
     case 'PLACE_TABLE_ORDER': await TableOrder.create(action.payload); break;
     case 'UPDATE_TABLE_ORDER_STATUS': await TableOrder.findOneAndUpdate({ id: action.payload.id }, { status: action.payload.status }); break;
+    case 'DELETE_ORDER': await Order.findOneAndDelete({ id: action.payload }); break;
     case 'DELETE_TABLE_ORDER': await TableOrder.findOneAndDelete({ id: action.payload }); break;
 
     // Tables

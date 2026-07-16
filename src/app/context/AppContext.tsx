@@ -248,6 +248,7 @@ type Action =
   | { type: 'CLEAR_CART' }
   | { type: 'PLACE_ORDER'; payload: Order }
   | { type: 'UPDATE_ORDER_STATUS'; payload: { id: string; status: OrderStatus } }
+  | { type: 'DELETE_ORDER'; payload: string }
   | { type: 'ADD_RESERVATION'; payload: Reservation }
   | { type: 'UPDATE_RESERVATION'; payload: { id: string; status: ReservationStatus } }
   | { type: 'DELETE_RESERVATION'; payload: string }
@@ -484,6 +485,12 @@ function reducer(state: AppState, action: Action): AppState {
         orders: state.orders.map(o =>
           o.id === action.payload.id ? { ...o, status: action.payload.status } : o
         ),
+      };
+
+    case 'DELETE_ORDER':
+      return {
+        ...state,
+        orders: state.orders.filter(o => o.id !== action.payload)
       };
 
     case 'SYNC_ORDER_STATUSES': {

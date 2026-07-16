@@ -780,6 +780,10 @@ export function Admin() {
   // Print Order State
   const [printOrder, setPrintOrder] = useState<any | null>(null);
 
+  // Delete Order State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<any | null>(null);
+
   // Pagination for older orders
   const [isLoadingOlderOrders, setIsLoadingOlderOrders] = useState(false);
 
@@ -1584,6 +1588,13 @@ export function Admin() {
                             title="View Order Details"
                           >
                             <Eye size={14} />
+                          </button>
+                          <button
+                            onClick={() => { setOrderToDelete(order); setShowDeleteModal(true); }}
+                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
+                            title="Delete Order Permanently"
+                          >
+                            <Trash2 size={14} />
                           </button>
                         </td>
                       </tr>
@@ -2397,6 +2408,45 @@ export function Admin() {
 
 
     {/* ── PRINT ONLY: THERMAL RECEIPT ─────────────────────────────────────── */}
+      {/* Delete Order Modal */}
+      {showDeleteModal && orderToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 animate-scale-in">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="text-red-600" size={24} />
+            </div>
+            <h3 className="text-xl font-bold text-center mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Delete Order?</h3>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              Are you sure you want to permanently delete order <strong className="text-gray-900">{orderToDelete.orderNumber || orderToDelete.id.slice(-6)}</strong>? This action cannot be undone and will remove it from all revenue calculations immediately.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowDeleteModal(false); setOrderToDelete(null); }}
+                className="flex-1 py-2.5 rounded-xl font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (orderToDelete.isTableOrder) {
+                    dispatch({ type: 'DELETE_TABLE_ORDER', payload: orderToDelete.id });
+                  } else {
+                    dispatch({ type: 'DELETE_ORDER', payload: orderToDelete.id });
+                  }
+                  setShowDeleteModal(false);
+                  setOrderToDelete(null);
+                  showNotification('Order permanently deleted', 'success');
+                }}
+                className="flex-1 py-2.5 rounded-xl font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                Delete Forever
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden print area for thermal printer */}
     <div id="thermal-print-area" style={{ display: 'none' }}>
       {printOrder && (() => {
         const isTable = printOrder.isTableOrder;
