@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --pz-primary: #F9002B;
+  --pz-primary-dark: #C8001F;
+  --pz-cream: #F8EFDC;
+  --pz-black: #000000;
+  --pz-dark: #111111;
+  --pz-text: #111111;
+  --pz-muted: #6B7280;
+  --pz-border: rgba(249,0,43,0.15);
+}
+
+body { font-family: var(--font-body); color: var(--pz-text); }
+h1,h2,h3,h4,h5,h6 { font-family: var(--font-heading); }
+html { scroll-behavior: smooth; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #F9002B; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #C8001F; }
+
+@keyframes fadeInUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideInLeft { from { opacity:0; transform:translateX(-40px); } to { opacity:1; transform:translateX(0); } }
+@keyframes slideInRight { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+@keyframes scaleIn { from { opacity:0; transform:scale(0.9); } to { opacity:1; transform:scale(1); } }
+@keyframes shimmer { 0% { background-position:-200% 0; } 100% { background-position:200% 0; } }
+
+.animate-fadeInUp    { animation: fadeInUp    0.6s ease forwards; }
+.animate-slideInLeft { animation: slideInLeft 0.6s ease forwards; }
+.animate-slideInRight{ animation: slideInRight 0.6s ease forwards; }
+.animate-scaleIn     { animation: scaleIn     0.5s ease forwards; }
+
+.section-line { width:60px; height:3px; background:linear-gradient(90deg,#F9002B,#000000); border-radius:2px; }
+.btn-primary { background:linear-gradient(135deg,#F9002B,#C8001F); color:white; transition:all 0.3s ease; border:1px solid transparent; }
+.btn-primary:hover { background:linear-gradient(135deg,#C8001F,#F9002B); box-shadow:0 8px 25px rgba(249,0,43,0.4); transform:translateY(-2px); }
+.card-hover {
+  transition: all 0.3s ease;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+}
+@media (hover: hover) {
+  .card-hover:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 40px rgba(249,0,43,0.15);
+  }
+}
+.glass {
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.card-glass-btn {
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+@media (min-width: 640px) {
+  .card-glass-btn {
+    background: rgba(255, 255, 255, 0.2);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}
+.testimonial-card {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+@media (min-width: 640px) {
+  .testimonial-card {
+    background: rgba(255, 255, 255, 0.08);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+}
+.rounded-2xl.overflow-hidden,
+.rounded-3xl.overflow-hidden {
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
+  isolation: isolate;
+}
+@media (hover: none) {
+  .group-hover\:scale-110,
+  .group:hover .group-hover\:scale-110 {
+    transform: none !important;
+  }
+  .group-hover\:opacity-100,
+  .group:hover .group-hover\:opacity-100 {
+    opacity: 0 !important;
+  }
+}
+.hero-overlay { background:linear-gradient(135deg,rgba(0,0,0,0.85) 0%,rgba(200,0,30,0.5) 50%,rgba(249,0,43,0.25) 100%); }
+.gradient-text { background:linear-gradient(135deg,#F9002B,#000000); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.premium-badge { background:linear-gradient(135deg,#F9002B,#C8001F); color:#fff; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:0.5px; }
+.star-filled { color:#F9002B; }
+.star-empty  { color:#D1D5DB; }
