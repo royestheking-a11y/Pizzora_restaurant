@@ -25,6 +25,9 @@ export function PrinterSettings() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    if (printerService.getStatus() !== 'online') {
+      setTimeout(() => printerService.connect(), 1000);
+    }
     const unsub = printerService.onStatusChange(setPrinterStatus);
     return unsub;
   }, []);

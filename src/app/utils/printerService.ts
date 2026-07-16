@@ -417,11 +417,6 @@ class QZTrayService {
 // Singleton
 export const printerService = new QZTrayService();
 
-// Auto-connect on first load (non-blocking)
-if (typeof window !== 'undefined') {
-  setTimeout(() => printerService.connect(), 1500);
-}
-
 // ─── Generate Invoice Number (calls backend) ──────────────────────────────────
 export async function generateInvoiceNumber(): Promise<string> {
   try {
