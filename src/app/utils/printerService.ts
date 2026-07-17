@@ -183,10 +183,10 @@ class QZTrayService {
 
   private init(): { hex: string }[] { return this.cmd(this.ESC, 0x40); }
   private cutPaper(): { hex: string }[] { return this.cmd(this.GS, 0x56, 0x41, 0x10); }
-  // Cash drawer kick: pulse on pin 2 (0x00) and pin 5 (0x01) just in case
+  // Cash drawer kick: maximum pulse duration on pin 2 (0x00) and pin 5 (0x01)
   private kickDrawer(): { hex: string }[] {
-    const pin2 = this.cmd(this.ESC, 0x70, 0x00, 0x32, 0xFA)[0].hex;
-    const pin5 = this.cmd(this.ESC, 0x70, 0x01, 0x32, 0xFA)[0].hex;
+    const pin2 = this.cmd(this.ESC, 0x70, 0x00, 0xFA, 0xFA)[0].hex;
+    const pin5 = this.cmd(this.ESC, 0x70, 0x01, 0xFA, 0xFA)[0].hex;
     return [{ hex: pin2 + pin5 }];
   }
   private bold(on: boolean): { hex: string }[] { return this.cmd(this.ESC, 0x45, on ? 1 : 0); }
@@ -204,8 +204,8 @@ class QZTrayService {
     const sep = '-'.repeat(width);
     const dbl = '='.repeat(width);
 
-    const padRight = (s: string, len: number) => s.padEnd(len, ' ').slice(0, len);
-    const padLeft = (s: string, len: number) => s.padStart(len, ' ').slice(-len);
+    const padRight = (s: string, len: number) => s.padEnd(len, ' ').slice(0, Math.max(len, s.length));
+    const padLeft = (s: string, len: number) => s.padStart(len, ' ').slice(-Math.max(len, s.length));
     const currency = (n: number) => n.toFixed(2);
 
     const data: (string | { hex: string })[] = [];
@@ -253,7 +253,7 @@ class QZTrayService {
     data.push(sep + '\n');
 
     // Column header
-    const qLen = 4, priceLen = 8;
+    const qLen = 4, priceLen = 12;
     const nameLen = width - qLen - priceLen - 2;
     data.push(...this.bold(true));
     data.push(`${padRight('Qty', qLen)} ${padRight('Item', nameLen)} ${padLeft('Price', priceLen)}\n`);
@@ -264,7 +264,8 @@ class QZTrayService {
     for (const item of invoice.items) {
       const lineTotal = currency(item.price * item.quantity);
       const qtyStr = String(item.quantity);
-      const namePart = item.variant ? `${item.name} (${item.variant})` : item.name;
+      let namePart = item.variant ? `${item.name} (${item.variant})` : item.name;
+      namePart = namePart.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
       // Handle long names with wrapping
       const chunks: string[] = [];
@@ -288,28 +289,28 @@ class QZTrayService {
     const totRow = (label: string, val: string) =>
       `${padRight(label, width - priceLen - 1)} ${padLeft(val, priceLen)}\n`;
 
-    data.push(totRow('Subtotal:', `৳${currency(invoice.subtotal)}`));
+    data.push(totRow('Subtotal:', `Tk ${currency(invoice.subtotal)}`));
     if (invoice.discount > 0) {
-      data.push(totRow('Discount:', `-৳${currency(invoice.discount)}`));
+      data.push(totRow('Discount:', `-Tk ${currency(invoice.discount)}`));
     }
     if (invoice.vat && invoice.vat > 0) {
-      data.push(totRow('VAT:', `৳${currency(invoice.vat)}`));
+      data.push(totRow('VAT:', `Tk ${currency(invoice.vat)}`));
     }
     if (invoice.serviceCharge && invoice.serviceCharge > 0) {
-      data.push(totRow('Service Charge:', `৳${currency(invoice.serviceCharge)}`));
+      data.push(totRow('Service Charge:', `Tk ${currency(invoice.serviceCharge)}`));
     }
 
     data.push(dbl + '\n');
     data.push(...this.bold(true));
     data.push(...this.fontSize(1, 2));
-    data.push(totRow('TOTAL:', `৳${currency(invoice.total)}`));
+    data.push(totRow('TOTAL:', `Tk ${currency(invoice.total)}`));
     data.push(...this.fontSize(1, 1));
     data.push(...this.bold(false));
     data.push(dbl + '\n');
 
-    data.push(totRow(`Payment (${invoice.paymentMethod}):`, `৳${currency(invoice.amountPaid)}`));
+    data.push(totRow(`Payment (${invoice.paymentMethod}):`, `Tk ${currency(invoice.amountPaid)}`));
     if (invoice.change > 0) {
-      data.push(totRow('Change:', `৳${currency(invoice.change)}`));
+      data.push(totRow('Change:', `Tk ${currency(invoice.change)}`));
     }
 
     data.push(sep + '\n');
