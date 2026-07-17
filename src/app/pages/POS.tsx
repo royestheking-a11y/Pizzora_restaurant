@@ -255,25 +255,25 @@ export function POS() {
     const hasDrink = cartCategories.some(c => c.includes('coffee') || c.includes('lassi') || c.includes('drink'));
 
     if (hasMain && !hasDrink) {
-      return menuItems.filter(m => m.category.toLowerCase().includes('coffee') || m.category.toLowerCase().includes('lassi')).slice(0, 3);
+      return state.menuItems.filter(m => m.category.toLowerCase().includes('coffee') || m.category.toLowerCase().includes('lassi')).slice(0, 3);
     }
     if (hasMain) {
-      return menuItems.filter(m => m.name.toLowerCase().includes('fries') || m.name.toLowerCase().includes('wings')).slice(0, 3);
+      return state.menuItems.filter(m => m.name.toLowerCase().includes('fries') || m.name.toLowerCase().includes('wings')).slice(0, 3);
     }
     return [];
-  }, [cart]);
+  }, [cart, state.menuItems]);
   const [showHeld, setShowHeld] = useState(false);
 
   // ── Filtered menu ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
-    let list = menuItems;
+    let list = state.menuItems;
     if (activeCategory !== 'All') list = list.filter(i => i.category === activeCategory);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(i => i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q));
     }
     return list;
-  }, [activeCategory, search]);
+  }, [activeCategory, search, state.menuItems]);
 
   // ── Cart helpers ──────────────────────────────────────────────────────────
   const addToCart = (item: MenuItem) => {
