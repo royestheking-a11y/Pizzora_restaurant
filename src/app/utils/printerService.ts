@@ -177,25 +177,29 @@ class QZTrayService {
   private ESC = 0x1B;
   private GS = 0x1D;
 
-  private cmd(...bytes: number[]): string[] {
-    return bytes.map(b => `\\x${b.toString(16).padStart(2, '0')}`);
+  private cmd(...bytes: number[]): { hex: string }[] {
+    return [{ hex: bytes.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join('') }];
   }
 
-  private init(): string[] { return this.cmd(this.ESC, 0x40); }
-  private cutPaper(): string[] { return this.cmd(this.GS, 0x56, 0x41, 0x10); }
-  // Cash drawer kick: pulse on pin 2
-  private kickDrawer(): string[] { return this.cmd(this.ESC, 0x70, 0x00, 0x19, 0xFA); }
-  private bold(on: boolean): string[] { return this.cmd(this.ESC, 0x45, on ? 1 : 0); }
-  private align(a: 'left' | 'center' | 'right'): string[] {
+  private init(): { hex: string }[] { return this.cmd(this.ESC, 0x40); }
+  private cutPaper(): { hex: string }[] { return this.cmd(this.GS, 0x56, 0x41, 0x10); }
+  // Cash drawer kick: pulse on pin 2 (0x00) and pin 5 (0x01) just in case
+  private kickDrawer(): { hex: string }[] {
+    const pin2 = this.cmd(this.ESC, 0x70, 0x00, 0x32, 0xFA)[0].hex;
+    const pin5 = this.cmd(this.ESC, 0x70, 0x01, 0x32, 0xFA)[0].hex;
+    return [{ hex: pin2 + pin5 }];
+  }
+  private bold(on: boolean): { hex: string }[] { return this.cmd(this.ESC, 0x45, on ? 1 : 0); }
+  private align(a: 'left' | 'center' | 'right'): { hex: string }[] {
     return this.cmd(this.ESC, 0x61, a === 'left' ? 0 : a === 'center' ? 1 : 2);
   }
-  private fontSize(w: number, h: number): string[] {
+  private fontSize(w: number, h: number): { hex: string }[] {
     return this.cmd(this.GS, 0x21, (w - 1) * 16 + (h - 1));
   }
   private lineBreak(count = 1): string[] { return Array(count).fill('\n'); }
 
   // ─── Receipt Builder ─────────────────────────────────────────────────────────
-  buildReceiptData(invoice: InvoiceData, settings: PrinterSettings): (string | string[])[] {
+  buildReceiptData(invoice: InvoiceData, settings: PrinterSettings): (string | { hex: string })[] {
     const width = settings.paperWidth === '58mm' ? 32 : 48;
     const sep = '-'.repeat(width);
     const dbl = '='.repeat(width);
@@ -204,7 +208,7 @@ class QZTrayService {
     const padLeft = (s: string, len: number) => s.padStart(len, ' ').slice(-len);
     const currency = (n: number) => n.toFixed(2);
 
-    const data: (string | string[])[] = [];
+    const data: (string | { hex: string })[] = [];
 
     // Init
     data.push(...this.init());
@@ -353,8 +357,8 @@ class QZTrayService {
       const receiptData = this.buildReceiptData(invoice, s);
 
       const printData = receiptData.map(item =>
-        Array.isArray(item)
-          ? { type: 'raw', format: 'command', data: item }
+        typeof item === 'object' && 'hex' in item
+          ? { type: 'raw', format: 'hex', data: item.hex }
           : { type: 'raw', format: 'plain', data: item }
       );
 
@@ -387,7 +391,7 @@ class QZTrayService {
     try {
       const qz = this.qz as any;
       const config = qz.configs.create(s.printerName);
-      await qz.print(config, [{ type: 'raw', format: 'command', data: this.kickDrawer() }]);
+      await qz.print(config, [{ type: 'raw', format: 'hex', data: this.kickDrawer()[0].hex }]);
       return { success: true };
     } catch (err: any) {
       console.error('[QZ Tray] Drawer error:', err);

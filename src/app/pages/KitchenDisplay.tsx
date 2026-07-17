@@ -41,6 +41,21 @@ function ElapsedTimer({ since }: { since: number }) {
   );
 }
 
+type KitchenStatus = 'Pending' | 'Confirmed' | 'Cooking' | 'Ready';
+
+interface UnifiedKitchenOrder {
+  id: string;
+  type: string;
+  identifier: string;
+  status: KitchenStatus;
+  createdAt: number;
+  items: { name: string; quantity: number; note?: string; image?: string; itemId?: string; price: number }[];
+  isTableOrder: boolean;
+  originalStatus: string;
+  total: number;
+  customerNote?: string;
+}
+
 export function KitchenDisplay() {
   const navigate = useNavigate();
   const { state, updateTableOrderStatus, dispatch } = useApp();
@@ -55,7 +70,7 @@ export function KitchenDisplay() {
   const [filterStatus, setFilterStatus] = useState<'All' | TableOrderStatus>('All');
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [isLive, setIsLive] = useState(true);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<UnifiedKitchenOrder | null>(null);
 
   // Auto-refresh every 5 seconds (the AppContext storage listener handles cross-tab updates)
   useEffect(() => {
@@ -300,17 +315,50 @@ export function KitchenDisplay() {
     window.location.reload();
   };
 
-  const orders = (state.tableOrders ?? [])
-    .filter(o => activeStatuses.includes(o.status))
+  const allUnifiedOrders: UnifiedKitchenOrder[] = [
+    ...(state.tableOrders ?? []).map(o => ({
+      id: o.id,
+      type: 'Dine-In',
+      identifier: `Table ${o.tableNumber}`,
+      status: (o.status === 'Served' || o.status === 'Paid' || (o.status as any) === 'Cancelled') ? null : (o.status as KitchenStatus),
+      createdAt: new Date(o.createdAt || Date.now()).getTime(),
+      items: o.items.map((i: any) => ({ ...i, itemId: i.itemId || String(Math.random()) })),
+      isTableOrder: true,
+      originalStatus: o.status,
+      total: o.total || 0,
+      customerNote: (o as any).customerNote
+    })).filter(o => o.status !== null) as UnifiedKitchenOrder[],
+    ...(state.orders ?? []).map(o => {
+      let mappedStatus: KitchenStatus | null = null;
+      if (o.status === 'Pending') mappedStatus = 'Pending';
+      else if (o.status === 'Preparing') mappedStatus = 'Cooking';
+      else if (o.status === 'Out for Delivery' || o.status === 'Delivered') mappedStatus = null; // hide finished POS orders from kitchen unless they are ready, but wait, POS goes to Out for Delivery
+
+      return mappedStatus ? {
+        id: o.id,
+        type: o.orderNumber ? 'POS / Online' : 'POS',
+        identifier: `Order #${o.orderNumber || o.id.slice(-6).toUpperCase()}`,
+        status: mappedStatus,
+        createdAt: new Date(o.createdAt || Date.now()).getTime(),
+        items: o.items.map((i: any) => ({ name: i.item?.name || 'Item', quantity: i.quantity, note: i.specialRequest, image: i.item?.image, itemId: i.item?.id || String(Math.random()), price: i.item?.price || 0 })),
+        isTableOrder: false,
+        originalStatus: o.status,
+        total: o.total || 0,
+        customerNote: (o as any).customerNote
+      } : null;
+    }).filter(Boolean) as UnifiedKitchenOrder[]
+  ];
+
+  const orders = allUnifiedOrders
+    .filter(o => activeStatuses.includes(o.status as any))
     .filter(o => filterStatus === 'All' || o.status === filterStatus)
     .sort((a, b) => a.createdAt - b.createdAt); // oldest first
 
-  const tableOrders = state.tableOrders ?? [];
   const counts = {
-    Pending:   tableOrders.filter(o => o.status === 'Pending').length,
-    Confirmed: tableOrders.filter(o => o.status === 'Confirmed').length,
-    Cooking:   tableOrders.filter(o => o.status === 'Cooking').length,
-    Ready:     tableOrders.filter(o => o.status === 'Ready').length,
+    Pending:   allUnifiedOrders.filter(o => o.status === 'Pending').length,
+    Confirmed: allUnifiedOrders.filter(o => o.status === 'Confirmed').length,
+    Cooking:   allUnifiedOrders.filter(o => o.status === 'Cooking').length,
+    Ready:     allUnifiedOrders.filter(o => o.status === 'Ready').length,
   };
 
   const nextStatus: Partial<Record<TableOrderStatus, TableOrderStatus>> = {
@@ -510,15 +558,16 @@ export function KitchenDisplay() {
                       className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)' }}
                     >
-                      <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '14px', color: '#fff' }}>
-                        {order.tableNumber}
+                      <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '11px', color: '#fff', textTransform: 'uppercase' }}>
+                        {order.isTableOrder ? 'T' + order.identifier.split(' ')[1] : 'POS'}
                       </span>
                     </div>
                     <div>
                       <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '15px', color: '#111827' }}>
-                        Table {order.tableNumber}
+                        {order.identifier}
                       </p>
                       <p style={{ fontSize: '11px', color: '#6B7280' }}>
+                        <span className="font-semibold text-gray-700 mr-1 bg-gray-100 px-1.5 py-0.5 rounded">{order.type}</span>
                         {order.items.length} item{order.items.length !== 1 ? 's' : ''}
                       </p>
                     </div>
@@ -590,7 +639,7 @@ export function KitchenDisplay() {
 
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setSelectedOrderId(order.id)}
+                      onClick={() => setSelectedOrder(order)}
                       className="flex-1 py-2.5 rounded-xl font-semibold transition-all hover:bg-gray-50 flex items-center justify-center gap-2"
                       style={{ border: '1px solid #E5E7EB', color: '#4B5563', fontFamily: 'var(--font-heading)', fontSize: '12px', cursor: 'pointer' }}
                     >
@@ -598,7 +647,14 @@ export function KitchenDisplay() {
                     </button>
                     {next && (
                       <button
-                        onClick={() => updateTableOrderStatus(order.id, next)}
+                        onClick={() => {
+                          if (order.isTableOrder) {
+                            updateTableOrderStatus(order.id, next as TableOrderStatus);
+                          } else {
+                            const nextOrderStatus = next === 'Cooking' ? 'Preparing' : (next === 'Ready' ? 'Out for Delivery' : next);
+                            dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: order.id, status: nextOrderStatus as any } });
+                          }
+                        }}
                         className="flex-1 py-2.5 rounded-xl font-semibold text-white transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-2"
                         style={{
                           background:
@@ -633,15 +689,14 @@ export function KitchenDisplay() {
         )}
       </div>
 
-      {selectedOrderId && <OrderDetailsModal orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />}
+      {selectedOrder && <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
     </div>
   );
 }
 
 // ─── Order Details / Invoice Modal ───────────────────────────────────────────
-function OrderDetailsModal({ orderId, onClose }: { orderId: string; onClose: () => void }) {
-  const { state, updateTableOrderStatus } = useApp();
-  const order = (state.tableOrders ?? []).find(o => o.id === orderId);
+function OrderDetailsModal({ order, onClose }: { order: UnifiedKitchenOrder; onClose: () => void }) {
+  const { updateTableOrderStatus, dispatch } = useApp();
 
   if (!order) return null;
   const date = new Date(order.createdAt);
@@ -708,7 +763,7 @@ function OrderDetailsModal({ orderId, onClose }: { orderId: string; onClose: () 
                 </div>
                 <div>
                   <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '16px', color: '#111827' }}>Kitchen Order Ticket</p>
-                  <p style={{ fontSize: '11px', color: '#6B7280', marginTop: '1px' }}>Table T{order.tableNumber} · {order.items.length} item{order.items.length !== 1 ? 's' : ''}</p>
+                  <p style={{ fontSize: '11px', color: '#6B7280', marginTop: '1px' }}>{order.identifier} · {order.items.length} item{order.items.length !== 1 ? 's' : ''}</p>
                 </div>
               </div>
               <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors hover:bg-gray-100" style={{ border: '1px solid #E5E7EB', background: 'none', cursor: 'pointer' }}>
@@ -739,7 +794,7 @@ function OrderDetailsModal({ orderId, onClose }: { orderId: string; onClose: () 
                 <div className="grid grid-cols-2 gap-px mx-6 my-5 rounded-2xl overflow-hidden" style={{ border: '1px solid #E5E7EB', background: '#E5E7EB' }}>
                   {[
                     { label: 'Order ID', value: `#${orderNum}` },
-                    { label: 'Table', value: `Table T${order.tableNumber}` },
+                    { label: order.isTableOrder ? 'Table' : 'Order', value: order.identifier },
                     { label: 'Time', value: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) },
                     { label: 'Date', value: date.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' }) },
                   ].map(({ label, value }) => (
@@ -816,7 +871,7 @@ function OrderDetailsModal({ orderId, onClose }: { orderId: string; onClose: () 
                 {/* Order type badge */}
                 <div style={{ textAlign: 'center', marginBottom: '6px' }}>
                   <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '2px', border: '1px solid #000', padding: '2px 8px', display: 'inline-block' }}>
-                    🍽 DINE-IN ORDER
+                    {order.type.toUpperCase()} ORDER
                   </span>
                 </div>
 
@@ -824,7 +879,7 @@ function OrderDetailsModal({ orderId, onClose }: { orderId: string; onClose: () 
                 <div style={{ fontSize: '12px', marginBottom: '4px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Order #</span><span style={{ fontWeight: 700 }}>{orderNum}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Date</span><span style={{ color: '#B8860B' }}>{date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}, {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Table</span><span style={{ fontWeight: 700 }}>#{order.tableNumber}T{String(order.tableNumber).padStart(2,'0')}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Type</span><span style={{ fontWeight: 700 }}>{order.type}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Payment</span><span>At Table</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Status</span><span style={{ fontWeight: 700 }}>{order.status}</span></div>
                 </div>
@@ -901,8 +956,16 @@ function OrderDetailsModal({ orderId, onClose }: { orderId: string; onClose: () 
 
               {next && (
                 <button
-                  onClick={() => { updateTableOrderStatus(order.id, next); onClose(); }}
-                  className="flex-1 py-3 rounded-xl font-semibold text-white transition-all active:scale-95 flex items-center justify-center gap-2 hover:brightness-110"
+                  onClick={() => {
+                    if (order.isTableOrder) {
+                      updateTableOrderStatus(order.id, next as TableOrderStatus);
+                    } else {
+                      const nextOrderStatus = next === 'Cooking' ? 'Preparing' : (next === 'Ready' ? 'Out for Delivery' : next);
+                      dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: order.id, status: nextOrderStatus as any } });
+                    }
+                    onClose();
+                  }}
+                  className="flex-1 px-4 py-3 rounded-xl font-semibold text-white transition-all active:scale-95 flex items-center justify-center gap-2 hover:brightness-110"
                   style={{
                     background:
                       order.status === 'Pending'   ? 'linear-gradient(135deg,#16A34A,#15803D)' :
