@@ -104,12 +104,13 @@ interface MenuFormState {
   isPopular: boolean;
   prepTime: string;
   serves: string;
+  showOnWebsite: boolean;
 }
 
 const blankMenuForm: MenuFormState = {
   name: '', category: 'Pizza', price: '', description: '',
   spiceLevel: 'Medium', image: '', images: [], isVeg: false, isSpicy: false,
-  isPopular: false, prepTime: '20 min', serves: '1 Person',
+  isPopular: false, prepTime: '20 min', serves: '1 Person', showOnWebsite: true,
 };
 
 function menuItemToForm(item: MenuItem): MenuFormState {
@@ -126,6 +127,7 @@ function menuItemToForm(item: MenuItem): MenuFormState {
     isPopular: item.isPopular,
     prepTime: item.prepTime,
     serves: item.serves,
+    showOnWebsite: item.showOnWebsite ?? true,
   };
 }
 
@@ -329,6 +331,7 @@ function MenuItemModal({
               { key: 'isVeg', label: 'Vegetarian', color: '#16A34A' },
               { key: 'isSpicy', label: 'Spicy', color: '#DC2626' },
               { key: 'isPopular', label: 'Popular', color: '#F9002B' },
+              { key: 'showOnWebsite', label: 'Show on Website', color: '#3B82F6' },
             ] as const).map(({ key, label, color }) => (
               <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
                 <div
@@ -954,6 +957,7 @@ export function Admin() {
       isPopular: menuForm.isPopular,
       prepTime: menuForm.prepTime,
       serves: menuForm.serves,
+      showOnWebsite: menuForm.showOnWebsite,
       rating: editingMenuItem?.rating || 4.5,
       reviewCount: editingMenuItem?.reviewCount || 0,
       ingredients: editingMenuItem?.ingredients || [],

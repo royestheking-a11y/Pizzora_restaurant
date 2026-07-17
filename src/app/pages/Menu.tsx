@@ -45,7 +45,7 @@ export function Menu() {
   const navigate = useNavigate();
 
   const filtered = useMemo(() => {
-    let items = [...state.menuItems];
+    let items = state.menuItems.filter(i => i.showOnWebsite !== false);
 
     if (activeCategory !== 'All') items = items.filter(i => i.category === activeCategory);
     if (search) items = items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()) || i.description.toLowerCase().includes(search.toLowerCase()));

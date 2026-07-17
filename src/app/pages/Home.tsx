@@ -68,7 +68,7 @@ export function Home() {
 
   useEffect(() => { setIsMounted(true); }, []);
 
-  const popularItems = menuItems.filter(item => item.isPopular).slice(0, 8);
+  const popularItems = state.menuItems.filter(item => item.isPopular && item.showOnWebsite !== false).slice(0, 8);
 
   const goToSlide = (index: number) => {
     if (isTransitioning) return;

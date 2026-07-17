@@ -22,6 +22,7 @@ export interface MenuItem {
   serves: string;
   variants?: { name: string; price: number }[];
   badge?: string;
+  showOnWebsite?: boolean;
 }
 
 export interface Chef {

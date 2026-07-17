@@ -40,7 +40,7 @@ export function ProductDetail() {
   const [reviewedSlugs, setReviewedSlugs] = useState<string[]>([]);
 
   const item = state.menuItems.find(m => m.slug === slug);
-  const related = state.menuItems.filter(m => m.category === item?.category && m.id !== item?.id).slice(0, 3);
+  const related = state.menuItems.filter(m => m.category === item?.category && m.id !== item?.id && m.showOnWebsite !== false).slice(0, 3);
 
   // ── Check if this browser has ordered this item ──
   const [hasOrdered, setHasOrdered] = useState(false);
