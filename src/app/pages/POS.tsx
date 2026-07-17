@@ -238,6 +238,9 @@ export function POS() {
 
   // ── Printer status listener ────────────────────────────────────────────────
   useEffect(() => {
+    if (printerService.getStatus() !== 'online') {
+      setTimeout(() => printerService.connect(), 1000);
+    }
     const unsubscribe = printerService.onStatusChange(setPrinterStatus);
     return unsubscribe;
   }, []);

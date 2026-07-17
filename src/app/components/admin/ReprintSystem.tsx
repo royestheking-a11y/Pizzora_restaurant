@@ -77,6 +77,9 @@ export function ReprintSystem() {
   }, [search]);
 
   useEffect(() => {
+    if (printerService.getStatus() !== 'online') {
+      setTimeout(() => printerService.connect(), 1000);
+    }
     loadJobs();
   }, [loadJobs]);
 
