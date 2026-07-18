@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useApp, RestaurantTable, TableArea, TableStatus, TableOrderStatus } from '../../context/AppContext';
 import { AdminStatSkeleton } from '../Skeletons';
+import { ConfirmModal } from '../ConfirmModal';
 
 // ─── Status Config ────────────────────────────────────────────────────────────
 const statusConfig: Record<TableStatus, { label: string; bg: string; text: string; border: string; dot: string; icon: typeof CircleDot }> = {
@@ -404,6 +405,14 @@ function TableDetailPanel({
   const [showQR, setShowQR] = useState(false);
   const [showInvoice, setShowInvoice] = useState<string | null>(null);
 
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
   const handleResetTable = () => {
     setTableStatus(table.id, 'Available', undefined);
     showNotification('Table reset to Available.', 'success');
@@ -480,14 +489,25 @@ function TableDetailPanel({
               <RefreshCw size={18} style={{ color: '#16A34A' }} />
               <span style={{ fontSize: '11px', fontWeight: 700, color: '#16A34A', fontFamily: 'var(--font-heading)' }}>Reset</span>
             </button>
-            <button
-              onClick={handleDeleteTable}
-              className="flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all hover:shadow-md active:scale-95"
-              style={{ backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5' }}
-            >
-              <Trash2 size={18} style={{ color: '#DC2626' }} />
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#DC2626', fontFamily: 'var(--font-heading)' }}>Delete</span>
-            </button>
+            {adminRole === 'admin' && (
+              <button
+                onClick={() => setDeleteConfirm({
+                  isOpen: true,
+                  title: 'Delete Table?',
+                  message: `Are you sure you want to delete Table ${table.tableNumber}?`,
+                  onConfirm: () => {
+                    dispatch({ type: 'DELETE_TABLE', payload: table.id });
+                    showNotification('Table deleted.', 'info');
+                    onClose();
+                  }
+                })}
+                className="flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all hover:shadow-md active:scale-95"
+                style={{ backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5' }}
+              >
+                <Trash2 size={18} style={{ color: '#DC2626' }} />
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#DC2626', fontFamily: 'var(--font-heading)' }}>Delete</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -637,6 +657,14 @@ function TableDetailPanel({
       {/* Modals */}
       {showQR && <QRModal table={table} onClose={() => setShowQR(false)} />}
       {showInvoice && <InvoiceModal orderId={showInvoice} onClose={() => setShowInvoice(null)} />}
+      
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title={deleteConfirm.title}
+        message={deleteConfirm.message}
+        onConfirm={deleteConfirm.onConfirm}
+        onCancel={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+      />
     </>
   );
 

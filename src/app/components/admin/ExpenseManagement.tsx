@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Save, X, DollarSign, TrendingDown, Calendar, Search, Edit2, Printer } from 'lucide-react';
 import { useApp, ExpenseEntry } from '../../context/AppContext';
 import { TableRowSkeleton } from '../Skeletons';
+import { ConfirmModal } from '../ConfirmModal';
 const PZ = '#F9002B';
 const PZD = '#C8001F';
 
@@ -34,6 +35,15 @@ export function ExpenseManagement() {
   const { expenses } = state;
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('All');
+  
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ExpenseEntry | null>(null);
   const [printExpense, setPrintExpense] = useState<ExpenseEntry | null>(null);
@@ -169,7 +179,17 @@ export function ExpenseManagement() {
                             <button onClick={() => handlePrint(exp)} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#F3F4F6', color: '#4B5563' }}><Printer size={12} /></button>
                             <button onClick={() => { setEditing(exp); setForm({ category:exp.category, subcategory:exp.subcategory, amount:exp.amount, date:exp.date, paymentMethod:exp.paymentMethod, description:exp.description, invoiceNo:exp.invoiceNo }); setSelectedCategory(exp.category); setShowForm(true); }}
                               className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#EFF6FF', color: '#2563EB' }}><Edit2 size={12} /></button>
-                            <button onClick={() => dispatch({ type: 'DELETE_EXPENSE', payload: exp.id })} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}><Trash2 size={12} /></button>
+                            {adminRole === 'admin' && (
+                              <button onClick={() => setDeleteConfirm({
+                                isOpen: true,
+                                title: 'Delete Expense?',
+                                message: `Are you sure you want to delete this expense of ৳${exp.amount}?`,
+                                onConfirm: () => {
+                                  dispatch({ type: 'DELETE_EXPENSE', payload: exp.id });
+                                  setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                                }
+                              })} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}><Trash2 size={12} /></button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -376,6 +396,14 @@ export function ExpenseManagement() {
           }
         `}</style>
       )}
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title={deleteConfirm.title}
+        message={deleteConfirm.message}
+        onConfirm={deleteConfirm.onConfirm}
+        onCancel={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+      />
     </>
   );
 }

@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Trash2, Plus, AlertCircle, Calendar } from 'lucide-react';
+import { ConfirmModal } from '../ConfirmModal';
 
 export function WasteManagement() {
   const { state, addWasteRecord, deleteWasteRecord } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ product: '', reason: '', costLoss: '', quantity: '1' });
+
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,13 +103,23 @@ export function WasteManagement() {
                     <td className="p-4 text-gray-900 font-medium">{record.quantity}</td>
                     <td className="p-4 text-red-600 font-bold">৳ {record.costLoss.toFixed(2)}</td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => deleteWasteRecord(record.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete Record"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {adminRole === 'admin' && (
+                        <button
+                          onClick={() => setDeleteConfirm({
+                            isOpen: true,
+                            title: 'Delete Waste Record?',
+                            message: `Are you sure you want to delete this record for ${record.product}?`,
+                            onConfirm: () => {
+                              deleteWasteRecord(record.id);
+                              setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                            }
+                          })}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Record"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -155,6 +174,14 @@ export function WasteManagement() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title={deleteConfirm.title}
+        message={deleteConfirm.message}
+        onConfirm={deleteConfirm.onConfirm}
+        onCancel={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

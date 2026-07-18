@@ -86,6 +86,7 @@ export function Footer() {
                 { label: 'About Us', path: '/about' },
                 { label: 'Gallery', path: '/gallery' },
                 { label: 'Reservation', path: '/reservation' },
+                { label: 'Order Tracking', path: '/order-tracking' },
                 { label: 'Contact', path: '/contact' },
               ].map(({ label, path }) => (
                 <li key={path}>

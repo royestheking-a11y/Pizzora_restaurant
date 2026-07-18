@@ -23,13 +23,14 @@ import { compressImage } from '../utils/imageUpload';
 import { ManualInvoice } from '../components/admin/ManualInvoice';
 import { PrinterSettings } from '../components/admin/PrinterSettings';
 import { ReprintSystem } from '../components/admin/ReprintSystem';
+import { RoleManagement } from '../components/admin/RoleManagement';
 import { Printer, RotateCcw } from 'lucide-react';
 import { AdminStatSkeleton, AdminListSkeleton, TableRowSkeleton, POSCardSkeleton } from '../components/Skeletons';
 
 // Mock auth - replaced by real auth
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AdminTab = 'dashboard' | 'orders' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint';
+type AdminTab = 'dashboard' | 'orders' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles';
 
 // ─── Input Style Helper ────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
@@ -632,16 +633,18 @@ function CarouselSlideModal({
               </div>
             )}
           </div>
-          <div>
-            <label style={labelStyle}>Link URL (optional)</label>
-            <input
-              type="url"
-              value={form.link}
-              onChange={e => setForm(f => ({ ...f, link: e.target.value }))}
-              placeholder="https://example.com/page"
-              style={{ ...inputStyle, marginBottom: '6px' }}
-            />
-            <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '0', marginBottom: '4px', fontFamily: 'var(--font-body)' }}>When set, clicking the carousel image navigates to this URL.</p>
+          <div className="space-y-4">
+            <div>
+              <label style={labelStyle}>Link URL (optional)</label>
+              <input
+                type="url"
+                value={form.link}
+                onChange={e => setForm(f => ({ ...f, link: e.target.value }))}
+                placeholder="https://example.com/page"
+                style={{ ...inputStyle, marginBottom: '6px' }}
+              />
+              <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '0', marginBottom: '4px', fontFamily: 'var(--font-body)' }}>When set, clicking the carousel image navigates to this URL.</p>
+            </div>
           </div>
         </div>
         <div className="sticky bottom-0 z-20 flex gap-3 p-6 border-t bg-white/95 backdrop-blur" style={{ borderColor: 'rgba(249,0,43,0.08)' }}>
@@ -783,9 +786,15 @@ export function Admin() {
   // Print Order State
   const [printOrder, setPrintOrder] = useState<any | null>(null);
 
-  // Delete Order State
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [orderToDelete, setOrderToDelete] = useState<any | null>(null);
+  // Generic Delete Confirmation State
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
 
   // Pagination for older orders
   const [isLoadingOlderOrders, setIsLoadingOlderOrders] = useState(false);
@@ -838,9 +847,10 @@ export function Admin() {
       });
       
       if (res.ok) {
-        const { token } = await res.json();
+        const { token, role } = await res.json();
         sessionStorage.setItem('pizzora_token', token);
         sessionStorage.setItem('pizzora_admin_logged_in', 'true');
+        sessionStorage.setItem('pizzora_admin_role', role || 'admin');
         dispatch({ type: 'ADMIN_LOGIN' });
         window.location.reload(); // Reload to initialize secure socket & fetch admin state
       } else {
@@ -933,6 +943,7 @@ export function Admin() {
     { id: 'manual-invoice',    icon: Printer,       label: 'Invoice System' },
     { id: 'printer-settings',  icon: Printer,       label: 'Printer Settings' },
     { id: 'reprint',           icon: RotateCcw,     label: 'Reprint System' },
+    ...(adminRole === 'admin' ? [{ id: 'roles' as AdminTab, icon: ShieldCheck, label: 'Role Management' }] : []),
   ];
 
   // ── Save Menu Item ──────────────────────────────────────────────────
@@ -1593,13 +1604,28 @@ export function Admin() {
                           >
                             <Eye size={14} />
                           </button>
-                          <button
-                            onClick={() => { setOrderToDelete(order); setShowDeleteModal(true); }}
-                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
-                            title="Delete Order Permanently"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {adminRole === 'admin' && (
+                            <button
+                              onClick={() => setDeleteConfirm({
+                                isOpen: true,
+                                title: 'Delete Order?',
+                                message: `Are you sure you want to permanently delete order ${order.orderNumber || order.id.slice(-6)}? This action cannot be undone and will remove it from all revenue calculations immediately.`,
+                                onConfirm: () => {
+                                  if (order.isTableOrder) {
+                                    dispatch({ type: 'DELETE_TABLE_ORDER', payload: order.id });
+                                  } else {
+                                    dispatch({ type: 'DELETE_ORDER', payload: order.id });
+                                  }
+                                  setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                                  showNotification('Order permanently deleted', 'success');
+                                }
+                              })}
+                              className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
+                              title="Delete Order Permanently"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </td>
                       </tr>
                       ))}
@@ -1676,12 +1702,23 @@ export function Admin() {
                       >
                         <X size={12} /> Reject
                       </button>
-                      <button
-                        onClick={() => { dispatch({ type: 'DELETE_RESERVATION', payload: res.id }); showNotification('Reservation deleted.', 'info'); }}
-                        className="p-2 rounded-xl hover:bg-gray-100 transition-colors"
-                      >
-                        <Trash2 size={14} style={{ color: '#9CA3AF' }} />
-                      </button>
+                      {adminRole === 'admin' && (
+                        <button
+                          onClick={() => setDeleteConfirm({
+                            isOpen: true,
+                            title: 'Delete Reservation?',
+                            message: `Are you sure you want to delete reservation for ${res.name}?`,
+                            onConfirm: () => {
+                              dispatch({ type: 'DELETE_RESERVATION', payload: res.id });
+                              setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                              showNotification('Reservation deleted.', 'info');
+                            }
+                          })}
+                          className="p-2 rounded-xl hover:bg-gray-100 transition-colors"
+                        >
+                          <Trash2 size={14} style={{ color: '#9CA3AF' }} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1706,6 +1743,7 @@ export function Admin() {
           {activeTab === 'manual-invoice' && <ManualInvoice />}
           {activeTab === 'printer-settings' && <PrinterSettings />}
           {activeTab === 'reprint' && <ReprintSystem />}
+          {activeTab === 'roles' && adminRole === 'admin' && <RoleManagement />}
           {/* ══ TABLE MANAGEMENT ════════════════════════════ */}
           {activeTab === 'tables' && <TableManagement />}
 
@@ -1778,17 +1816,25 @@ export function Admin() {
                           <Star size={11} fill={item.isPopular ? '#F9002B' : 'none'} style={{ color: item.isPopular ? '#F9002B' : '#6B7280' }} />
                           <span style={{ fontSize: '10px' }}>{item.isPopular ? 'Unfeature' : 'Feature'}</span>
                         </button>
-                        <button
-                          onClick={() => {
-                            dispatch({ type: 'DELETE_MENU_ITEM', payload: item.id });
-                            showNotification(`${item.name} deleted.`, 'info');
-                          }}
-                          className="flex flex-col items-center gap-1 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-sm"
-                          style={{ backgroundColor: '#FEE2E2', color: '#DC2626', fontFamily: 'var(--font-heading)' }}
-                        >
-                          <Trash2 size={11} />
-                          <span style={{ fontSize: '10px' }}>Delete</span>
-                        </button>
+                        {adminRole === 'admin' && (
+                          <button
+                            onClick={() => setDeleteConfirm({
+                              isOpen: true,
+                              title: 'Delete Menu Item?',
+                              message: `Are you sure you want to delete ${item.name}?`,
+                              onConfirm: () => {
+                                dispatch({ type: 'DELETE_MENU_ITEM', payload: item.id });
+                                setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                                showNotification(`${item.name} deleted.`, 'info');
+                              }
+                            })}
+                            className="flex flex-col items-center gap-1 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-sm"
+                            style={{ backgroundColor: '#FEE2E2', color: '#DC2626', fontFamily: 'var(--font-heading)' }}
+                          >
+                            <Trash2 size={11} />
+                            <span style={{ fontSize: '10px' }}>Delete</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1879,12 +1925,23 @@ export function Admin() {
                                 >
                                   <Edit2 size={12} style={{ color: '#1E40AF' }} />
                                 </button>
-                                <button
-                                  onClick={() => { dispatch({ type: 'DELETE_GALLERY_IMAGE', payload: img.id }); showNotification('Image removed.', 'info'); }}
-                                  className="w-8 h-8 rounded-full flex items-center justify-center bg-white/90 hover:bg-white transition-colors"
-                                >
-                                  <Trash2 size={12} style={{ color: '#DC2626' }} />
-                                </button>
+                                {adminRole === 'admin' && (
+                                  <button
+                                    onClick={() => setDeleteConfirm({
+                                      isOpen: true,
+                                      title: 'Delete Image?',
+                                      message: `Are you sure you want to remove this gallery image?`,
+                                      onConfirm: () => {
+                                        dispatch({ type: 'DELETE_GALLERY_IMAGE', payload: img.id });
+                                        setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                                        showNotification('Image removed.', 'info');
+                                      }
+                                    })}
+                                    className="w-8 h-8 rounded-full flex items-center justify-center bg-white/90 hover:bg-white transition-colors"
+                                  >
+                                    <Trash2 size={12} style={{ color: '#DC2626' }} />
+                                  </button>
+                                )}
                               </div>
                             </div>
                             <div className="p-2.5">
@@ -1985,13 +2042,24 @@ export function Admin() {
                                 >
                                   <Edit2 size={10} /> Edit
                                 </button>
-                                <button
-                                  onClick={() => { dispatch({ type: 'DELETE_CAROUSEL_SLIDE', payload: slide.id }); showNotification('Slide removed.', 'info'); }}
-                                  className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:shadow-sm"
-                                  style={{ backgroundColor: '#FEE2E2', color: '#DC2626', fontFamily: 'var(--font-heading)' }}
-                                >
-                                  <Trash2 size={10} /> Remove
-                                </button>
+                                {adminRole === 'admin' && (
+                                  <button
+                                    onClick={() => setDeleteConfirm({
+                                      isOpen: true,
+                                      title: 'Delete Slide?',
+                                      message: `Are you sure you want to remove this slide?`,
+                                      onConfirm: () => {
+                                        dispatch({ type: 'DELETE_CAROUSEL_SLIDE', payload: slide.id });
+                                        setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                                        showNotification('Slide removed.', 'info');
+                                      }
+                                    })}
+                                    className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:shadow-sm"
+                                    style={{ backgroundColor: '#FEE2E2', color: '#DC2626', fontFamily: 'var(--font-heading)' }}
+                                  >
+                                    <Trash2 size={10} /> Remove
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -2225,9 +2293,20 @@ export function Admin() {
                       >
                         <Send size={14} style={{ color: '#2563EB' }} />
                       </button>
-                      <button onClick={() => { dispatch({ type: 'DELETE_MESSAGE', payload: msg.id }); showNotification('Message deleted.', 'info'); }} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Delete">
-                        <Trash2 size={14} style={{ color: '#DC2626' }} />
-                      </button>
+                      {adminRole === 'admin' && (
+                        <button onClick={() => setDeleteConfirm({
+                          isOpen: true,
+                          title: 'Delete Message?',
+                          message: `Are you sure you want to delete this message?`,
+                          onConfirm: () => {
+                            dispatch({ type: 'DELETE_MESSAGE', payload: msg.id });
+                            setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                            showNotification('Message deleted.', 'info');
+                          }
+                        })} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Delete">
+                          <Trash2 size={14} style={{ color: '#DC2626' }} />
+                        </button>
+                      )}
                     </div>
                   </div>
                   {msg.subject && (
@@ -2412,35 +2491,26 @@ export function Admin() {
 
 
     {/* ── PRINT ONLY: THERMAL RECEIPT ─────────────────────────────────────── */}
-      {/* Delete Order Modal */}
-      {showDeleteModal && orderToDelete && (
+      {/* Generic Delete Confirmation Modal */}
+      {deleteConfirm.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 animate-scale-in">
             <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
               <Trash2 className="text-red-600" size={24} />
             </div>
-            <h3 className="text-xl font-bold text-center mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Delete Order?</h3>
+            <h3 className="text-xl font-bold text-center mb-2" style={{ fontFamily: 'var(--font-heading)' }}>{deleteConfirm.title}</h3>
             <p className="text-sm text-gray-500 text-center mb-6">
-              Are you sure you want to permanently delete order <strong className="text-gray-900">{orderToDelete.orderNumber || orderToDelete.id.slice(-6)}</strong>? This action cannot be undone and will remove it from all revenue calculations immediately.
+              {deleteConfirm.message}
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowDeleteModal(false); setOrderToDelete(null); }}
+                onClick={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
                 className="flex-1 py-2.5 rounded-xl font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  if (orderToDelete.isTableOrder) {
-                    dispatch({ type: 'DELETE_TABLE_ORDER', payload: orderToDelete.id });
-                  } else {
-                    dispatch({ type: 'DELETE_ORDER', payload: orderToDelete.id });
-                  }
-                  setShowDeleteModal(false);
-                  setOrderToDelete(null);
-                  showNotification('Order permanently deleted', 'success');
-                }}
+                onClick={deleteConfirm.onConfirm}
                 className="flex-1 py-2.5 rounded-xl font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
               >
                 Delete Forever

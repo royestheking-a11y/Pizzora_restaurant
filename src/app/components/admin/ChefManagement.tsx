@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { Chef } from '../../data/restaurantData';
 import { compressImage } from '../../utils/imageUpload';
 import { ChefCardSkeleton } from '../Skeletons';
+import { ConfirmModal } from '../ConfirmModal';
 
 export function ChefManagement() {
   const { state, dispatch } = useApp();
@@ -11,6 +12,14 @@ export function ChefManagement() {
   const [editingChef, setEditingChef] = useState<Chef | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
   const [form, setForm] = useState({
     name: '', position: '', experience: '', speciality: '', image: '', bio: ''
@@ -82,16 +91,22 @@ export function ChefManagement() {
                 >
                   <Edit2 size={12} /> Edit
                 </button>
-                <button
-                  onClick={() => {
-                    if (window.confirm('Are you sure you want to delete this chef?')) {
-                      dispatch({ type: 'DELETE_CHEF', payload: chef.id });
-                    }
-                  }}
-                  className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all hover:bg-red-50 text-red-600"
-                >
-                  <Trash2 size={12} /> Delete
-                </button>
+                {adminRole === 'admin' && (
+                  <button
+                    onClick={() => setDeleteConfirm({
+                      isOpen: true,
+                      title: 'Delete Chef?',
+                      message: `Are you sure you want to delete ${chef.name}?`,
+                      onConfirm: () => {
+                        dispatch({ type: 'DELETE_CHEF', payload: chef.id });
+                        setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                      }
+                    })}
+                    className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all hover:bg-red-50 text-red-600"
+                  >
+                    <Trash2 size={12} /> Delete
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -268,6 +283,14 @@ export function ChefManagement() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title={deleteConfirm.title}
+        message={deleteConfirm.message}
+        onConfirm={deleteConfirm.onConfirm}
+        onCancel={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

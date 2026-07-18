@@ -7,10 +7,10 @@ import {
 import { useApp, PaymentMethod } from '../context/AppContext';
 
 const paymentMethods: { id: PaymentMethod; label: string; icon: ReactNode; desc: string }[] = [
+  { id: 'Cash on Delivery', label: 'Cash on Delivery', icon: <div className="w-9 h-9 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 font-extrabold text-xl shadow-sm">৳</div>, desc: 'Pay when your order arrives' },
   { id: 'bKash',            label: 'bKash',            icon: <img src="/payment/Bkash.jpg" alt="bKash" className="w-full h-full object-contain rounded-xl" style={{ padding: '6px' }} />, desc: 'Pay securely via bKash mobile banking' },
   { id: 'Nagad',            label: 'Nagad',            icon: <img src="/payment/Nagad.jpg" alt="Nagad" className="w-full h-full object-contain rounded-xl" style={{ padding: '4px' }} />, desc: 'Pay securely via Nagad mobile banking' },
   { id: 'Card',             label: 'Card Payment',     icon: <div className="flex flex-col items-center justify-center h-full w-full gap-0.5" style={{ padding: '6px' }}><img src="/payment/Visa-Logo.png" alt="Visa" className="h-3.5 object-contain" /><img src="/payment/mastercard-featured-image-1080x628.jpg" alt="MasterCard" className="h-4 object-contain" /></div>, desc: 'Pay securely via Visa or MasterCard' },
-  { id: 'Cash on Delivery', label: 'Cash on Delivery', icon: <div className="w-9 h-9 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 font-extrabold text-xl shadow-sm">৳</div>, desc: 'Pay when your order arrives' },
 ];
 
 const STEPS = ['Delivery Info', 'Payment', 'Confirm'];
@@ -354,8 +354,7 @@ export function Checkout() {
                       >
                         <option value="Sylhet">Sylhet</option>
                         <option value="Sylhet Sadar">Sylhet Sadar</option>
-                        <option value="Wazirpur">Wazirpur</option>
-                        <option value="Muladi">Muladi</option>
+                        <option value="Subidbazar">Subidbazar</option>
                       </select>
                     </div>
 
@@ -408,40 +407,45 @@ export function Checkout() {
 
                 <div className="px-6 py-6">
                   <div className="space-y-3 mb-6">
-                    {paymentMethods.map(method => (
-                      <div
-                        key={method.id}
-                        onClick={() => setPaymentMethod(method.id)}
-                        className="flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all hover:shadow-sm"
-                        style={{
-                          background: paymentMethod === method.id ? 'rgba(249,0,43,0.04)' : '#F9F5F0',
-                          border: `2px solid ${paymentMethod === method.id ? '#F9002B' : 'rgba(249,0,43,0.1)'}`,
-                          boxShadow: paymentMethod === method.id ? '0 0 0 4px rgba(249,0,43,0.06)' : 'none',
-                        }}
-                      >
+                    {paymentMethods.map(method => {
+                      const isUnavailable = method.id !== 'Cash on Delivery';
+                      return (
                         <div
-                          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                          style={{ background: 'white', border: '1px solid rgba(249,0,43,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-                        >
-                          {method.icon}
-                        </div>
-                        <div className="flex-1">
-                          <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>
-                            {method.label}
-                          </p>
-                          <p style={{ fontSize: '13px', color: '#6B7280' }}>{method.desc}</p>
-                        </div>
-                        <div
-                          className="w-5 h-5 rounded-full flex items-center justify-center transition-all flex-shrink-0"
+                          key={method.id}
+                          onClick={() => {
+                            if (!isUnavailable) setPaymentMethod(method.id);
+                          }}
+                          className={`flex items-center gap-4 p-4 rounded-2xl transition-all ${isUnavailable ? 'opacity-60 cursor-not-allowed grayscale' : 'cursor-pointer hover:shadow-sm'}`}
                           style={{
-                            background: paymentMethod === method.id ? 'linear-gradient(135deg, #F9002B, #C8001F)' : 'white',
-                            border: `2px solid ${paymentMethod === method.id ? '#F9002B' : '#D1D5DB'}`,
+                            background: paymentMethod === method.id ? 'rgba(249,0,43,0.04)' : '#F9F5F0',
+                            border: `2px solid ${paymentMethod === method.id ? '#F9002B' : 'rgba(249,0,43,0.1)'}`,
+                            boxShadow: paymentMethod === method.id ? '0 0 0 4px rgba(249,0,43,0.06)' : 'none',
                           }}
                         >
-                          {paymentMethod === method.id && <Check size={10} className="text-white" strokeWidth={3} />}
+                          <div
+                            className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                            style={{ background: 'white', border: '1px solid rgba(249,0,43,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+                          >
+                            {method.icon}
+                          </div>
+                          <div className="flex-1">
+                            <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>
+                              {method.label} {isUnavailable && <span style={{ color: '#F9002B', fontSize: '11px', fontWeight: 600, padding: '2px 6px', background: 'rgba(249,0,43,0.1)', borderRadius: '4px', marginLeft: '6px' }}>Coming Soon</span>}
+                            </p>
+                            <p style={{ fontSize: '13px', color: '#6B7280' }}>{method.desc}</p>
+                          </div>
+                          <div
+                            className="w-5 h-5 rounded-full flex items-center justify-center transition-all flex-shrink-0"
+                            style={{
+                              background: paymentMethod === method.id ? 'linear-gradient(135deg, #F9002B, #C8001F)' : 'white',
+                              border: `2px solid ${paymentMethod === method.id ? '#F9002B' : '#D1D5DB'}`,
+                            }}
+                          >
+                            {paymentMethod === method.id && <Check size={10} className="text-white" strokeWidth={3} />}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="flex gap-3">

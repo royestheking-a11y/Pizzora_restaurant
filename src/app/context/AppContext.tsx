@@ -206,6 +206,14 @@ export interface ItemReview {
   helpful: number;
 }
 
+export interface UserAccount {
+  id: string;
+  username: string;
+  password?: string;
+  role: string;
+  createdAt?: string;
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 interface AppState {
@@ -228,6 +236,7 @@ interface AppState {
   inventory: InventoryItem[];
   stockMovements: StockMovement[];
   reviews: ItemReview[];
+  users: UserAccount[];
   isAdminLoggedIn: boolean;
   cartOpen: boolean;
   notification: { message: string; type: 'success' | 'error' | 'info' } | null;
@@ -316,7 +325,11 @@ type Action =
   | { type: 'LOAD_FROM_STORAGE'; payload: Partial<AppState> }
   | { type: 'SET_SOCKET_CONNECTED'; payload: boolean }
   | { type: 'BATCH_PLACE_ORDERS'; payload: Order[] }
-  | { type: 'SET_INITIAL_LOADING'; payload: boolean };
+  | { type: 'SET_INITIAL_LOADING'; payload: boolean }
+  // User Accounts
+  | { type: 'ADD_USER'; payload: UserAccount }
+  | { type: 'UPDATE_USER'; payload: UserAccount }
+  | { type: 'DELETE_USER'; payload: string };
 
 // ─── Default Carousel Slides ──────────────────────────────────────────────────
 
@@ -396,6 +409,7 @@ const initialState: AppState = {
   inventory: [],
   stockMovements: [],
   reviews: [],
+  users: [],
   isAdminLoggedIn: savedAdminLogin,
   cartOpen: false,
   notification: null,
@@ -429,6 +443,7 @@ function reducer(state: AppState, action: Action): AppState {
         inventory: action.payload.inventory ?? state.inventory ?? [],
         stockMovements: action.payload.stockMovements ?? state.stockMovements ?? [],
         reviews: action.payload.reviews ?? state.reviews ?? [],
+        users: action.payload.users ?? state.users ?? [],
       };
 
     case 'ADD_TO_CART': {
@@ -583,6 +598,13 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'DELETE_GALLERY_IMAGE':
       return { ...state, galleryImages: state.galleryImages.filter(g => g.id !== action.payload) };
+
+    case 'ADD_USER':
+      return { ...state, users: [action.payload, ...state.users] };
+    case 'UPDATE_USER':
+      return { ...state, users: state.users.map(u => u.id === action.payload.id ? action.payload : u) };
+    case 'DELETE_USER':
+      return { ...state, users: state.users.filter(u => u.id !== action.payload) };
 
     case 'ADD_CAROUSEL_SLIDE':
       return { ...state, carouselSlides: [...state.carouselSlides, action.payload] };

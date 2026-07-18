@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useApp, InventoryItem, StockMovement } from '../../context/AppContext';
 import { TableRowSkeleton } from '../Skeletons';
+import { ConfirmModal } from '../ConfirmModal';
 
 const CATEGORIES = ['Food Raw Materials','Beverages','Packaging','Cleaning','Kitchen Supplies','Utility Consumables', 'Fixed Assets'];
 const UNITS = ['Kg','Gram','Liter','ml','Piece','Packet','Box','Dozen'];
@@ -27,6 +28,15 @@ export function InventoryManagement() {
   const { inventory: items, stockMovements: movements } = state;
   const [tab, setTab] = useState<'stock' | 'movements' | 'alerts'>('stock');
   const [search, setSearch] = useState('');
+  
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [showMovementForm, setShowMovementForm] = useState(false);
@@ -167,7 +177,17 @@ export function InventoryManagement() {
                       <td className="px-4 py-3">
                         <div className="flex gap-1.5">
                           <button onClick={() => { setEditing(item); setForm(item); setShowForm(true); }} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#EFF6FF', color: '#2563EB' }}><Edit2 size={12} /></button>
-                          <button onClick={() => handleDelete(item.id)} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}><Trash2 size={12} /></button>
+                          {adminRole === 'admin' && (
+                            <button onClick={() => setDeleteConfirm({
+                              isOpen: true,
+                              title: 'Delete Inventory Item?',
+                              message: `Are you sure you want to delete ${item.name}?`,
+                              onConfirm: () => {
+                                handleDelete(item.id);
+                                setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                              }
+                            })} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}><Trash2 size={12} /></button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -364,6 +384,14 @@ export function InventoryManagement() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title={deleteConfirm.title}
+        message={deleteConfirm.message}
+        onConfirm={deleteConfirm.onConfirm}
+        onCancel={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

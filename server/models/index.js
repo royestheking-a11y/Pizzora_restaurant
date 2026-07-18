@@ -227,6 +227,14 @@ const ItemReviewSchema = new mongoose.Schema({
 ItemReviewSchema.index({ date: -1 });
 ItemReviewSchema.index({ slug: 1 });
 
+const UserAccountSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  role: { type: String, required: true, default: 'manager' }, // 'manager' | 'admin'
+  createdAt: { type: String },
+}, { strict: true });
+
 export const MenuItem = mongoose.model('MenuItem', MenuItemSchema);
 export const Order = mongoose.model('Order', OrderSchema);
 export const Reservation = mongoose.model('Reservation', ReservationSchema);
@@ -247,6 +255,7 @@ export const CashRegisterEntry = mongoose.model('CashRegisterEntry', CashRegiste
 export const InventoryItem = mongoose.model('InventoryItem', InventoryItemSchema);
 export const StockMovement = mongoose.model('StockMovement', StockMovementSchema);
 export const ItemReview = mongoose.model('ItemReview', ItemReviewSchema);
+export const UserAccount = mongoose.model('UserAccount', UserAccountSchema);
 
 // ── Invoice Counter (sequential invoice numbers: PIZ-2026-000001) ──────────
 const InvoiceCounterSchema = new mongoose.Schema({

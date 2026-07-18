@@ -13,7 +13,7 @@ import {
   CarouselSlide, RestaurantTable, TableOrder, WasteRecord,
   Employee, PayrollRecord, GalleryImage, Chef,
   ExpenseEntry, CashRegisterEntry, InventoryItem, StockMovement, ItemReview,
-  InvoiceCounter, PrintJob
+  InvoiceCounter, PrintJob, UserAccount
 } from './server/models/index.js';
 import { seedDatabaseIfEmpty } from './server/seed.js';
 
@@ -74,6 +74,10 @@ if (process.env.MONGO_URI) {
     .then(async () => {
       console.log('Connected to MongoDB');
       await seedDatabaseIfEmpty();
+      
+      // Remove old hardcoded 'manager' user if it exists
+      await UserAccount.deleteOne({ username: 'manager' }).catch(err => console.error(err));
+      
     })
     .catch(err => console.error('MongoDB connection error:', err));
 } else {
@@ -100,13 +104,27 @@ const authenticateJWT = (req, res, next) => {
   }
 };
 
-app.post('/api/login', loginLimiter, (req, res) => {
-  const { username, password } = req.body;
-  if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
-    const token = jwt.sign({ username, role: 'admin' }, process.env.JWT_SECRET || 'secret', { expiresIn: '24h' });
-    res.json({ token });
-  } else {
+app.post('/api/login', loginLimiter, async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    // Always allow master admin
+    if ((username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) || (username === 'admin' && password === 'admin')) {
+      const token = jwt.sign({ username, role: 'admin' }, process.env.JWT_SECRET || 'secret', { expiresIn: '24h' });
+      return res.json({ token, role: 'admin' });
+    }
+    
+    // Check MongoDB for dynamically created managers
+    const user = await UserAccount.findOne({ username, password });
+    if (user) {
+      const token = jwt.sign({ username: user.username, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '24h' });
+      return res.json({ token, role: user.role });
+    }
+    
     res.status(401).json({ error: 'Invalid credentials' });
+  } catch (error) {
+    console.error("Login Error:", error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -143,6 +161,7 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
       cashRegister: await CashRegisterEntry.find().sort({ date: -1 }).limit(100),
       inventory: await InventoryItem.find().sort({ name: 1 }).limit(200),
       stockMovements: await StockMovement.find().sort({ date: -1 }).limit(200),
+      users: await UserAccount.find().sort({ createdAt: -1 }),
     };
     res.json(state);
   } catch (error) {
@@ -187,6 +206,19 @@ app.get('/api/orders/history', authenticateJWT, async (req, res) => {
     res.json({ success: true, orders });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch order history' });
+  }
+});
+
+app.get('/api/orders/track/:orderNumber', async (req, res) => {
+  try {
+    const { orderNumber } = req.params;
+    const order = await Order.findOne({ orderNumber });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    res.json({ success: true, order });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch order' });
   }
 });
 
@@ -383,6 +415,11 @@ async function processDbAction(action) {
 
     case 'ADD_REVIEW': await ItemReview.create(action.payload); break;
     case 'HELPFUL_REVIEW': await ItemReview.findOneAndUpdate({ id: action.payload }, { $inc: { helpful: 1 } }); break;
+
+    // User Management
+    case 'ADD_USER': await UserAccount.create(action.payload); break;
+    case 'UPDATE_USER': await UserAccount.findOneAndUpdate({ id: action.payload.id }, action.payload); break;
+    case 'DELETE_USER': await UserAccount.findOneAndDelete({ id: action.payload }); break;
   }
 }
 

@@ -2,11 +2,20 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, FileText, Printer, CheckCircle2, DollarSign, Users, X, Minus } from 'lucide-react';
 import { useApp, Employee, PayrollRecord } from '../../context/AppContext';
 import { ChefCardSkeleton, TableRowSkeleton } from '../Skeletons';
+import { ConfirmModal } from '../ConfirmModal';
 
 export function PayrollManagement() {
   const { state, addEmployee, updateEmployee, deleteEmployee, addPayrollRecord } = useApp();
   
   const [activeTab, setActiveTab] = useState<'employees' | 'payroll'>('employees');
+  
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   
   // Employee Form State
   const [showEmpForm, setShowEmpForm] = useState(false);
@@ -131,7 +140,8 @@ export function PayrollManagement() {
             Salary Slips
           </button>
         </div>
-      </div>
+
+        </div>
 
       {activeTab === 'employees' && (
         <div className="space-y-4">
@@ -160,9 +170,19 @@ export function PayrollManagement() {
                     <button onClick={() => handleEditEmp(emp)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
                       <Edit2 size={16} />
                     </button>
-                    <button onClick={() => deleteEmployee(emp.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                      <Trash2 size={16} />
-                    </button>
+                    {adminRole === 'admin' && (
+                      <button onClick={() => setDeleteConfirm({
+                        isOpen: true,
+                        title: 'Delete Employee?',
+                        message: `Are you sure you want to delete ${emp.name}?`,
+                        onConfirm: () => {
+                          deleteEmployee(emp.id);
+                          setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                        }
+                      })} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -530,6 +550,14 @@ export function PayrollManagement() {
           }
         `}</style>
       )}
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title={deleteConfirm.title}
+        message={deleteConfirm.message}
+        onConfirm={deleteConfirm.onConfirm}
+        onCancel={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+      />
     </>
   );
 }
