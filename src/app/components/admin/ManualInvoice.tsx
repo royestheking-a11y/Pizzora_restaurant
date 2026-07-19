@@ -54,9 +54,12 @@ export function ManualInvoice() {
               size: A4 portrait;
               margin: 0;
             }
-            body {
+            html, body {
+              width: 100%;
+              height: 100%;
               margin: 0;
               padding: 0;
+              overflow: hidden;
             }
             body * {
               visibility: hidden;
@@ -75,9 +78,9 @@ export function ManualInvoice() {
               position: absolute;
               left: 0;
               top: 0;
-              width: 100%;
-              height: 297mm !important;
-              max-height: 297mm !important;
+              width: 100% !important;
+              height: 100% !important;
+              max-height: 100% !important;
               margin: 0;
               padding: 0;
               overflow: hidden !important;
