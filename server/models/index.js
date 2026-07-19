@@ -28,6 +28,7 @@ const MenuItemSchema = new mongoose.Schema({
   serves: String,
   variants: Array,
   badge: String,
+  showOnWebsite: { type: Boolean, default: true },
 }, { strict: true });
 
 const OrderSchema = new mongoose.Schema({

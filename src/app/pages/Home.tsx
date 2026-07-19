@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router';
 import { Search, MapPin, Phone, Mail, Clock, Star, Play, Award, Leaf, ChevronRight, CheckCircle2, ChevronLeft, ArrowRight, Instagram, Twitter, Facebook, Shield, Smile, Flame, Users, Calendar, ShoppingCart, Eye, ChevronDown, Quote, Pizza, Coffee, UtensilsCrossed, Wine, CakeSlice, Salad, Sandwich, Gift, Check } from 'lucide-react';
-import { menuItems, reviews } from '../data/restaurantData';
+import { reviews } from '../data/restaurantData';
 import { useApp } from '../context/AppContext';
 import { optimizeCloudinaryUrl } from '../utils/image';
 import { MenuCardSkeleton, ChefCardSkeleton, HeroSkeleton } from '../components/Skeletons';

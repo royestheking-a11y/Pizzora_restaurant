@@ -9,7 +9,6 @@ import {
   BadgeCheck, ShieldCheck, KeyRound, EyeOff, Eye, Loader2, Fingerprint, Activity,
   PrinterCheck, AlertTriangle, Settings
 } from 'lucide-react';
-import { menuItems } from '../data/restaurantData';
 import type { MenuItem } from '../data/restaurantData';
 import { useApp } from '../context/AppContext';
 import { enqueueOrder, getPendingOrders, dequeueOrder, getPendingCount } from '../utils/offlineQueue';
