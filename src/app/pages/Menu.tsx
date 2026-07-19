@@ -6,9 +6,6 @@ import { MenuCardSkeleton } from '../components/Skeletons';
 import { SEO } from '../components/SEO';
 import { optimizeCloudinaryUrl } from '../utils/image';
 
-import { menuCategories } from '../data/restaurantData';
-
-const categories = ['All', ...menuCategories];
 const spiceLevels = ['All', 'Mild', 'Medium', 'Hot', 'Extra Hot'];
 
 function StarRating({ rating, size = 14 }: { rating: number; size?: number }) {
@@ -43,6 +40,11 @@ export function Menu() {
   const [showFilters, setShowFilters] = useState(false);
   const { state, addToCart } = useApp();
   const navigate = useNavigate();
+
+  const categories = useMemo(() => {
+    const uniqueCats = Array.from(new Set(state.menuItems.map(item => item.category))).filter(Boolean).sort();
+    return ['All', ...uniqueCats];
+  }, [state.menuItems]);
 
   const filtered = useMemo(() => {
     let items = state.menuItems.filter(i => i.showOnWebsite !== false);

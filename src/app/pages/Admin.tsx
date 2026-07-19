@@ -138,14 +138,15 @@ function MenuItemModal({
   setForm,
   onSave,
   onClose,
+  categories,
 }: {
   title: string;
   form: MenuFormState;
   setForm: React.Dispatch<React.SetStateAction<MenuFormState>>;
   onSave: () => void;
   onClose: () => void;
+  categories: string[];
 }) {
-  const categories: string[] = ['Pizza','Fried Corner','Wings','Meatbox','Burger','Sub','Shawarma','Momo','Combo','Chawomen','Seafood','Pasta','Rich Bowl','Curry','Sizzling','Platter','Ramen','Naan','Cold Coffee','Hot Coffee','Lassi','Dessert','Biryani','Couple','Soup','Wonton','Salad'];
   const spiceLevels: MenuItem['spiceLevel'][] = ['Mild','Medium','Hot','Extra Hot'];
 
   const [isUploading, setIsUploading] = React.useState(false);
@@ -746,6 +747,12 @@ function LiveTopStats({ orders, expenses }: { orders: any[], expenses: any[] }) 
 export function Admin() {
   const navigate = useNavigate();
   const { state, dispatch, showNotification } = useApp();
+
+  const menuCategories = React.useMemo(() => {
+    const defaultCats = ['Pizza','Fried Corner','Wings','Meatbox','Burger','Sub','Shawarma','Momo','Combo','Chawomen','Seafood','Pasta','Rich Bowl','Curry','Sizzling','Platter','Ramen','Naan','Cold Coffee','Hot Coffee','Lassi','Dessert','Biryani','Couple','Soup','Wonton','Salad'];
+    const dynamicCats = Array.from(new Set(state.menuItems.map(item => item.category))).filter(Boolean);
+    return Array.from(new Set([...defaultCats, ...dynamicCats])).sort();
+  }, [state.menuItems]);
 
   // Login
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -1633,7 +1640,7 @@ export function Admin() {
                     )}
                   </tbody>
                 </table>
-                {allUnifiedOrders.length === 0 && (
+                {(!state.isInitialLoading && allUnifiedOrders.length === 0) && (
                   <div className="py-20 text-center">
                     <ShoppingBag size={40} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
                     <p style={{ color: '#6B7280', fontSize: '15px' }}>No orders received yet.</p>
@@ -1766,7 +1773,10 @@ export function Admin() {
 
               {/* Menu Items Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {state.menuItems.map(item => (
+                {state.isInitialLoading ? (
+                  Array.from({ length: 8 }).map((_, i) => <POSCardSkeleton key={i} />)
+                ) : (
+                  state.menuItems.map(item => (
                   <div key={item.id} className="bg-white rounded-2xl overflow-hidden shadow-sm group" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
                     <div className="relative h-44 overflow-hidden">
                       <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -1838,10 +1848,11 @@ export function Admin() {
                       </div>
                     </div>
                   </div>
-                ))}
+                ))
+              )}
               </div>
 
-              {state.menuItems.length === 0 && (
+              {(!state.isInitialLoading && state.menuItems.length === 0) && (
                 <div className="bg-white rounded-2xl py-20 text-center shadow-sm mt-4">
                   <UtensilsCrossed size={44} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
                   <p style={{ color: '#6B7280', fontSize: '15px' }}>No menu items. Click "Add New Item" to get started.</p>
@@ -2243,7 +2254,7 @@ export function Admin() {
                       })}
                     </tbody>
                   </table>
-                  {allUnifiedOrders.length === 0 && (
+                  {(!state.isInitialLoading && allUnifiedOrders.length === 0) && (
                     <div className="py-20 text-center">
                       <CreditCard size={40} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
                       <p style={{ color: '#6B7280', fontSize: '15px' }}>No payment records yet.</p>
@@ -2352,6 +2363,7 @@ export function Admin() {
           setForm={setMenuForm}
           onSave={handleSaveMenuItem}
           onClose={() => { setShowAddMenu(false); setMenuForm(blankMenuForm); }}
+          categories={menuCategories}
         />
       )}
 
@@ -2363,6 +2375,7 @@ export function Admin() {
           setForm={setMenuForm}
           onSave={handleSaveMenuItem}
           onClose={() => { setEditingMenuItem(null); setMenuForm(blankMenuForm); }}
+          categories={menuCategories}
         />
       )}
 

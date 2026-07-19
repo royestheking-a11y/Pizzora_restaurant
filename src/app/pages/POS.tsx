@@ -973,18 +973,19 @@ export function POS() {
 
           {/* Grid */}
           <div className="flex-1 overflow-y-auto p-3">
-            {filtered.length === 0 ? (
+            {state.isInitialLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                {Array.from({ length: 12 }).map((_, i) => <POSCardSkeleton key={i} />)}
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full" style={{ color: '#9CA3AF' }}>
                 <Package size={40} style={{ opacity: 0.3 }} />
                 <p className="mt-2 text-sm">No items found</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-                {state.isInitialLoading ? (
-                  Array.from({ length: 12 }).map((_, i) => <POSCardSkeleton key={i} />)
-                ) : (
-                  filtered.map(item => {
-                    const inCart = cart.find(c => c.item.id === item.id);
+                {filtered.map(item => {
+                  const inCart = cart.find(c => c.item.id === item.id);
                     return (
                       <button
                         key={item.id}
@@ -1007,8 +1008,7 @@ export function POS() {
                         </div>
                       </button>
                     );
-                  })
-                )}
+                  })}
               </div>
             )}
           </div>

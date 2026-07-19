@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router';
 import { Search, MapPin, Phone, Mail, Clock, Star, Play, Award, Leaf, ChevronRight, CheckCircle2, ChevronLeft, ArrowRight, Instagram, Twitter, Facebook, Shield, Smile, Flame, Users, Calendar, ShoppingCart, Eye, ChevronDown, Quote, Pizza, Coffee, UtensilsCrossed, Wine, CakeSlice, Salad, Sandwich, Gift, Check } from 'lucide-react';
-import { reviews } from '../data/restaurantData';
 import { useApp } from '../context/AppContext';
 import { optimizeCloudinaryUrl } from '../utils/image';
 import { MenuCardSkeleton, ChefCardSkeleton, HeroSkeleton } from '../components/Skeletons';
@@ -97,8 +96,8 @@ export function Home() {
     }, 300);
   };
 
-  const nextReview = () => goToReview((currentReview + 1) % reviews.length);
-  const prevReview = () => goToReview((currentReview - 1 + reviews.length) % reviews.length);
+  const nextReview = () => { if (state.reviews.length > 0) goToReview((currentReview + 1) % state.reviews.length); };
+  const prevReview = () => { if (state.reviews.length > 0) goToReview((currentReview - 1 + state.reviews.length) % state.reviews.length); };
 
   useEffect(() => {
     intervalRef.current = setInterval(nextSlide, 5000);
@@ -233,7 +232,7 @@ export function Home() {
             <div className="relative pl-2 lg:pl-6 pr-2 lg:pr-8">
               <div className="relative z-10 rounded-[2rem] lg:rounded-[2.5rem] overflow-hidden shadow-2xl mr-4 lg:mr-12 h-[400px] lg:h-[540px]">
                 <img
-                  src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=1200"
+                  src={state.galleryImages.filter(g => g.category === 'Restaurant')[0]?.url || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=1200"}
                   alt="Restaurant Interior"
                   title="Pizzora Restaurant Interior"
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
@@ -244,7 +243,7 @@ export function Home() {
               {/* Secondary Overlapping Image */}
               <div className="absolute -bottom-6 right-0 lg:-bottom-8 lg:-right-4 z-20 rounded-[1.5rem] lg:rounded-[2rem] overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.3)] lg:shadow-[0_30px_60px_rgba(0,0,0,0.4)] border-[4px] lg:border-[8px] border-[#FDFBF7] w-[65%] lg:w-[60%] h-[220px] lg:h-[320px]">
                 <img
-                  src="https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&q=80&w=800"
+                  src={state.galleryImages.filter(g => g.category === 'Food')[0]?.url || "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&q=80&w=800"}
                   alt="Signature Dish"
                   title="Pizzora Signature Dish"
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
@@ -608,17 +607,11 @@ export function Home() {
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { url: 'https://images.unsplash.com/photo-1768697358705-c1b60333da35?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjByZXN0YXVyYW50JTIwaW50ZXJpb3IlMjBlbGVnYW50JTIwZGluaW5nfGVufDF8fHx8MTc3NTA1MzEzNHww&ixlib=rb-4.1.0&q=80&w=1080', title: 'Dining Hall', span: 'col-span-2 row-span-2' },
-              { url: 'https://images.unsplash.com/photo-1599043513900-ed6fe01d3833?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiaXJ5YW5pJTIwcmljZSUyMHNhZmZyb24lMjBzcGljZWR8ZW58MXx8fHwxNzc1MDU4NDMzfDA&ixlib=rb-4.1.0&q=80&w=1080', title: 'Kacchi Biryani', span: '' },
-              { url: 'https://images.unsplash.com/photo-1763429338698-439aa108e7fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXN0YXVyYW50JTIwZXZlbnQlMjBjZWxlYnJhdGlvbiUyMGhhbGwlMjBzZXR1cHxlbnwxfHx8fDE3NzUwNTg0MzV8MA&ixlib=rb-4.1.0&q=80&w=1080', title: 'Events', span: '' },
-              { url: 'https://images.unsplash.com/photo-1722554085769-8ad416331d48?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxCQlElMjBwbGF0dGVyJTIwbWl4ZWQlMjBncmlsbCUyMHBsYXR0ZXJ8ZW58MXx8fHwxNzc1MDU4NDI4fDA&ixlib=rb-4.1.0&q=80&w=1080', title: 'BBQ Platter', span: '' },
-              { url: 'https://images.unsplash.com/photo-1688458296817-3f9c4fba4809?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkZXNzZXJ0JTIwY2hvY29sYXRlJTIwY2FrZSUyMHByZW1pdW0lMjBwbGF0aW5nfGVufDF8fHx8MTc3NTA1ODQzNXww&ixlib=rb-4.1.0&q=80&w=1080', title: 'Dessert Art', span: '' },
-            ].map((img, i) => (
+            {state.galleryImages.slice(0, 5).map((img, i) => (
               <Link
-                key={i}
+                key={img.id || i}
                 to="/gallery"
-                className={`relative overflow-hidden rounded-2xl group ${img.span}`}
+                className={`relative overflow-hidden rounded-2xl group ${i === 0 ? 'col-span-2 row-span-2' : ''}`}
                 style={{ height: i === 0 ? '320px' : '150px' }}
               >
                 <img src={img.url} alt={img.title} title={img.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
@@ -647,6 +640,7 @@ export function Home() {
       </motion.section>
 
       {/* REVIEWS */}
+      {state.reviews.length > 0 && (
       <motion.section initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.6, ease: "easeOut" }} className="py-20 px-4 sm:px-6 lg:px-8" style={{ background: 'linear-gradient(135deg, #F9002B 0%, #C8001F 100%)' }}>
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
@@ -685,21 +679,22 @@ export function Home() {
                 style={{ color: '#ffffff' }}
               />
 
-              {/* Stars */}
-              <div className="mb-5">
-                <StarRating rating={reviews[currentReview].rating} size={20} color="#ffffff" />
+              {/* Content */}
+              <div className="mb-8 relative z-10">
+                <StarRating rating={state.reviews[currentReview]?.rating || 5} size={20} color="#ffffff" />
               </div>
 
-              {/* Comment */}
               <p style={{
-                color: 'rgba(255,255,255,0.9)',
-                fontSize: 'clamp(15px, 2vw, 18px)',
-                lineHeight: '1.8',
-                fontStyle: 'italic',
-                marginBottom: '28px',
+                color: '#ffffff',
+                fontSize: 'clamp(18px, 3vw, 24px)',
+                lineHeight: '1.5',
+                fontWeight: 500,
+                marginBottom: '40px',
+                position: 'relative',
+                zIndex: 10,
                 minHeight: '90px',
               }}>
-                "{reviews[currentReview].comment}"
+                "{state.reviews[currentReview]?.comment}"
               </p>
 
               {/* Author */}
@@ -709,21 +704,21 @@ export function Home() {
                     className="w-14 h-14 rounded-full flex items-center justify-center text-[#F9002B] bg-white text-xl font-bold flex-shrink-0 shadow-lg"
                     style={{ fontFamily: 'var(--font-heading)' }}
                   >
-                    {reviews[currentReview].name.charAt(0)}
+                    {state.reviews[currentReview]?.name.charAt(0)}
                   </div>
                   <div>
                     <p style={{ color: 'white', fontWeight: 700, fontSize: '16px', fontFamily: 'var(--font-heading)' }}>
-                      {reviews[currentReview].name}
+                      {state.reviews[currentReview]?.name}
                     </p>
                     <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', marginTop: '2px' }}>
-                      {reviews[currentReview].location}
+                      Customer
                     </p>
                   </div>
                 </div>
 
                 {/* Counter */}
                 <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px', fontFamily: 'var(--font-heading)', fontWeight: 600 }}>
-                  {currentReview + 1} / {reviews.length}
+                  {currentReview + 1} / {state.reviews.length}
                 </span>
               </div>
             </div>
@@ -733,7 +728,7 @@ export function Home() {
 
           {/* Dot Indicators */}
           <div className="flex items-center justify-center gap-2.5 mt-8">
-            {reviews.map((_, i) => (
+            {state.reviews.map((_, i) => (
               <button
                 key={i}
                 onClick={() => { if (reviewIntervalRef.current) clearInterval(reviewIntervalRef.current); goToReview(i); }}
@@ -749,6 +744,7 @@ export function Home() {
           </div>
         </div>
       </motion.section>
+      )}
 
       {/* RESERVATION SECTION */}
       <motion.section initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.6, ease: "easeOut" }} id="reservation" className="py-20 px-4 sm:px-6 lg:px-8">

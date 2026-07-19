@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, ZoomIn, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SEO } from '../components/SEO';
+import { MenuCardSkeleton } from '../components/Skeletons';
 
 const categories = ['All', 'Restaurant', 'Food', 'Events', 'Kitchen'];
 
@@ -64,7 +65,15 @@ export function Gallery() {
         </div>
 
         {/* Masonry Grid */}
-        {filtered.length === 0 ? (
+        {state.isInitialLoading ? (
+          <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="mb-4 break-inside-avoid">
+                <MenuCardSkeleton />
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <p style={{ color: '#6B7280', fontSize: '16px' }}>No images in this category yet.</p>
           </div>
