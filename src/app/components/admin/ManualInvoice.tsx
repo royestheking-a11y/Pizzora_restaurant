@@ -254,88 +254,88 @@ export function ManualInvoice() {
             <div className="flex-1" />
 
             {/* SIGNATURES */}
-            <div className="px-12 flex justify-between gap-10 mb-2 mt-0">
+            <div className="px-12 flex justify-between gap-12 mb-4 mt-2">
               <div className="flex-1 flex flex-col items-start">
                 <div className="border-b-[1.5px] border-black h-8 mb-2 w-full"></div>
-                <span className="text-[#E31837] text-[14px] font-normal tracking-wide">Signature</span>
+                <span className="text-[#E31837] text-[14px] font-medium tracking-wide">Signature</span>
               </div>
               <div className="flex-1 flex flex-col items-start">
                 <div className="border-b-[1.5px] border-black h-8 mb-2 w-full"></div>
-                <span className="text-[#E31837] text-[14px] font-normal tracking-wide">Printed Name</span>
+                <span className="text-[#E31837] text-[14px] font-medium tracking-wide">Printed Name</span>
               </div>
               <div className="flex-1 flex flex-col items-start">
                 <div className="border-b-[1.5px] border-black h-8 mb-2 w-full"></div>
-                <span className="text-[#E31837] text-[14px] font-normal tracking-wide">Date</span>
+                <span className="text-[#E31837] text-[14px] font-medium tracking-wide">Date</span>
               </div>
               <div className="flex-1 flex flex-col items-start">
                 <div className="border-b-[1.5px] border-black h-8 mb-2 w-full"></div>
-                <span className="text-[#E31837] text-[14px] font-normal tracking-wide">Payment method</span>
+                <span className="text-[#E31837] text-[14px] font-medium tracking-wide">Payment method</span>
               </div>
             </div>
 
             {/* FOOTER GRAPHICS */}
-            <div className="h-[110px] shrink-0 w-full relative flex items-center overflow-hidden bg-white mt-4">
+            <div className="h-[120px] shrink-0 w-full relative overflow-hidden bg-white mt-4 border-t border-gray-100">
               
-              {/* Left Black Background (covers left half and seamlessly hides its diagonal cut behind the red Z diagonal) */}
+              {/* Left Black Background (mathematically calculated to split exactly behind the Z diagonal) */}
               <div 
-                className="absolute top-[25px] left-0 bottom-0 bg-[#1A1A1A] z-0"
-                style={{ width: 'calc(50% + 40px)', clipPath: 'polygon(0 0, 100% 0, calc(100% - 106px) 100%, 0 100%)' }}
+                className="absolute top-[10px] left-0 h-[100px] bg-[#1A1A1A] z-0"
+                style={{ width: 'calc(50% + 28px)', clipPath: 'polygon(0 0, 100% 0, calc(100% - 56px) 100%, 0 100%)' }}
               />
               
-              {/* Red Top Bar Extension (overlaps safely behind the Z) */}
-              <div className="absolute top-[5px] left-0 h-[20px] bg-[#E31837] z-0" style={{ width: 'calc(50% - 100px)' }} />
+              {/* Red Top Bar Extension */}
+              <div className="absolute top-[10px] left-0 h-[24px] bg-[#E31837] z-0" style={{ width: 'calc(50% - 75px)' }} />
               
-              {/* Red Bottom Bar Extension (overlaps safely behind the Z) */}
-              <div className="absolute bottom-[5px] right-0 h-[20px] bg-[#E31837] z-0" style={{ width: 'calc(50% - 100px)' }} />
+              {/* Red Bottom Bar Extension */}
+              <div className="absolute top-[86px] right-0 h-[24px] bg-[#E31837] z-0" style={{ width: 'calc(50% - 75px)' }} />
 
-              {/* Z Logo Graphic (Perfectly Centered, Fixed Aspect Ratio) */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[100px] w-[240px] z-10 pointer-events-none">
-                <svg viewBox="380 10 240 100" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+              {/* Flawless Geometric Z Logo Graphic */}
+              <div className="absolute left-1/2 top-[10px] -translate-x-1/2 h-[100px] w-[240px] z-10 pointer-events-none">
+                <svg viewBox="-40 0 240 100" className="w-full h-full" preserveAspectRatio="none">
                   {/* Main Solid Z */}
-                  <polygon points="380,10 565,10 565,30 485,90 620,90 620,110 435,110 435,90 515,30 380,30" fill="#E31837" />
+                  <polygon points="0,0 122,0 79.5,76 160,76 160,100 38,100 80.5,24 0,24" fill="#E31837" />
 
                   {/* Left Crust */}
-                  <path d="M 380,10 C 310,30 330,90 435,90 C 370,75 360,40 380,30 Z" fill="#E31837" />
+                  <path d="M 0,0 C -40,20 -30,90 38,100 C 0,70 -10,30 0,24 Z" fill="#E31837" />
                   
                   {/* Right Crust */}
-                  <path d="M 620,110 C 690,90 670,30 565,30 C 630,45 640,80 620,90 Z" fill="#E31837" />
+                  <path d="M 160,100 C 200,80 190,10 122,0 C 160,30 170,70 160,76 Z" fill="#E31837" />
 
                   {/* Left Slice Dots (Red on Black Background) */}
-                  <circle cx="415" cy="45" r="5" fill="#E31837" />
-                  <circle cx="455" cy="50" r="5" fill="#E31837" />
-                  <circle cx="435" cy="70" r="5" fill="#E31837" />
+                  <circle cx="25" cy="40" r="5.5" fill="#E31837" />
+                  <circle cx="55" cy="40" r="5.5" fill="#E31837" />
+                  <circle cx="40" cy="65" r="5.5" fill="#E31837" />
 
                   {/* Right Slice Dots (Red on White Background) */}
-                  <circle cx="585" cy="75" r="5" fill="#E31837" />
-                  <circle cx="545" cy="70" r="5" fill="#E31837" />
-                  <circle cx="565" cy="50" r="5" fill="#E31837" />
+                  <circle cx="135" cy="60" r="5.5" fill="#E31837" />
+                  <circle cx="105" cy="60" r="5.5" fill="#E31837" />
+                  <circle cx="120" cy="35" r="5.5" fill="#E31837" />
                 </svg>
               </div>
 
-              {/* Text overlays */}
-              <div className="absolute left-[50px] z-20 flex h-full items-center">
-                <span className="text-[#E31837] text-[16px] font-normal tracking-wide mt-3">www.pizzora.bd</span>
+              {/* Text overlays (Perfectly Centered in Black Box) */}
+              <div className="absolute left-0 w-[calc(50%-120px)] h-[100px] top-[10px] flex items-center justify-center z-20">
+                <span className="text-[#E31837] text-[18px] font-medium tracking-wide">www.pizzora.bd</span>
               </div>
 
               {/* Right Contact Info */}
-              <div className="absolute left-[calc(50%+150px)] h-full flex flex-col justify-center z-20 space-y-[6px] pt-3">
+              <div className="absolute left-[calc(50%+150px)] h-[100px] top-[10px] flex flex-col justify-center z-20 space-y-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-[14px] h-[14px] bg-[#E31837] flex items-center justify-center rounded-[2px]">
-                    <PhoneIcon size={9} className="text-white" fill="white" />
+                  <div className="w-[18px] h-[18px] bg-[#E31837] flex items-center justify-center rounded-[3px]">
+                    <PhoneIcon size={11} className="text-white" fill="white" />
                   </div>
-                  <span className="text-gray-900 text-[14px] font-medium tracking-tight">01620026649</span>
+                  <span className="text-gray-900 text-[15px] font-medium tracking-tight">01620026649</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-[14px] h-[14px] bg-[#E31837] flex items-center justify-center rounded-[2px]">
-                    <Mail size={9} className="text-white" fill="white" />
+                  <div className="w-[18px] h-[18px] bg-[#E31837] flex items-center justify-center rounded-[3px]">
+                    <Mail size={11} className="text-white" strokeWidth={2.5} />
                   </div>
-                  <span className="text-gray-900 text-[14px] font-medium tracking-tight">pizzora1@gmail.com</span>
+                  <span className="text-gray-900 text-[15px] font-medium tracking-tight">pizzora1@gmail.com</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-[14px] h-[14px] bg-[#E31837] flex items-center justify-center rounded-[2px] pt-[1px]">
-                    <MapPin size={9} className="text-white" fill="white" />
+                  <div className="w-[18px] h-[18px] bg-[#E31837] flex items-center justify-center rounded-[3px]">
+                    <MapPin size={11} className="text-white" strokeWidth={2.5} />
                   </div>
-                  <span className="text-gray-900 text-[14px] font-medium tracking-tight">SubidBazar, Sylhet,Bangladesh</span>
+                  <span className="text-gray-900 text-[15px] font-medium tracking-tight">SubidBazar, Sylhet,Bangladesh</span>
                 </div>
               </div>
             </div>
