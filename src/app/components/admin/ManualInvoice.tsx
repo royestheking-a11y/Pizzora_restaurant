@@ -254,68 +254,83 @@ export function ManualInvoice() {
             <div className="flex-1" />
 
             {/* SIGNATURES */}
-            <div className="px-12 flex justify-between gap-8 mb-8 mt-4">
-              <div className="flex-1 flex flex-col">
-                <div className="border-b-[1.5px] border-black h-8 mb-2"></div>
-                <span className="text-[#E31837] text-[15px] font-medium">Signature</span>
+            <div className="px-12 flex justify-between gap-10 mb-2 mt-0">
+              <div className="flex-1 flex flex-col items-start">
+                <div className="border-b-[1.5px] border-black h-8 mb-2 w-full"></div>
+                <span className="text-[#E31837] text-[14px] font-normal tracking-wide">Signature</span>
               </div>
-              <div className="flex-1 flex flex-col">
-                <div className="border-b-[1.5px] border-black h-8 mb-2"></div>
-                <span className="text-[#E31837] text-[15px] font-medium">Printed Name</span>
+              <div className="flex-1 flex flex-col items-start">
+                <div className="border-b-[1.5px] border-black h-8 mb-2 w-full"></div>
+                <span className="text-[#E31837] text-[14px] font-normal tracking-wide">Printed Name</span>
               </div>
-              <div className="flex-1 flex flex-col">
-                <div className="border-b-[1.5px] border-black h-8 mb-2"></div>
-                <span className="text-[#E31837] text-[15px] font-medium">Date</span>
+              <div className="flex-1 flex flex-col items-start">
+                <div className="border-b-[1.5px] border-black h-8 mb-2 w-full"></div>
+                <span className="text-[#E31837] text-[14px] font-normal tracking-wide">Date</span>
               </div>
-              <div className="flex-1 flex flex-col">
-                <div className="border-b-[1.5px] border-black h-8 mb-2"></div>
-                <span className="text-[#E31837] text-[15px] font-medium">Payment method</span>
+              <div className="flex-1 flex flex-col items-start">
+                <div className="border-b-[1.5px] border-black h-8 mb-2 w-full"></div>
+                <span className="text-[#E31837] text-[14px] font-normal tracking-wide">Payment method</span>
               </div>
             </div>
 
             {/* FOOTER GRAPHICS */}
-            <div className="h-[120px] shrink-0 w-full relative flex items-center overflow-hidden">
-              {/* Red bottom bar (only on the right) */}
-              <div className="absolute bottom-0 right-0 h-[20px] bg-[#E31837] z-10" style={{ width: 'calc(50% + 38px)' }} />
+            <div className="h-[110px] shrink-0 w-full relative flex items-center overflow-hidden bg-white mt-4">
               
-              {/* Left Black Trapezoid */}
-              <div 
-                className="absolute top-0 left-0 h-full bg-[#1A1A1A] z-10 flex items-center pl-12"
-                style={{ width: 'calc(50% + 50px)', clipPath: 'polygon(0 0, 100% 0, calc(100% - 100px) 100%, 0 100%)' }}
-              >
-                <span className="text-[#E31837] text-[18px] font-bold tracking-wide">www.pizzora.bd</span>
-              </div>
-
-              {/* The Logo Graphic Overlay */}
-              <div className="absolute left-[50%] top-0 h-full w-[300px] -ml-[130px] z-20">
-                <svg viewBox="0 0 300 120" className="w-full h-full" preserveAspectRatio="none">
-                  {/* Top Left Slice (Red outline on Black) */}
-                  <path d="M 60,15 L 168,15 L 92,105 Q 20,60 60,15 Z" fill="none" stroke="#E31837" strokeWidth="16" strokeLinejoin="miter" />
-                  <circle cx="85" cy="35" r="5.5" fill="#E31837" />
-                  <circle cx="115" cy="35" r="5.5" fill="#E31837" />
-                  <circle cx="100" cy="65" r="5.5" fill="#E31837" />
-
-                  {/* Bottom Right Slice (Red outline on White) */}
-                  <path d="M 92,105 L 200,105 Q 240,60 168,15 Z" fill="none" stroke="#E31837" strokeWidth="16" strokeLinejoin="miter" />
-                  <circle cx="150" cy="85" r="5.5" fill="#E31837" />
-                  <circle cx="180" cy="85" r="5.5" fill="#E31837" />
-                  <circle cx="165" cy="55" r="5.5" fill="#E31837" />
+              {/* Background Shapes */}
+              <div className="absolute inset-0 w-full h-full">
+                <svg viewBox="0 0 1000 110" className="w-full h-full" preserveAspectRatio="none">
+                  {/* Red Top Bar */}
+                  <polygon points="0,0 400,0 380,15 0,15" fill="#E31837" />
+                  {/* Black Background */}
+                  <polygon points="0,15 380,15 250,110 0,110" fill="#1A1A1A" />
+                  {/* Red Bottom Bar */}
+                  <rect x="250" y="95" width="750" height="15" fill="#E31837" />
+                  {/* Red Diagonal Slash */}
+                  <polygon points="400,0 480,0 330,110 250,110" fill="#E31837" />
                 </svg>
               </div>
 
+              {/* Pizza Slices Graphic (Fixed Aspect Ratio) */}
+              <div className="absolute left-[26%] top-0 h-[110px] w-[200px] z-10">
+                <svg viewBox="0 0 200 110" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+                  {/* Left Black Slice Curve Fill (covers the red diagonal) */}
+                  <path d="M 100,15 C 40,15 -10,65 15,105 L 85,105 L 140,15 Z" fill="#1A1A1A" />
+                  <circle cx="70" cy="40" r="5.5" fill="#E31837" />
+                  <circle cx="95" cy="65" r="5.5" fill="#E31837" />
+                  <circle cx="55" cy="85" r="5.5" fill="#E31837" />
+
+                  {/* Right White Slice */}
+                  <path d="M 155,25 L 105,105 L 150,105 C 210,105 230,55 195,25 Z" fill="#ffffff" stroke="#E31837" strokeWidth="5.5" strokeLinejoin="round" />
+                  <circle cx="150" cy="55" r="5.5" fill="#E31837" />
+                  <circle cx="175" cy="75" r="5.5" fill="#E31837" />
+                  <circle cx="125" cy="85" r="5.5" fill="#E31837" />
+                </svg>
+              </div>
+
+              {/* Text overlays */}
+              <div className="absolute left-[50px] z-20 flex h-full items-center">
+                <span className="text-[#E31837] text-[16px] font-normal tracking-wide mt-3">www.pizzora.bd</span>
+              </div>
+
               {/* Right Contact Info */}
-              <div className="absolute left-[calc(50%+140px)] h-full flex flex-col justify-center z-20 space-y-2 pt-1">
+              <div className="absolute left-[50%] h-full flex flex-col justify-center z-20 space-y-[6px] pt-3">
                 <div className="flex items-center gap-3">
-                  <PhoneIcon size={16} className="text-[#E31837] shrink-0" fill="#E31837" />
-                  <span className="text-gray-900 text-[15px] font-semibold tracking-tight whitespace-nowrap">01620026649</span>
+                  <div className="w-[14px] h-[14px] bg-[#E31837] flex items-center justify-center rounded-[2px]">
+                    <PhoneIcon size={9} className="text-white" fill="white" />
+                  </div>
+                  <span className="text-gray-900 text-[14px] font-medium tracking-tight">01620026649</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Mail size={16} className="text-[#E31837] shrink-0" fill="#E31837" color="white" />
-                  <span className="text-gray-900 text-[15px] font-semibold tracking-tight whitespace-nowrap">pizzora1@gmail.com</span>
+                  <div className="w-[14px] h-[14px] bg-[#E31837] flex items-center justify-center rounded-[2px]">
+                    <Mail size={9} className="text-white" fill="white" />
+                  </div>
+                  <span className="text-gray-900 text-[14px] font-medium tracking-tight">pizzora1@gmail.com</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <MapPin size={16} className="text-[#E31837] shrink-0" fill="#E31837" color="white" />
-                  <span className="text-gray-900 text-[15px] font-semibold tracking-tight whitespace-nowrap">SubidBazar, Sylhet,Bangladesh</span>
+                  <div className="w-[14px] h-[14px] bg-[#E31837] flex items-center justify-center rounded-[2px] pt-[1px]">
+                    <MapPin size={9} className="text-white" fill="white" />
+                  </div>
+                  <span className="text-gray-900 text-[14px] font-medium tracking-tight">SubidBazar, Sylhet,Bangladesh</span>
                 </div>
               </div>
             </div>
