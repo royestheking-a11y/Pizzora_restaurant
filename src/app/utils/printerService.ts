@@ -230,6 +230,9 @@ class QZTrayService {
     // Init
     data.push(...this.init());
 
+    // Kick Cash Drawer (opens drawer as soon as print starts)
+    data.push(...this.kickDrawer());
+
     if (invoice.isRefund) {
       data.push(...this.align('center'));
       data.push(...this.bold(true));
@@ -408,7 +411,7 @@ class QZTrayService {
 
     try {
       const qz = this.qz as any;
-      const config = qz.configs.create(s.printerName);
+      const config = qz.configs.create(s.printerName, { encoding: 'ISO-8859-1' });
       await qz.print(config, [{ type: 'raw', format: 'hex', data: this.kickDrawer()[0].hex }]);
       return { success: true };
     } catch (err: any) {
