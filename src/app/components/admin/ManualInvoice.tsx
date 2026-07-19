@@ -76,8 +76,8 @@ export function ManualInvoice() {
               left: 0;
               top: 0;
               width: 100%;
-              height: 270mm !important;
-              max-height: 270mm !important;
+              height: 297mm !important;
+              max-height: 297mm !important;
               margin: 0;
               padding: 0;
               overflow: hidden !important;
@@ -129,8 +129,8 @@ export function ManualInvoice() {
           className="bg-white relative overflow-hidden shadow-2xl flex flex-col"
           style={{
             width: '210mm',
-            height: '270mm',
-            maxHeight: '270mm',
+            height: '297mm',
+            maxHeight: '297mm',
             backgroundColor: '#ffffff',
             position: 'relative'
           }}
@@ -276,39 +276,39 @@ export function ManualInvoice() {
             {/* FOOTER GRAPHICS */}
             <div className="h-[120px] shrink-0 w-full relative overflow-hidden bg-white mt-4 border-t border-gray-100">
               
-              {/* Left Black Background (mathematically calculated to split exactly behind the Z diagonal) */}
+              {/* Left Black Background */}
               <div 
                 className="absolute top-[10px] left-0 h-[100px] bg-[#1A1A1A] z-0"
                 style={{ width: 'calc(50% + 28px)', clipPath: 'polygon(0 0, 100% 0, calc(100% - 56px) 100%, 0 100%)' }}
               />
               
-              {/* Red Top Bar Extension */}
-              <div className="absolute top-[10px] left-0 h-[24px] bg-[#E31837] z-0" style={{ width: 'calc(50% - 75px)' }} />
+              {/* Red Top Bar Extension (Thin) */}
+              <div className="absolute top-[10px] left-0 h-[12px] bg-[#E31837] z-0" style={{ width: 'calc(50% - 75px)' }} />
               
-              {/* Red Bottom Bar Extension */}
-              <div className="absolute top-[86px] right-0 h-[24px] bg-[#E31837] z-0" style={{ width: 'calc(50% - 75px)' }} />
+              {/* Red Bottom Bar Extension (Thin) */}
+              <div className="absolute top-[98px] right-0 h-[12px] bg-[#E31837] z-0" style={{ width: 'calc(50% - 75px)' }} />
 
-              {/* Flawless Geometric Z Logo Graphic */}
+              {/* Flawless Geometric Z Logo Graphic (Thin horizontal bars, thick diagonal) */}
               <div className="absolute left-1/2 top-[10px] -translate-x-1/2 h-[100px] w-[240px] z-10 pointer-events-none">
                 <svg viewBox="-40 0 240 100" className="w-full h-full" preserveAspectRatio="none">
                   {/* Main Solid Z */}
-                  <polygon points="0,0 122,0 79.5,76 160,76 160,100 38,100 80.5,24 0,24" fill="#E31837" />
+                  <polygon points="0,0 122,0 72.7,88 160,88 160,100 38,100 87.3,12 0,12" fill="#E31837" />
 
-                  {/* Left Crust */}
-                  <path d="M 0,0 C -40,20 -30,90 38,100 C 0,70 -10,30 0,24 Z" fill="#E31837" />
+                  {/* Left Crust (Slim bracket) */}
+                  <path d="M 0,0 C -15,30 -10,80 38,100 C 5,80 -5,30 0,12 Z" fill="#E31837" />
                   
-                  {/* Right Crust */}
-                  <path d="M 160,100 C 200,80 190,10 122,0 C 160,30 170,70 160,76 Z" fill="#E31837" />
+                  {/* Right Crust (Slim bracket) */}
+                  <path d="M 160,100 C 175,70 170,20 122,0 C 155,20 165,70 160,88 Z" fill="#E31837" />
 
-                  {/* Left Slice Dots (Red on Black Background) */}
-                  <circle cx="25" cy="40" r="5.5" fill="#E31837" />
-                  <circle cx="55" cy="40" r="5.5" fill="#E31837" />
-                  <circle cx="40" cy="65" r="5.5" fill="#E31837" />
+                  {/* Left Slice Dots */}
+                  <circle cx="25" cy="35" r="5" fill="#E31837" />
+                  <circle cx="55" cy="35" r="5" fill="#E31837" />
+                  <circle cx="40" cy="60" r="5" fill="#E31837" />
 
-                  {/* Right Slice Dots (Red on White Background) */}
-                  <circle cx="135" cy="60" r="5.5" fill="#E31837" />
-                  <circle cx="105" cy="60" r="5.5" fill="#E31837" />
-                  <circle cx="120" cy="35" r="5.5" fill="#E31837" />
+                  {/* Right Slice Dots */}
+                  <circle cx="135" cy="65" r="5" fill="#E31837" />
+                  <circle cx="105" cy="65" r="5" fill="#E31837" />
+                  <circle cx="120" cy="40" r="5" fill="#E31837" />
                 </svg>
               </div>
 
@@ -317,25 +317,25 @@ export function ManualInvoice() {
                 <span className="text-[#E31837] text-[18px] font-medium tracking-wide">www.pizzora.bd</span>
               </div>
 
-              {/* Right Contact Info */}
-              <div className="absolute left-[calc(50%+150px)] h-[100px] top-[10px] flex flex-col justify-center z-20 space-y-2">
+              {/* Right Contact Info (Perfectly centered in the white space between the thin red bars) */}
+              <div className="absolute left-[calc(50%+140px)] top-[22px] h-[76px] flex flex-col justify-center z-20 space-y-1.5">
                 <div className="flex items-center gap-3">
-                  <div className="w-[18px] h-[18px] bg-[#E31837] flex items-center justify-center rounded-[3px]">
-                    <PhoneIcon size={11} className="text-white" fill="white" />
+                  <div className="w-[16px] h-[16px] bg-[#E31837] flex items-center justify-center rounded-[3px]">
+                    <PhoneIcon size={10} className="text-white" fill="white" />
                   </div>
-                  <span className="text-gray-900 text-[15px] font-medium tracking-tight">01620026649</span>
+                  <span className="text-gray-900 text-[14.5px] font-medium tracking-tight">01620026649</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-[18px] h-[18px] bg-[#E31837] flex items-center justify-center rounded-[3px]">
-                    <Mail size={11} className="text-white" strokeWidth={2.5} />
+                  <div className="w-[16px] h-[16px] bg-[#E31837] flex items-center justify-center rounded-[3px]">
+                    <Mail size={10} className="text-white" strokeWidth={2.5} />
                   </div>
-                  <span className="text-gray-900 text-[15px] font-medium tracking-tight">pizzora1@gmail.com</span>
+                  <span className="text-gray-900 text-[14.5px] font-medium tracking-tight">pizzora1@gmail.com</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-[18px] h-[18px] bg-[#E31837] flex items-center justify-center rounded-[3px]">
-                    <MapPin size={11} className="text-white" strokeWidth={2.5} />
+                  <div className="w-[16px] h-[16px] bg-[#E31837] flex items-center justify-center rounded-[3px]">
+                    <MapPin size={10} className="text-white" strokeWidth={2.5} />
                   </div>
-                  <span className="text-gray-900 text-[15px] font-medium tracking-tight">SubidBazar, Sylhet,Bangladesh</span>
+                  <span className="text-gray-900 text-[14.5px] font-medium tracking-tight">SubidBazar, Sylhet,Bangladesh</span>
                 </div>
               </div>
             </div>
