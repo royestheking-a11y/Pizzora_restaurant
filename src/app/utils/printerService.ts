@@ -112,6 +112,23 @@ class QZTrayService {
         return true;
       }
 
+      const API_URL = getBackendUrl();
+      qz.security.setCertificatePromise((resolve: any, reject: any) => {
+        fetch(`${API_URL}/api/qz/cert`)
+          .then(res => res.text())
+          .then(resolve)
+          .catch(reject);
+      });
+
+      qz.security.setSignaturePromise((toSign: string) => {
+        return (resolve: any, reject: any) => {
+          fetch(`${API_URL}/api/qz/sign?request=${encodeURIComponent(toSign)}`)
+            .then(res => res.text())
+            .then(resolve)
+            .catch(reject);
+        };
+      });
+
       await qz.websocket.connect({ host: 'localhost', port: { secure: [8181], insecure: [8182] } });
       this.setStatus('online');
       return true;
@@ -185,8 +202,8 @@ class QZTrayService {
   private cutPaper(): { hex: string }[] { return this.cmd(this.GS, 0x56, 0x41, 0x10); }
   // Cash drawer kick: maximum pulse duration on pin 2 (0x00) and pin 5 (0x01)
   private kickDrawer(): { hex: string }[] {
-    const pin2 = this.cmd(this.ESC, 0x70, 0x00, 0xFA, 0xFA)[0].hex;
-    const pin5 = this.cmd(this.ESC, 0x70, 0x01, 0xFA, 0xFA)[0].hex;
+    const pin2 = this.cmd(this.ESC, 0x70, 0x00, 0x19, 0xFA)[0].hex;
+    const pin5 = this.cmd(this.ESC, 0x70, 0x01, 0x19, 0xFA)[0].hex;
     return [{ hex: pin2 + pin5 }];
   }
   private bold(on: boolean): { hex: string }[] { return this.cmd(this.ESC, 0x45, on ? 1 : 0); }

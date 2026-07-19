@@ -166,7 +166,7 @@ export function Home() {
                       alt={slide.title || `Slide ${index + 1}`}
                       title={slide.title || `Slide ${index + 1}`}
                       loading={index === 0 ? 'eager' : 'lazy'}
-                      fetchPriority={index === 0 ? 'high' : 'low'}
+                      fetchpriority={index === 0 ? 'high' : 'low'}
                       className={`w-full h-full object-cover transition-transform duration-[10000ms] ease-linear ${
                         isMounted && currentSlide === index ? 'scale-110' : 'scale-100'
                       }`}

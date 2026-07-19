@@ -1,6 +1,8 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import crypto from 'crypto';
+import fs from 'fs';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
@@ -61,6 +63,32 @@ app.use(express.json({ limit: '10mb' }));
 // ----- Self Ping Route to keep Render alive -----
 app.get('/api/ping', (req, res) => {
   res.status(200).send('pong');
+});
+
+// ----- QZ Tray Certificate Endpoint -----
+app.get('/api/qz/cert', (req, res) => {
+  try {
+    const cert = fs.readFileSync('certs/digital-certificate.txt', 'utf8');
+    res.send(cert);
+  } catch (error) {
+    res.status(500).send('Certificate not found');
+  }
+});
+
+// ----- QZ Tray Signature Endpoint -----
+app.get('/api/qz/sign', (req, res) => {
+  try {
+    const requestToSign = req.query.request;
+    if (!requestToSign) return res.status(400).send('Missing request param');
+    const privateKey = fs.readFileSync('certs/private-key.pem', 'utf8');
+    const sign = crypto.createSign('RSA-SHA512');
+    sign.update(requestToSign);
+    const signature = sign.sign(privateKey, 'base64');
+    res.send(signature);
+  } catch (error) {
+    console.error('QZ Sign Error:', error);
+    res.status(500).send('Signature failed');
+  }
 });
 
 const server = createServer(app);
