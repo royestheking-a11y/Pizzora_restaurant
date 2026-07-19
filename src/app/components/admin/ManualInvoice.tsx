@@ -276,34 +276,39 @@ export function ManualInvoice() {
             {/* FOOTER GRAPHICS */}
             <div className="h-[110px] shrink-0 w-full relative flex items-center overflow-hidden bg-white mt-4">
               
-              {/* Background Shapes */}
-              <div className="absolute inset-0 w-full h-full">
-                <svg viewBox="0 0 1000 110" className="w-full h-full" preserveAspectRatio="none">
-                  {/* Red Top Bar */}
-                  <polygon points="0,0 400,0 380,15 0,15" fill="#E31837" />
-                  {/* Black Background */}
-                  <polygon points="0,15 380,15 250,110 0,110" fill="#1A1A1A" />
-                  {/* Red Bottom Bar */}
-                  <rect x="250" y="95" width="750" height="15" fill="#E31837" />
-                  {/* Red Diagonal Slash */}
-                  <polygon points="400,0 480,0 330,110 250,110" fill="#E31837" />
-                </svg>
-              </div>
+              {/* Left Black Background (covers left half and seamlessly hides its diagonal cut behind the red Z diagonal) */}
+              <div 
+                className="absolute top-[25px] left-0 bottom-0 bg-[#1A1A1A] z-0"
+                style={{ width: 'calc(50% + 40px)', clipPath: 'polygon(0 0, 100% 0, calc(100% - 106px) 100%, 0 100%)' }}
+              />
+              
+              {/* Red Top Bar Extension (overlaps safely behind the Z) */}
+              <div className="absolute top-[5px] left-0 h-[20px] bg-[#E31837] z-0" style={{ width: 'calc(50% - 100px)' }} />
+              
+              {/* Red Bottom Bar Extension (overlaps safely behind the Z) */}
+              <div className="absolute bottom-[5px] right-0 h-[20px] bg-[#E31837] z-0" style={{ width: 'calc(50% - 100px)' }} />
 
-              {/* Pizza Slices Graphic (Fixed Aspect Ratio) */}
-              <div className="absolute left-[26%] top-0 h-[110px] w-[200px] z-10">
-                <svg viewBox="0 0 200 110" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-                  {/* Left Black Slice Curve Fill (covers the red diagonal) */}
-                  <path d="M 100,15 C 40,15 -10,65 15,105 L 85,105 L 140,15 Z" fill="#1A1A1A" />
-                  <circle cx="70" cy="40" r="5.5" fill="#E31837" />
-                  <circle cx="95" cy="65" r="5.5" fill="#E31837" />
-                  <circle cx="55" cy="85" r="5.5" fill="#E31837" />
+              {/* Z Logo Graphic (Perfectly Centered, Fixed Aspect Ratio) */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[100px] w-[240px] z-10 pointer-events-none">
+                <svg viewBox="380 10 240 100" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+                  {/* Main Solid Z */}
+                  <polygon points="380,10 565,10 565,30 485,90 620,90 620,110 435,110 435,90 515,30 380,30" fill="#E31837" />
 
-                  {/* Right White Slice */}
-                  <path d="M 155,25 L 105,105 L 150,105 C 210,105 230,55 195,25 Z" fill="#ffffff" stroke="#E31837" strokeWidth="5.5" strokeLinejoin="round" />
-                  <circle cx="150" cy="55" r="5.5" fill="#E31837" />
-                  <circle cx="175" cy="75" r="5.5" fill="#E31837" />
-                  <circle cx="125" cy="85" r="5.5" fill="#E31837" />
+                  {/* Left Crust */}
+                  <path d="M 380,10 C 310,30 330,90 435,90 C 370,75 360,40 380,30 Z" fill="#E31837" />
+                  
+                  {/* Right Crust */}
+                  <path d="M 620,110 C 690,90 670,30 565,30 C 630,45 640,80 620,90 Z" fill="#E31837" />
+
+                  {/* Left Slice Dots (Red on Black Background) */}
+                  <circle cx="415" cy="45" r="5" fill="#E31837" />
+                  <circle cx="455" cy="50" r="5" fill="#E31837" />
+                  <circle cx="435" cy="70" r="5" fill="#E31837" />
+
+                  {/* Right Slice Dots (Red on White Background) */}
+                  <circle cx="585" cy="75" r="5" fill="#E31837" />
+                  <circle cx="545" cy="70" r="5" fill="#E31837" />
+                  <circle cx="565" cy="50" r="5" fill="#E31837" />
                 </svg>
               </div>
 
@@ -313,7 +318,7 @@ export function ManualInvoice() {
               </div>
 
               {/* Right Contact Info */}
-              <div className="absolute left-[50%] h-full flex flex-col justify-center z-20 space-y-[6px] pt-3">
+              <div className="absolute left-[calc(50%+150px)] h-full flex flex-col justify-center z-20 space-y-[6px] pt-3">
                 <div className="flex items-center gap-3">
                   <div className="w-[14px] h-[14px] bg-[#E31837] flex items-center justify-center rounded-[2px]">
                     <PhoneIcon size={9} className="text-white" fill="white" />
