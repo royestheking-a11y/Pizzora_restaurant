@@ -205,9 +205,9 @@ class QZTrayService {
 
   private init(): { hex: string }[] { return this.cmd(this.ESC, 0x40); }
   private cutPaper(): { hex: string }[] { return this.cmd(this.GS, 0x56, 0x41, 0x10); }
-  // Cash drawer kick: 200ms pulse (0x64) on pin 2 (0x00)
+  // Cash drawer kick: 400ms pulse (0xC8) on pin 2 (0x00)
   private kickDrawer(): { hex: string }[] {
-    const pin2 = this.cmd(this.ESC, 0x70, 0x00, 0x64, 0x64)[0].hex;
+    const pin2 = this.cmd(this.ESC, 0x70, 0x00, 0xC8, 0xC8)[0].hex;
     return [{ hex: pin2 }];
   }
   private bold(on: boolean): { hex: string }[] { return this.cmd(this.ESC, 0x45, on ? 1 : 0); }
