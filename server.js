@@ -76,9 +76,9 @@ app.get('/api/qz/cert', (req, res) => {
 });
 
 // ----- QZ Tray Signature Endpoint -----
-app.get('/api/qz/sign', (req, res) => {
+app.post('/api/qz/sign', express.json(), (req, res) => {
   try {
-    const requestToSign = req.query.request;
+    const requestToSign = req.body.request;
     if (!requestToSign) return res.status(400).send('Missing request param');
     const privateKey = fs.readFileSync('certs/private-key.pem', 'utf8');
     const sign = crypto.createSign('SHA512');

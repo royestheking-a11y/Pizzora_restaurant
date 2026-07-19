@@ -120,9 +120,14 @@ class QZTrayService {
           .catch(reject);
       });
 
+      qz.security.setSignatureAlgorithm("SHA512");
       qz.security.setSignaturePromise((toSign: string) => {
         return (resolve: any, reject: any) => {
-          fetch(`${API_URL}/api/qz/sign?request=${encodeURIComponent(toSign)}`)
+          fetch(`${API_URL}/api/qz/sign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ request: toSign })
+          })
             .then(res => res.text())
             .then(resolve)
             .catch(reject);
