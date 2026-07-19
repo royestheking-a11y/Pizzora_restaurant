@@ -81,8 +81,9 @@ app.get('/api/qz/sign', (req, res) => {
     const requestToSign = req.query.request;
     if (!requestToSign) return res.status(400).send('Missing request param');
     const privateKey = fs.readFileSync('certs/private-key.pem', 'utf8');
-    const sign = crypto.createSign('RSA-SHA512');
+    const sign = crypto.createSign('SHA512');
     sign.update(requestToSign);
+    sign.end();
     const signature = sign.sign(privateKey, 'base64');
     res.send(signature);
   } catch (error) {
