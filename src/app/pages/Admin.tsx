@@ -7,7 +7,7 @@ import {
   Clock, ChevronDown, ChevronUp, Menu as MenuIcon, PlaySquare, Layers,
   RefreshCw, Send, CheckCircle2, XCircle, LayoutGrid, CreditCard,
   TrendingUp, Wallet, Smartphone, Banknote, Trash, BarChart2, Tag, ChefHat,
-  ShieldCheck, Lock, User, KeyRound, Fingerprint, Activity, BadgeCheck, EyeOff, Loader2
+  ShieldCheck, Lock, User, KeyRound, Fingerprint, Activity, BadgeCheck, EyeOff, Loader2, Search
 } from 'lucide-react';
 import { useApp, OrderStatus, TableOrderStatus, CarouselSlide } from '../context/AppContext';
 import { optimizeCloudinaryUrl } from '../utils/image';
@@ -773,6 +773,7 @@ export function Admin() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
   const [menuForm, setMenuForm] = useState<MenuFormState>(blankMenuForm);
+  const [menuSearchTerm, setMenuSearchTerm] = useState('');
 
   // Gallery Modals
   const [showAddGallery, setShowAddGallery] = useState(false);
@@ -1762,13 +1763,26 @@ export function Admin() {
                 <p style={{ color: '#6B7280', fontSize: '14px', fontFamily: 'var(--font-body)' }}>
                   <span style={{ fontWeight: 700, color: '#111', fontFamily: 'var(--font-heading)' }}>{state.menuItems.length}</span> menu items
                 </p>
-                <button
-                  onClick={() => { setMenuForm(blankMenuForm); setShowAddMenu(true); }}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg hover:-translate-y-0.5"
-                  style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', fontFamily: 'var(--font-heading)' }}
-                >
-                  <Plus size={15} /> Add New Item
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="relative hidden sm:block">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9CA3AF' }} />
+                    <input
+                      type="text"
+                      placeholder="Search menu items..."
+                      value={menuSearchTerm}
+                      onChange={(e) => setMenuSearchTerm(e.target.value)}
+                      className="pl-9 pr-4 py-2 rounded-xl border text-sm"
+                      style={{ borderColor: 'rgba(249,0,43,0.15)', outline: 'none', fontFamily: 'var(--font-body)' }}
+                    />
+                  </div>
+                  <button
+                    onClick={() => { setMenuForm(blankMenuForm); setShowAddMenu(true); }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg hover:-translate-y-0.5"
+                    style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', fontFamily: 'var(--font-heading)' }}
+                  >
+                    <Plus size={15} /> Add New Item
+                  </button>
+                </div>
               </div>
 
               {/* Menu Items Grid */}
@@ -1776,7 +1790,12 @@ export function Admin() {
                 {state.isInitialLoading ? (
                   Array.from({ length: 8 }).map((_, i) => <POSCardSkeleton key={i} />)
                 ) : (
-                  state.menuItems.map(item => (
+                  state.menuItems
+                    .filter(item => 
+                      item.name.toLowerCase().includes(menuSearchTerm.toLowerCase()) || 
+                      item.category.toLowerCase().includes(menuSearchTerm.toLowerCase())
+                    )
+                    .map(item => (
                   <div key={item.id} className="bg-white rounded-2xl overflow-hidden shadow-sm group" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
                     <div className="relative h-44 overflow-hidden">
                       <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
