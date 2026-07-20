@@ -749,7 +749,7 @@ export function Admin() {
   const { state, dispatch, showNotification } = useApp();
 
   const menuCategories = React.useMemo(() => {
-    const defaultCats = ['Pizza','Fried Corner','Wings','Meatbox','Burger','Sub','Shawarma','Momo','Combo','Chawomen','Seafood','Pasta','Rich Bowl','Curry','Sizzling','Platter','Ramen','Naan','Cold Coffee','Hot Coffee','Lassi','Dessert','Biryani','Couple','Soup','Wonton','Salad'];
+    const defaultCats = ['Pizza','Fried Corner','Wings','Meatbox','Burger','Sub','Shawarma','Momo','Combo','Chawomen','Seafood','Pasta','Rich Bowl','Curry','Sizzling','Platter','Ramen','Naan','Cold Coffee','Hot Coffee','Lassi','Dessert','Biryani','Couple','Soup','Wonton','Salad','Soft Drink','Water','Juice'];
     const dynamicCats = Array.from(new Set(state.menuItems.map(item => item.category))).filter(Boolean);
     return Array.from(new Set([...defaultCats, ...dynamicCats])).sort();
   }, [state.menuItems]);

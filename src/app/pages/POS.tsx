@@ -27,7 +27,7 @@ const POS_CATEGORIES = [
   'Pizza', 'Fried Corner', 'Wings', 'Meatbox', 'Burger', 'Sub', 'Shawarma', 'Momo',
   'Combo', 'Wonton', 'Soup', 'Chawomen', 'Seafood', 'Pasta', 'Salad', 'Rich Bowl',
   'Curry', 'Sizzling', 'Platter', 'Ramen', 'Naan', 'Cold Coffee', 'Hot Coffee',
-  'Lassi', 'Dessert', 'Biryani', 'Couple',
+  'Lassi', 'Dessert', 'Biryani', 'Couple', 'Soft Drink', 'Water', 'Juice'
 ] as const;
 
 const POS_USER = 'Admin';

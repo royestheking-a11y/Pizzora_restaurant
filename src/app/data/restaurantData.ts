@@ -52,6 +52,7 @@ export const menuCategories = [
   'Chawomen','Seafood','Pasta','Salad','Rich Bowl',
   'Curry','Sizzling','Platter','Ramen','Naan',
   'Cold Coffee','Hot Coffee','Lassi','Dessert','Biryani','Couple',
+  'Soft Drink','Water','Juice'
 ] as const;
 
 const I = {
