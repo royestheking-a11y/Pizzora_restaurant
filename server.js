@@ -160,7 +160,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 app.get('/api/state/public', async (req, res) => {
   try {
     const state = {
-      menuItems: await MenuItem.find(),
+      menuItems: await MenuItem.find().sort({ _id: -1 }),
       carouselSlides: await CarouselSlide.find().sort({ order: 1 }),
       galleryImages: await GalleryImage.find(),
       chefs: await Chef.find(),
