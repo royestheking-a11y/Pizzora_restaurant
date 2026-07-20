@@ -29,7 +29,7 @@ export function InventoryManagement() {
   const [tab, setTab] = useState<'stock' | 'movements' | 'alerts'>('stock');
   const [search, setSearch] = useState('');
   
-  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
     title: string;

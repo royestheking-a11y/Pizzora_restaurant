@@ -802,7 +802,7 @@ export function Admin() {
     onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
-  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
 
   // Pagination for older orders
   const [isLoadingOlderOrders, setIsLoadingOlderOrders] = useState(false);
@@ -858,7 +858,7 @@ export function Admin() {
         const { token, role } = await res.json();
         sessionStorage.setItem('pizzora_token', token);
         sessionStorage.setItem('pizzora_admin_logged_in', 'true');
-        sessionStorage.setItem('pizzora_admin_role', role || 'admin');
+        sessionStorage.setItem('pizzora_admin_role', role || 'manager');
         dispatch({ type: 'ADMIN_LOGIN' });
         window.location.reload(); // Reload to initialize secure socket & fetch admin state
       } else {

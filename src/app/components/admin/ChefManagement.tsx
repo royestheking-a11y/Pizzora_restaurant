@@ -13,7 +13,7 @@ export function ChefManagement() {
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
     title: string;

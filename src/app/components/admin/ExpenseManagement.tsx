@@ -36,7 +36,7 @@ export function ExpenseManagement() {
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('All');
   
-  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
     title: string;

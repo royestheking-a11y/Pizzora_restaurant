@@ -25,7 +25,7 @@ export function RoleManagement() {
     onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
-  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
   if (adminRole !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center">

@@ -9,7 +9,7 @@ export function PayrollManagement() {
   
   const [activeTab, setActiveTab] = useState<'employees' | 'payroll'>('employees');
   
-  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
     title: string;

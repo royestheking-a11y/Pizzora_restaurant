@@ -8,7 +8,7 @@ export function WasteManagement() {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ product: '', reason: '', costLoss: '', quantity: '1' });
 
-  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
     title: string;

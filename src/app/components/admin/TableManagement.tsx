@@ -405,7 +405,7 @@ function TableDetailPanel({
   const [showQR, setShowQR] = useState(false);
   const [showInvoice, setShowInvoice] = useState<string | null>(null);
 
-  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'admin';
+  const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
     title: string;
