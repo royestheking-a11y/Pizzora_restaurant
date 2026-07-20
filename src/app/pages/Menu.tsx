@@ -42,8 +42,10 @@ export function Menu() {
   const navigate = useNavigate();
 
   const categories = useMemo(() => {
-    const uniqueCats = Array.from(new Set(state.menuItems.map(item => item.category))).filter(Boolean).sort();
-    return ['All', ...uniqueCats];
+    const defaultCats = ['Pizza','Fried Corner','Wings','Meatbox','Burger','Sub','Shawarma','Momo','Combo','Chawomen','Seafood','Pasta','Rich Bowl','Curry','Sizzling','Platter','Ramen','Naan','Cold Coffee','Hot Coffee','Lassi','Dessert','Biryani','Couple','Soup','Wonton','Salad','Soft Drink','Water','Juice'];
+    const uniqueCats = Array.from(new Set(state.menuItems.map(item => item.category))).filter(Boolean);
+    const combinedCats = Array.from(new Set([...defaultCats, ...uniqueCats])).sort();
+    return ['All', ...combinedCats];
   }, [state.menuItems]);
 
   const filtered = useMemo(() => {
