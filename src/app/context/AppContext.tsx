@@ -823,9 +823,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else {
         // Fallback to HTTP for public users or disconnected admins
         try {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          const token = sessionStorage.getItem('pizzora_token');
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
           const res = await fetch(`${SOCKET_URL}/api/dispatch`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ action })
           });
           const data = await res.json();
@@ -868,9 +873,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           });
         } else {
           try {
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            const token = sessionStorage.getItem('pizzora_token');
+            if (token) {
+              headers['Authorization'] = `Bearer ${token}`;
+            }
             const res = await fetch(`${SOCKET_URL}/api/dispatch`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({ action })
             });
             const data = await res.json();
