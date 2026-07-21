@@ -50,6 +50,7 @@ interface HoldOrder {
   orderType: OrderType;
   tableNo: string;
   createdAt: number;
+  invoiceNumber?: string;
 }
 
 // ─── Colour helpers ──────────────────────────────────────────────────────────
@@ -113,8 +114,24 @@ export function POS() {
   const [discountVal, setDiscountVal] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
   const [cashTendered, setCashTendered] = useState('');
-  const [holdOrders, setHoldOrders] = useState<HoldOrder[]>([]);
+  const [holdOrders, setHoldOrders] = useState<HoldOrder[]>(() => {
+    const saved = localStorage.getItem('pos_holdOrders');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('pos_holdOrders', JSON.stringify(holdOrders));
+  }, [holdOrders]);
+
   const [showInvoice, setShowInvoice] = useState(false);
+  const [isPreview, setIsPreview] = useState(false);
   const [lastInvoice, setLastInvoice] = useState<{ id: string; invoiceNumber: string; items: CartItem[]; sub: number; vat: number; disc: number; total: number; method: PaymentMethod; change: number; orderType: OrderType; table: string; customer: string; time: string } | null>(null);
   const [printerStatus, setPrinterStatus] = useState<PrinterStatus>(printerService.getStatus());
   const [isPrinting, setIsPrinting] = useState(false);
@@ -122,6 +139,7 @@ export function POS() {
   const [printSuccess, setPrintSuccess] = useState(false);
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
+  const [activeHoldMetadata, setActiveHoldMetadata] = useState<{ id: string, invoiceNumber: string } | null>(null);
 
   // ── Cash Register ─────────────────────────────────────────────────────────
   const activeSession = useMemo(() => state.cashRegister.find(r => r.status === 'Open'), [state.cashRegister]);
@@ -286,7 +304,7 @@ export function POS() {
     setCart(prev => prev.map(c => c.item.id === id ? { ...c, quantity: Math.max(1, c.quantity + delta) } : c));
   };
   const removeItem = (id: string) => setCart(prev => prev.filter(c => c.item.id !== id));
-  const clearCart = () => { setCart([]); setDiscountVal(''); setCustomerName(''); };
+  const clearCart = () => { setCart([]); setDiscountVal(''); setCustomerName(''); setActiveHoldMetadata(null); };
 
   // ── Totals ────────────────────────────────────────────────────────────────
   const subtotal = cart.reduce((s, c) => s + c.item.price * c.quantity, 0);
@@ -301,49 +319,79 @@ export function POS() {
   // ── Hold / Resume ─────────────────────────────────────────────────────────
   const holdOrder = () => {
     if (!cart.length) return;
-    const id = `H${Date.now()}`;
-    setHoldOrders(prev => [{ id, label: `Order ${prev.length + 1} — ${orderType}`, cart, orderType, tableNo, createdAt: Date.now() }, ...prev]);
+    const id = activeHoldMetadata ? activeHoldMetadata.id : `H${Date.now()}`;
+    const invoiceNumber = activeHoldMetadata ? activeHoldMetadata.invoiceNumber : undefined;
+    setHoldOrders(prev => [{ 
+      id, 
+      label: invoiceNumber ? `Order ${invoiceNumber} — ${orderType}` : `Order ${prev.length + 1} — ${orderType}`, 
+      cart, 
+      orderType, 
+      tableNo, 
+      createdAt: Date.now(),
+      invoiceNumber
+    }, ...prev]);
     clearCart();
   };
   const resumeOrder = (h: HoldOrder) => {
     setCart(h.cart);
     setOrderType(h.orderType);
     setTableNo(h.tableNo);
+    if (h.invoiceNumber) {
+      setActiveHoldMetadata({ id: h.id, invoiceNumber: h.invoiceNumber });
+    } else {
+      setActiveHoldMetadata(null);
+    }
     setHoldOrders(prev => prev.filter(x => x.id !== h.id));
     setShowHeld(false);
   };
 
-  // ── Complete payment ──────────────────────────────────────────────────────
-  const completePay = async () => {
+  // ── Complete payment (Preview) ────────────────────────────────────────────
+  const previewCheckout = async () => {
     if (!cart.length) return;
-    const id = `PZ${Date.now()}`;
 
-    // Generate sequential invoice number from backend
-    const invoiceNumber = await generateInvoiceNumber();
+    let currentId = activeHoldMetadata?.id;
+    let currentInvoice = activeHoldMetadata?.invoiceNumber;
+
+    // Generate sequential invoice number from backend or use existing
+    if (!currentId || !currentInvoice) {
+      currentId = `PZ${Date.now()}`;
+      currentInvoice = await generateInvoiceNumber();
+      setActiveHoldMetadata({ id: currentId, invoiceNumber: currentInvoice });
+    }
 
     const invoiceTime = new Date().toLocaleString();
     setLastInvoice({
-      id, invoiceNumber, items: cart, sub: subtotal, vat: 0, disc: discountAmt, total,
+      id: currentId, invoiceNumber: currentInvoice, items: cart, sub: subtotal, vat: 0, disc: discountAmt, total,
       method: paymentMethod, change, orderType, table: tableNo,
       customer: customerName, time: invoiceTime,
     });
 
+    setIsPreview(true);
+    setShowInvoice(true);
+    setPrintError(null);
+    setPrintSuccess(false);
+  };
+
+  // ── Complete payment (Final) ──────────────────────────────────────────────
+  const completePaymentFinal = async () => {
+    if (!lastInvoice) return;
+
     const newOrder = {
-      id: id,
-      items: cart.map(c => ({
+      id: lastInvoice.id,
+      items: lastInvoice.items.map(c => ({
         item: c.item,
         quantity: c.quantity,
         specialRequest: c.note || '',
       })),
-      total: total,
+      total: lastInvoice.total,
       status: 'Delivered' as const,
-      paymentMethod: paymentMethod,
-      customerName: customerName || (orderType === 'Dine In' ? `Table ${tableNo}` : 'POS Customer'),
+      paymentMethod: lastInvoice.method,
+      customerName: lastInvoice.customer || (lastInvoice.orderType === 'Dine In' ? `Table ${lastInvoice.table}` : 'POS Customer'),
       phone: '',
-      address: orderType === 'Dine In' ? `Table ${tableNo}` : orderType,
+      address: lastInvoice.orderType === 'Dine In' ? `Table ${lastInvoice.table}` : lastInvoice.orderType,
       createdAt: new Date().toISOString(),
       estimatedTime: 'Done',
-      orderNumber: invoiceNumber,
+      orderNumber: lastInvoice.invoiceNumber,
     };
 
     if (isOffline) {
@@ -354,7 +402,7 @@ export function POS() {
       dispatch({ type: 'PLACE_ORDER', payload: newOrder });
     }
 
-    setShowInvoice(true);
+    setIsPreview(false);
     clearCart();
     setCashTendered('');
     setPrintError(null);
@@ -363,12 +411,61 @@ export function POS() {
     // Auto-print receipt
     const settings = loadPrinterSettings();
     if (settings.autoPrint) {
-      await handlePrintReceipt({
-        id, invoiceNumber, items: cart, sub: subtotal, vat: 0, disc: discountAmt, total,
-        method: paymentMethod, change, orderType, table: tableNo,
-        customer: customerName, time: invoiceTime,
-      }, false);
+      await handlePrintReceipt(lastInvoice, false);
     }
+  };
+
+  // ── Print KOT & Hold ──────────────────────────────────────────────────────
+  const printKOTAndHold = async () => {
+    if (!lastInvoice) return;
+    setIsPrinting(true);
+    setPrintError(null);
+    const settings = loadPrinterSettings();
+
+    const invoiceData: InvoiceData = {
+      invoiceNumber: lastInvoice.invoiceNumber,
+      orderId: lastInvoice.id,
+      orderType: lastInvoice.orderType,
+      tableNo: lastInvoice.orderType === 'Dine In' ? lastInvoice.table : undefined,
+      customerName: lastInvoice.customer || undefined,
+      cashierName: POS_USER,
+      dateTime: lastInvoice.time,
+      items: lastInvoice.items.map(c => ({
+        name: c.item.name,
+        quantity: c.quantity,
+        price: c.item.price,
+        variant: c.variant,
+      })),
+      subtotal: lastInvoice.sub,
+      discount: lastInvoice.disc,
+      total: lastInvoice.total,
+      paymentMethod: lastInvoice.method,
+      amountPaid: lastInvoice.method === 'Cash' ? lastInvoice.total + lastInvoice.change : lastInvoice.total,
+      change: lastInvoice.change,
+    };
+
+    const result = await printerService.printKOT(invoiceData, settings);
+    setIsPrinting(false);
+
+    if (!result.success) {
+      setPrintError(result.error || 'Failed to print KOT');
+      return;
+    }
+
+    setHoldOrders(prev => [{ 
+      id: lastInvoice.id, 
+      label: `Order ${lastInvoice.invoiceNumber} — ${lastInvoice.orderType}`, 
+      cart: lastInvoice.items, 
+      orderType: lastInvoice.orderType, 
+      tableNo: lastInvoice.table, 
+      createdAt: Date.now(),
+      invoiceNumber: lastInvoice.invoiceNumber
+    }, ...prev]);
+
+    setIsPreview(false);
+    setShowInvoice(false);
+    clearCart();
+    setCashTendered('');
   };
 
   // ── Print receipt helper ──────────────────────────────────────────────────
@@ -767,30 +864,58 @@ export function POS() {
             </div>
           )}
 
-          <div className="flex gap-2 mt-4 pos-invoice-buttons">
-            <button
-              onClick={() => handlePrintReceipt(lastInvoice, false)}
-              disabled={isPrinting}
-              className="flex-1 py-3 rounded text-sm font-bold flex items-center justify-center gap-2 transition-all hover:bg-gray-100 disabled:opacity-50"
-              style={{ border: `1.5px solid #000`, color: '#000' }}
-            >
-              {isPrinting ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}
-              {isPrinting ? 'Printing…' : 'Print Receipt'}
-            </button>
-            {isCash && (
-              <button
-                onClick={() => printerService.openCashDrawer(settings)}
-                className="py-3 px-3 rounded text-sm font-bold flex items-center justify-center gap-1 transition-all"
-                style={{ border: '1.5px solid #16A34A', color: '#16A34A', whiteSpace: 'nowrap' }}
-                title="Open Cash Drawer"
-              >
-                <Receipt size={14} /> Drawer
-              </button>
+          <div className="flex flex-col gap-2 mt-4 pos-invoice-buttons">
+            {isPreview ? (
+              <>
+                <button
+                  onClick={printKOTAndHold}
+                  disabled={isPrinting}
+                  className="w-full py-3 rounded text-sm font-bold flex items-center justify-center gap-2 transition-all hover:bg-orange-600 disabled:opacity-50 text-white"
+                  style={{ background: '#EA580C' }}
+                >
+                  {isPrinting ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+                  Print KOT & Hold
+                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => { setShowInvoice(false); setIsPreview(false); }} className="flex-1 py-3 rounded text-sm font-bold text-gray-700 transition-all hover:bg-gray-200" style={{ border: '1.5px solid #E5E7EB' }}>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={completePaymentFinal}
+                    className="flex-[2] py-3 rounded text-sm font-bold text-white transition-all hover:bg-green-700"
+                    style={{ background: '#16A34A' }}
+                  >
+                    Complete Payment
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex gap-2 w-full">
+                <button
+                  onClick={() => handlePrintReceipt(lastInvoice, false)}
+                  disabled={isPrinting}
+                  className="flex-1 py-3 rounded text-sm font-bold flex items-center justify-center gap-2 transition-all hover:bg-gray-100 disabled:opacity-50"
+                  style={{ border: `1.5px solid #000`, color: '#000' }}
+                >
+                  {isPrinting ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+                  {isPrinting ? 'Printing…' : 'Print Receipt'}
+                </button>
+                {isCash && (
+                  <button
+                    onClick={() => printerService.openCashDrawer(settings)}
+                    className="py-3 px-3 rounded text-sm font-bold flex items-center justify-center gap-1 transition-all"
+                    style={{ border: '1.5px solid #16A34A', color: '#16A34A', whiteSpace: 'nowrap' }}
+                    title="Open Cash Drawer"
+                  >
+                    <Receipt size={16} /> Drawer
+                  </button>
+                )}
+                <button onClick={() => { setShowInvoice(false); setPrintError(null); setPrintSuccess(false); setIsPreview(false); }} className="flex-1 py-3 rounded text-sm font-bold text-white transition-all hover:bg-gray-800"
+                  style={{ background: '#000' }}>
+                  New Order
+                </button>
+              </div>
             )}
-            <button onClick={() => { setShowInvoice(false); setPrintError(null); setPrintSuccess(false); }} className="flex-1 py-3 rounded text-sm font-bold text-white transition-all hover:bg-gray-800"
-              style={{ background: '#000' }}>
-              New Order
-            </button>
           </div>
         </div>
       </div>
@@ -1168,7 +1293,7 @@ export function POS() {
                   style={{ border: `1.5px solid #E5E7EB`, color: '#6B7280', fontFamily: 'var(--font-heading)' }}>
                   <Pause size={12} /> Hold
                 </button>
-                <button onClick={completePay}
+                <button onClick={previewCheckout}
                   className="flex-[2] py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 hover:shadow-lg"
                   style={{ background: `linear-gradient(135deg,${PZ},${PZD})`, fontFamily: 'var(--font-heading)' }}>
                   <Receipt size={14} /> Pay ৳{total.toLocaleString()}

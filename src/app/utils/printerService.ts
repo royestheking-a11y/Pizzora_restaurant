@@ -398,6 +398,139 @@ class QZTrayService {
     }
   }
 
+  // ─── Kitchen Order Ticket (KOT) Builder ──────────────────────────────────────
+  buildKOTData(invoice: InvoiceData, settings: PrinterSettings): (string | { hex: string })[] {
+    const width = settings.paperWidth === '58mm' ? 32 : 48;
+    const sep = '-'.repeat(width);
+    const dbl = '='.repeat(width);
+
+    const padRight = (s: string, len: number) => s.padEnd(len, ' ').slice(0, Math.max(len, s.length));
+    const padLeft = (s: string, len: number) => s.padStart(len, ' ').slice(-Math.max(len, s.length));
+
+    const data: (string | { hex: string })[] = [];
+
+    // Init
+    data.push(...this.init());
+
+    // Header
+    data.push(...this.align('center'));
+    data.push(...this.bold(true));
+    data.push(...this.fontSize(2, 2));
+    data.push('*** KITCHEN TICKET ***\n');
+    data.push(...this.fontSize(1, 1));
+    data.push(...this.bold(false));
+
+    data.push(dbl + '\n');
+
+    // Order info
+    data.push(...this.align('left'));
+    data.push(...this.bold(true));
+    data.push(...this.fontSize(1, 2));
+    if (invoice.orderType === 'Dine In' && invoice.tableNo) {
+      data.push(`TABLE: ${invoice.tableNo}\n`);
+    } else {
+      data.push(`${invoice.orderType.toUpperCase()}\n`);
+    }
+    data.push(...this.fontSize(1, 1));
+    data.push(...this.bold(false));
+    data.push(`Order      : ${invoice.invoiceNumber}\n`);
+    data.push(`Time       : ${invoice.dateTime}\n`);
+    
+    data.push(sep + '\n');
+
+    // Column header
+    const qLen = 6;
+    const nameLen = width - qLen - 1;
+    data.push(...this.bold(true));
+    data.push(`${padRight('Qty', qLen)} ${padRight('Item', nameLen)}\n`);
+    data.push(...this.bold(false));
+    data.push(sep + '\n');
+
+    // Items
+    for (const item of invoice.items) {
+      const qtyStr = `[ ${item.quantity} ]`;
+      let namePart = item.variant ? `${item.name} (${item.variant})` : item.name;
+      namePart = namePart.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+      // Handle long names with wrapping
+      const chunks: string[] = [];
+      let remaining = namePart;
+      while (remaining.length > nameLen) {
+        chunks.push(remaining.slice(0, nameLen));
+        remaining = remaining.slice(nameLen);
+      }
+      chunks.push(remaining);
+
+      data.push(...this.bold(true));
+      data.push(...this.fontSize(1, 2)); // Slightly larger items
+      const firstLine = `${padRight(qtyStr, qLen)} ${padRight(chunks[0], nameLen)}\n`;
+      data.push(firstLine);
+      for (let i = 1; i < chunks.length; i++) {
+        data.push(`${' '.repeat(qLen + 1)}${padRight(chunks[i], nameLen)}\n`);
+      }
+      data.push(...this.fontSize(1, 1));
+      data.push(...this.bold(false));
+      
+      // If there's a note on the item
+      const specialNote = (item as any).specialRequest || (item as any).note;
+      if (specialNote) {
+        data.push(...this.bold(true));
+        data.push(`  ** Note: ${specialNote} **\n`);
+        data.push(...this.bold(false));
+      }
+      data.push('\n'); // blank line between items
+    }
+
+    data.push(dbl + '\n');
+    data.push(...this.lineBreak(4));
+
+    // Cut paper
+    data.push(...this.cutPaper());
+
+    return data;
+  }
+
+  // ─── Print KOT Method ────────────────────────────────────────────────────────
+  async printKOT(
+    invoice: InvoiceData,
+    settings?: PrinterSettings
+  ): Promise<{ success: boolean; error?: string }> {
+    const s = settings || loadPrinterSettings();
+
+    if (!s.printerName) {
+      return { success: false, error: 'No printer selected. Please configure printer in Settings.' };
+    }
+
+    if (this.status !== 'online') {
+      const connected = await this.connect();
+      if (!connected) {
+        return { success: false, error: 'QZ Tray is not running. Please start QZ Tray on this computer.' };
+      }
+    }
+
+    try {
+      const qz = this.qz as any;
+      const config = qz.configs.create(s.printerName, {
+        copies: 1, // KOT usually printed once
+        encoding: 'UTF-8',
+      });
+
+      const receiptData = this.buildKOTData(invoice, s);
+
+      const printData = receiptData.map(item =>
+        typeof item === 'object' && 'hex' in item
+          ? { type: 'raw', format: 'hex', data: item.hex }
+          : { type: 'raw', format: 'plain', data: item }
+      );
+
+      await qz.print(config, printData);
+      return { success: true };
+    } catch (err: any) {
+      console.error('[QZ Tray] KOT Print error:', err);
+      return { success: false, error: err?.message || 'Unknown print error' };
+    }
+  }
+
   // ─── Cash Drawer ─────────────────────────────────────────────────────────────
   async openCashDrawer(settings?: PrinterSettings): Promise<{ success: boolean; error?: string }> {
     const s = settings || loadPrinterSettings();
