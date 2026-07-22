@@ -949,7 +949,7 @@ function QuickReservationForm() {
             value={form.date}
             onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
             style={inputStyle}
-            min={new Date().toISOString().split('T')[0]}
+            min={new Date().toLocaleDateString('en-CA')}
           />
         </div>
         <div>

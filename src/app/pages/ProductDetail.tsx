@@ -80,7 +80,7 @@ export function ProductDetail() {
       name: newReview.name.trim(),
       rating: newReview.rating,
       comment: newReview.comment.trim(),
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toLocaleDateString('en-CA'),
       helpful: 0,
     };
     dispatch({ type: 'ADD_REVIEW', payload: review });

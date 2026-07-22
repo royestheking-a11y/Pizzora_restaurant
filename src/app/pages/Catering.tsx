@@ -223,7 +223,7 @@ export function Catering() {
                     placeholder={placeholder}
                     value={form[field as keyof typeof form]}
                     onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
-                    min={type === 'date' ? new Date().toISOString().split('T')[0] : undefined}
+                    min={type === 'date' ? new Date().toLocaleDateString('en-CA') : undefined}
                     style={{
                       width: '100%',
                       padding: '12px 16px',

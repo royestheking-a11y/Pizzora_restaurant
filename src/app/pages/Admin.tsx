@@ -722,7 +722,7 @@ function LiveTopStats({ orders, expenses }: { orders: any[], expenses: any[] }) 
   const totalSell = todaysOrders.reduce((sum, o) => sum + o.total, 0);
 
   React.useEffect(() => {
-    const todayStr = startOfToday.toISOString().split('T')[0];
+    const todayStr = startOfToday.toLocaleDateString('en-CA');
     const todaysExpenses = expenses.filter(e => e.date === todayStr).reduce((s, e) => s + e.amount, 0);
     setTotalEarn(totalSell - todaysExpenses);
   }, [totalSell, expenses, now.getMinutes()]); // Update every minute to catch new expenses
@@ -922,10 +922,12 @@ export function Admin() {
 
   const bkashOrders  = completedUnifiedOrders.filter(o => o.paymentMethod === 'bKash');
   const nagadOrders  = completedUnifiedOrders.filter(o => o.paymentMethod === 'Nagad');
-  const codOrders    = completedUnifiedOrders.filter(o => o.paymentMethod === 'Cash on Delivery' || o.paymentMethod === 'At Table');
+  const cashOrders   = completedUnifiedOrders.filter(o => o.paymentMethod === 'Cash on Delivery' || o.paymentMethod === 'At Table' || o.paymentMethod === 'Cash');
+  const cardOrders   = completedUnifiedOrders.filter(o => o.paymentMethod === 'Card');
   const bkashTotal   = bkashOrders.reduce((s, o) => s + o.total, 0);
   const nagadTotal   = nagadOrders.reduce((s, o) => s + o.total, 0);
-  const codTotal     = codOrders.reduce((s, o) => s + o.total, 0);
+  const cashTotal    = cashOrders.reduce((s, o) => s + o.total, 0);
+  const cardTotal    = cardOrders.reduce((s, o) => s + o.total, 0);
 
   const weekDays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const weeklyBreakdown = weekDays.map((day, i) => {
@@ -1655,6 +1657,17 @@ export function Admin() {
                 totalSales = filteredOrders.reduce((sum, o) => sum + o.total, 0);
                 totalOrders = filteredOrders.length;
 
+                const renderCustomBarLabel = (props: any) => {
+                  const { x, y, width, index } = props;
+                  const orders = chartData[index]?.orders || 0;
+                  if (!orders) return <g></g>;
+                  return (
+                    <text x={x + width / 2} y={y - 8} fill="#9CA3AF" fontSize={10} fontWeight={600} textAnchor="middle">
+                      {orders} ord
+                    </text>
+                  );
+                };
+
                 return (
                   <div>
                     <div className="grid grid-cols-2 gap-4 mb-8">
@@ -1680,7 +1693,7 @@ export function Admin() {
                             labelStyle={{ fontWeight: 700, color: '#111', marginBottom: '4px' }}
                             formatter={(value: any, name: any, props: any) => [`৳${value} (${props.payload.orders} orders)`, 'Sales']}
                           />
-                          <Bar dataKey="sales" name="Sales (৳)" fill="#F9002B" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                          <Bar dataKey="sales" name="Sales (৳)" fill="#F9002B" radius={[4, 4, 0, 0]} maxBarSize={40} label={renderCustomBarLabel} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -2345,8 +2358,9 @@ export function Admin() {
                   <div className="space-y-5">
                     {[
                       { label: 'bKash', orders: bkashOrders.length, total: bkashTotal, color: '#E2136E', bg: '#FDF0F6', iconBg: 'rgba(226,19,110,0.12)', Icon: Smartphone },
-                      { label: 'Nagad', orders: nagadOrders.length, total: nagadTotal, color: '#F7941D', bg: '#FFF4E8', iconBg: 'rgba(247,148,29,0.12)', Icon: CreditCard },
-                      { label: 'Cash on Delivery', orders: codOrders.length, total: codTotal, color: '#16A34A', bg: '#F0FDF4', iconBg: 'rgba(22,163,74,0.12)', Icon: Banknote },
+                      { label: 'Nagad', orders: nagadOrders.length, total: nagadTotal, color: '#F7941D', bg: '#FFF4E8', iconBg: 'rgba(247,148,29,0.12)', Icon: Smartphone },
+                      { label: 'Cash / COD', orders: cashOrders.length, total: cashTotal, color: '#16A34A', bg: '#F0FDF4', iconBg: 'rgba(22,163,74,0.12)', Icon: Banknote },
+                      { label: 'Card', orders: cardOrders.length, total: cardTotal, color: '#2563EB', bg: '#DBEAFE', iconBg: 'rgba(37,99,235,0.12)', Icon: CreditCard },
                     ].map(({ label, orders, total, color, bg, iconBg, Icon }) => {
                       const pct = totalRevenue > 0 ? Math.round((total / totalRevenue) * 100) : 0;
                       return (
@@ -2411,6 +2425,8 @@ export function Admin() {
                           'Nagad':             { color: '#F7941D', bg: '#FFF4E8' },
                           'Cash on Delivery':  { color: '#16A34A', bg: '#F0FDF4' },
                           'At Table':          { color: '#2563EB', bg: '#DBEAFE' },
+                          'Cash':              { color: '#16A34A', bg: '#F0FDF4' },
+                          'Card':              { color: '#2563EB', bg: '#DBEAFE' },
                         };
                         const mc = methodColors[order.paymentMethod] || { color: '#6B7280', bg: '#F3F4F6' };
                         return (

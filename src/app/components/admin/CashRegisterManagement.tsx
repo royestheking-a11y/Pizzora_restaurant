@@ -36,6 +36,7 @@ export function CashRegisterManagement() {
     const start = new Date(activeSession.openedAt).getTime();
     
     const sessionOrders = state.orders.filter(o => new Date(o.createdAt).getTime() >= start);
+    const sessionTableOrders = (state.tableOrders || []).filter(o => o.createdAt >= start && o.status === 'Paid');
     
     sessionOrders.forEach(o => {
       const amount = o.total;
@@ -46,6 +47,11 @@ export function CashRegisterManagement() {
       else if (method === 'nagad') breakdown.nagad += amount;
       else if (method === 'card') breakdown.card += amount;
       else breakdown.other += amount;
+    });
+
+    sessionTableOrders.forEach(o => {
+      breakdown.total += o.total;
+      breakdown.cash += o.total; // Default Dine-In to Cash since they pay at counter
     });
     return breakdown;
   };
@@ -61,7 +67,7 @@ export function CashRegisterManagement() {
 
     const newSession: CashRegisterEntry = {
       id: `CS-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toLocaleDateString('en-CA'),
       openedAt: new Date().toISOString(),
       closedAt: null,
       openingBalance: balance,

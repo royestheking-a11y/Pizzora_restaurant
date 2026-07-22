@@ -50,7 +50,7 @@ export function ExpenseManagement() {
   const [selectedCategory, setSelectedCategory] = useState('Utilities');
   const [form, setForm] = useState<Omit<ExpenseEntry, 'id'>>({
     category: 'Utilities', subcategory: 'Electricity', amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toLocaleDateString('en-CA'),
     paymentMethod: 'Cash', description: '', invoiceNo: '',
   });
 
@@ -82,7 +82,7 @@ export function ExpenseManagement() {
   });
 
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-  const thisMonth = expenses.filter(e => e.date.startsWith(new Date().toISOString().slice(0, 7))).reduce((s, e) => s + e.amount, 0);
+  const thisMonth = expenses.filter(e => e.date.startsWith(new Date().toLocaleDateString('en-CA').slice(0, 7))).reduce((s, e) => s + e.amount, 0);
   const byCategory = Object.keys(EXPENSE_CATEGORIES).map(cat => ({
     cat, total: expenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0),
   })).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
@@ -140,7 +140,7 @@ export function ExpenseManagement() {
               {Object.keys(EXPENSE_CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <button
-              onClick={() => { setEditing(null); setForm({ category:'Utilities', subcategory:'Electricity', amount:0, date:new Date().toISOString().split('T')[0], paymentMethod:'Cash', description:'', invoiceNo:'' }); setSelectedCategory('Utilities'); setShowForm(true); }}
+              onClick={() => { setEditing(null); setForm({ category:'Utilities', subcategory:'Electricity', amount:0, date:new Date().toLocaleDateString('en-CA'), paymentMethod:'Cash', description:'', invoiceNo:'' }); setSelectedCategory('Utilities'); setShowForm(true); }}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-bold whitespace-nowrap"
               style={{ background: `linear-gradient(135deg,${PZ},${PZD})`, fontFamily: 'var(--font-heading)' }}>
               <Plus size={14} /> Add Expense

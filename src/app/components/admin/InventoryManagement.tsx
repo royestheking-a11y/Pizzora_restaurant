@@ -72,7 +72,7 @@ export function InventoryManagement() {
     dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: { ...item, currentStock: Math.max(0, item.currentStock + delta) } });
     const m: StockMovement = {
       id: `mv-${Date.now()}`, itemId: movementItem, itemName: item.name,
-      type: movementType, quantity: qty, date: new Date().toISOString().split('T')[0], note: movementNote,
+      type: movementType, quantity: qty, date: new Date().toLocaleDateString('en-CA'), note: movementNote,
     };
     dispatch({ type: 'ADD_STOCK_MOVEMENT', payload: m });
     setShowMovementForm(false); setMovementQty(''); setMovementNote(''); setMovementItem('');

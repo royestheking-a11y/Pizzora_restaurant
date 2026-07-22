@@ -189,6 +189,14 @@ const CashRegisterEntrySchema = new mongoose.Schema({
   bankDeposit: Number,
   shoppingCash: Number,
   status: String,
+  salesBreakdown: {
+    cash: Number,
+    bkash: Number,
+    nagad: Number,
+    card: Number,
+    other: Number,
+    total: Number,
+  },
 }, { strict: true });
 
 const InventoryItemSchema = new mongoose.Schema({

@@ -163,7 +163,7 @@ export function POS() {
     if (isNaN(balance) || balance < 0) return alert('Enter a valid amount');
     dispatch({ type: 'ADD_CASH_ENTRY', payload: {
       id: `CS-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toLocaleDateString('en-CA'),
       openedAt: new Date().toISOString(),
       closedAt: null,
       openingBalance: balance,

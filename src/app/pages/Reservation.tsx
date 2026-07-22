@@ -195,7 +195,7 @@ export function Reservation() {
                     required
                     value={form.date}
                     onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={new Date().toLocaleDateString('en-CA')}
                     style={inputCls}
                   />
                 </div>

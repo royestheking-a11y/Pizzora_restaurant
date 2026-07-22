@@ -874,18 +874,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       for (let i = 0; i < queue.length; i++) {
         const action = queue[i];
         let success = false;
+        let discard = false;
         
         if (socket && socket.connected && state.isSocketConnected) {
-          success = await new Promise((resolve) => {
-            socket!.emit('DISPATCH_ACTION', action, (res: any) => resolve(res && res.success));
+          const res: any = await new Promise((resolve) => {
+            // Include a timeout just in case the server never responds
+            const timeoutId = setTimeout(() => resolve({ success: false, discard: false }), 5000);
+            socket!.emit('DISPATCH_ACTION', action, (res: any) => {
+              clearTimeout(timeoutId);
+              resolve(res || { success: false });
+            });
           });
+          success = res.success;
+          discard = res.discard;
         } else {
           try {
             const headers: Record<string, string> = { 'Content-Type': 'application/json' };
             const token = sessionStorage.getItem('pizzora_token');
-            if (token) {
-              headers['Authorization'] = `Bearer ${token}`;
-            }
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            
             const res = await fetch(`${SOCKET_URL}/api/dispatch`, {
               method: 'POST',
               headers,
@@ -893,18 +900,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
             });
             const data = await res.json();
             success = data.success;
+            discard = data.discard;
           } catch (err) {
             success = false;
+            discard = false; // Network error, do not discard
           }
         }
         
-        if (success) {
-          successCount++;
+        if (success || discard) {
+          if (success) successCount++;
+          if (discard) console.warn('Discarding permanently failed offline action:', action.type);
           newQueue = newQueue.filter(a => a !== action);
           localStorage.setItem('pizzora_offline_queue', JSON.stringify(newQueue));
         } else {
-          console.error('Failed to sync offline action:', action.type);
-          break; // stop processing if one fails (likely still offline)
+          console.error('Failed to sync offline action, stopping queue processing:', action.type);
+          break; // stop processing if one fails due to network
         }
       }
       

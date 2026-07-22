@@ -295,7 +295,7 @@ io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
   if (token) {
     jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, user) => {
-      if (!err && user && user.role === 'admin') {
+      if (!err && user && (user.role === 'admin' || user.role === 'manager')) {
         socket.isAdmin = true;
         socket.join('adminRoom');
       } else {
@@ -313,6 +313,11 @@ const publicActions = [
   'PLACE_ORDER', 'PLACE_TABLE_ORDER', 'ADD_RESERVATION', 'ADD_MESSAGE',
   'ADD_CATERING', 'ADD_REVIEW', 'HELPFUL_REVIEW', 'SET_TABLE_STATUS'
 ];
+
+function checkPermanentError(err) {
+  const msg = err.message || '';
+  return msg.includes('E11000') || msg.includes('validation failed') || msg.includes('Invalid ID format') || msg.includes('Unauthorized');
+}
 
 async function processDbAction(action) {
   // Prevent NoSQL Injection (skip for actions with non-id payloads)
@@ -514,6 +519,16 @@ app.post('/api/dispatch', async (req, res) => {
         console.warn(`Unauthorized HTTP action attempt: ${action.type}`);
         return res.status(401).json({ success: false, error: 'Unauthorized' });
       }
+      
+      const token = authHeader.split(' ')[1];
+      try {
+        const user = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+        if (user.role !== 'admin' && user.role !== 'manager') {
+          return res.status(403).json({ success: false, error: 'Forbidden' });
+        }
+      } catch (err) {
+        return res.status(403).json({ success: false, error: 'Invalid token' });
+      }
     }
 
     await processDbAction(action);
@@ -521,7 +536,7 @@ app.post('/api/dispatch', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error("HTTP DB Error on action:", req.body?.action?.type, error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: error.message, discard: checkPermanentError(error) });
   }
 });
 
@@ -545,7 +560,7 @@ io.on('connection', (socket) => {
       if (typeof callback === 'function') callback({ success: true });
     } catch (dbError) {
       console.error("DB Error on action:", action.type, dbError);
-      if (typeof callback === 'function') callback({ success: false, error: dbError.message });
+      if (typeof callback === 'function') callback({ success: false, error: dbError.message, discard: checkPermanentError(dbError) });
     }
   });
 
