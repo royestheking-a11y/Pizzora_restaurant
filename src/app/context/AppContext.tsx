@@ -953,13 +953,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setTimeout(processOfflineQueue, 1500);
     }
 
-    // Fetch absolute state from MongoDB on mount
-    fetch(`${SOCKET_URL}/api/state/public`)
+    // Fetch absolute state from MongoDB on mount (with cache-busting)
+    fetch(`${SOCKET_URL}/api/state/public?_t=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(publicData => {
         if (token) {
-          return fetch(`${SOCKET_URL}/api/state/admin`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+          return fetch(`${SOCKET_URL}/api/state/admin?_t=${Date.now()}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            cache: 'no-store'
           })
             .then(res => {
               if (!res.ok) {
