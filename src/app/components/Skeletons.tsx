@@ -153,3 +153,17 @@ export const HeroSkeleton = () => {
     </div>
   );
 };
+
+/**
+ * Matches the Chart area used in the Sales Report
+ */
+export const ChartSkeleton = () => {
+  const heights = [40, 70, 45, 90, 65, 80, 50];
+  return (
+    <div className="w-full h-[350px] flex items-end justify-between px-4 pb-8 pt-4 gap-4" style={{ borderBottom: '1px dashed #E5E7EB' }}>
+      {heights.map((h, i) => (
+        <SkeletonBase key={i} className="w-full rounded-t-md" style={{ height: `${h}%`, maxWidth: '40px' }} />
+      ))}
+    </div>
+  );
+};

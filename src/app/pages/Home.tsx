@@ -165,7 +165,7 @@ export function Home() {
                       alt={slide.title || `Slide ${index + 1}`}
                       title={slide.title || `Slide ${index + 1}`}
                       loading={index === 0 ? 'eager' : 'lazy'}
-                      fetchpriority={index === 0 ? 'high' : 'low'}
+                      fetchPriority={index === 0 ? 'high' : 'auto'}
                       className={`w-full h-full object-cover transition-transform duration-[10000ms] ease-linear ${
                         isMounted && currentSlide === index ? 'scale-110' : 'scale-100'
                       }`}
@@ -793,7 +793,7 @@ export function Home() {
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 rounded-2xl overflow-hidden shadow-xl" style={{ height: '380px' }}>
               <iframe
-                src="https://maps.google.com/maps?q=WV4P%2B3H,%20Sylhet&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                src="https://maps.google.com/maps?q=WV46%2BW8,%20Sylhet&t=&z=15&ie=UTF8&iwloc=&output=embed"
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}

@@ -117,7 +117,7 @@ export function Footer() {
             <h3 style={{ color: PZ, fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '16px', letterSpacing: '1px', marginBottom: '16px' }}>Contact</h3>
             <div className="space-y-4">
               {[
-                { icon: MapPin, text: 'Subidbazar Point, Mitali Complex, Sylhet 3100' },
+                { icon: MapPin, text: 'Subidbazar Point, Mitali Complex, Sylhet, Bangladesh' },
                 { icon: Phone,  text: '+8801620026649' },
                 { icon: Mail,   text: 'pizzora1@gmail.com' },
                 { icon: Clock,  text: 'All Week: 11 AM – 11 PM' },

@@ -25,12 +25,13 @@ import { PrinterSettings } from '../components/admin/PrinterSettings';
 import { ReprintSystem } from '../components/admin/ReprintSystem';
 import { RoleManagement } from '../components/admin/RoleManagement';
 import { Printer, RotateCcw } from 'lucide-react';
-import { AdminStatSkeleton, AdminListSkeleton, TableRowSkeleton, POSCardSkeleton } from '../components/Skeletons';
+import { AdminStatSkeleton, AdminListSkeleton, TableRowSkeleton, POSCardSkeleton, ChartSkeleton } from '../components/Skeletons';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Mock auth - replaced by real auth
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AdminTab = 'dashboard' | 'orders' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles';
+type AdminTab = 'dashboard' | 'sales' | 'orders' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles';
 
 // ─── Input Style Helper ────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
@@ -791,6 +792,9 @@ export function Admin() {
   // Gallery sub-tab
   const [gallerySubTab, setGallerySubTab] = useState<'gallery' | 'carousel'>('gallery');
 
+  // Sales filter state
+  const [salesFilter, setSalesFilter] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
+
   // Print Order State
   const [printOrder, setPrintOrder] = useState<any | null>(null);
 
@@ -936,6 +940,7 @@ export function Admin() {
 
   const sidebarItems: { id: AdminTab; icon: typeof LayoutDashboard; label: string; badge?: number }[] = [
     { id: 'dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
+    { id: 'sales',        icon: TrendingUp,      label: 'Sales Report' },
     { id: 'orders',       icon: ShoppingBag,     label: 'Orders',           badge: pendingOrders },
     { id: 'reservations', icon: Calendar,        label: 'Reservations',     badge: pendingReservations },
     { id: 'tables',       icon: LayoutGrid,      label: 'Table Management', badge: pendingTableOrders },
@@ -1518,6 +1523,170 @@ export function Admin() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ══ SALES REPORT ═════════════════════════════════════ */}
+          {activeTab === 'sales' && (
+            <div className="bg-white p-6 rounded-2xl shadow-sm overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+              <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+                <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '20px', color: '#111' }}>Sales Analytics</h2>
+                <div className="flex bg-gray-100/80 p-1 rounded-xl">
+                  {(['daily', 'weekly', 'monthly', 'yearly'] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setSalesFilter(f)}
+                      className="px-4 py-1.5 rounded-lg text-[13px] font-bold capitalize transition-all"
+                      style={{
+                        backgroundColor: salesFilter === f ? '#fff' : 'transparent',
+                        color: salesFilter === f ? '#F9002B' : '#6B7280',
+                        boxShadow: salesFilter === f ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                        fontFamily: 'var(--font-heading)'
+                      }}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Data Calculation */}
+              {state.isInitialLoading ? (
+                <div>
+                  <div className="grid grid-cols-2 gap-4 mb-8">
+                    <AdminStatSkeleton />
+                    <AdminStatSkeleton />
+                  </div>
+                  <ChartSkeleton />
+                </div>
+              ) : (() => {
+                const now = new Date();
+                let filteredOrders = completedUnifiedOrders;
+                let chartData: any[] = [];
+                let totalSales = 0;
+                let totalOrders = 0;
+
+                if (salesFilter === 'daily') {
+                  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfDay);
+                  
+                  const hours = Array.from({length: 24}, (_, i) => ({ name: `${i}:00`, sales: 0, orders: 0 }));
+                  filteredOrders.forEach(o => {
+                    const h = new Date(o.timestamp).getHours();
+                    hours[h].sales += o.total;
+                    hours[h].orders += 1;
+                  });
+                  chartData = hours.filter(h => h.sales > 0 || (parseInt(h.name) >= 8 && parseInt(h.name) <= 23));
+                } else if (salesFilter === 'weekly') {
+                  const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+                  startOfWeek.setHours(0, 0, 0, 0);
+                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfWeek.getTime());
+                  
+                  const days = Array.from({length: 7}, (_, i) => {
+                    const date = new Date(startOfWeek);
+                    date.setDate(date.getDate() + i);
+                    return {
+                      name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' }),
+                      sales: 0,
+                      orders: 0,
+                      dayIndex: date.getDay()
+                    };
+                  });
+                  filteredOrders.forEach(o => {
+                    const d = new Date(o.timestamp).getDay();
+                    const day = days.find(x => x.dayIndex === d);
+                    if (day) {
+                      day.sales += o.total;
+                      day.orders += 1;
+                    }
+                  });
+                  chartData = days;
+                } else if (salesFilter === 'monthly') {
+                  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                  startOfMonth.setHours(0, 0, 0, 0);
+                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfMonth.getTime());
+                  
+                  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                  const days = Array.from({length: daysInMonth}, (_, i) => {
+                    const date = new Date(startOfMonth);
+                    date.setDate(i + 1);
+                    return {
+                      name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                      sales: 0,
+                      orders: 0,
+                      dateIndex: i + 1
+                    };
+                  });
+                  filteredOrders.forEach(o => {
+                    const d = new Date(o.timestamp).getDate();
+                    const day = days.find(x => x.dateIndex === d);
+                    if (day) {
+                      day.sales += o.total;
+                      day.orders += 1;
+                    }
+                  });
+                  chartData = days;
+                } else if (salesFilter === 'yearly') {
+                  const startOfYear = new Date(now.getFullYear(), 0, 1);
+                  startOfYear.setHours(0, 0, 0, 0);
+                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfYear.getTime());
+                  
+                  const months = Array.from({length: 12}, (_, i) => {
+                    const date = new Date(startOfYear);
+                    date.setMonth(i);
+                    return {
+                      name: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+                      sales: 0,
+                      orders: 0,
+                      monthIndex: i
+                    };
+                  });
+                  filteredOrders.forEach(o => {
+                    const m = new Date(o.timestamp).getMonth();
+                    const month = months.find(x => x.monthIndex === m);
+                    if (month) {
+                      month.sales += o.total;
+                      month.orders += 1;
+                    }
+                  });
+                  chartData = months;
+                }
+
+                totalSales = filteredOrders.reduce((sum, o) => sum + o.total, 0);
+                totalOrders = filteredOrders.length;
+
+                return (
+                  <div>
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                      <div className="p-4 rounded-xl" style={{ backgroundColor: '#FFF1F2', border: '1px solid rgba(249,0,43,0.1)' }}>
+                        <p style={{ fontSize: '12px', color: '#F9002B', fontFamily: 'var(--font-heading)', fontWeight: 700, textTransform: 'uppercase' }}>Total Sales ({salesFilter})</p>
+                        <p style={{ fontSize: '28px', fontWeight: 800, color: '#111', fontFamily: 'var(--font-heading)', marginTop: '4px' }}>৳{totalSales.toLocaleString()}</p>
+                      </div>
+                      <div className="p-4 rounded-xl" style={{ backgroundColor: '#F0FDF4', border: '1px solid rgba(22,163,74,0.1)' }}>
+                        <p style={{ fontSize: '12px', color: '#16A34A', fontFamily: 'var(--font-heading)', fontWeight: 700, textTransform: 'uppercase' }}>Total Orders ({salesFilter})</p>
+                        <p style={{ fontSize: '28px', fontWeight: 800, color: '#111', fontFamily: 'var(--font-heading)', marginTop: '4px' }}>{totalOrders}</p>
+                      </div>
+                    </div>
+                    
+                    <div style={{ width: '100%', height: 350 }}>
+                      <ResponsiveContainer>
+                        <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6B7280', fontFamily: 'var(--font-body)' }} dy={10} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6B7280', fontFamily: 'var(--font-body)' }} tickFormatter={(val) => `৳${val}`} />
+                          <Tooltip 
+                            cursor={{ fill: 'rgba(249,0,43,0.04)' }}
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                            labelStyle={{ fontWeight: 700, color: '#111', marginBottom: '4px' }}
+                            formatter={(value: any, name: any, props: any) => [`৳${value} (${props.payload.orders} orders)`, 'Sales']}
+                          />
+                          <Bar dataKey="sales" name="Sales (৳)" fill="#F9002B" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

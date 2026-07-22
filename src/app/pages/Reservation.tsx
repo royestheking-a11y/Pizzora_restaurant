@@ -281,7 +281,7 @@ export function Reservation() {
           </div>
           <div className="rounded-3xl overflow-hidden shadow-xl" style={{ height: '400px' }}>
             <iframe
-              src="https://maps.google.com/maps?q=WV4P%2B3H,%20Sylhet&t=&z=15&ie=UTF8&iwloc=&output=embed"
+              src="https://maps.google.com/maps?q=WV46%2BW8,%20Sylhet&t=&z=15&ie=UTF8&iwloc=&output=embed"
               width="100%"
               height="100%"
               style={{ border: 0 }}

@@ -412,7 +412,20 @@ class QZTrayService {
     // Init
     data.push(...this.init());
 
-    // Header
+    // Header (Address & Info)
+    data.push(...this.align('center'));
+    data.push(...this.bold(true));
+    data.push(...this.fontSize(1, 2));
+    data.push('PIZZORA RESTAURANT\n');
+    data.push(...this.fontSize(1, 1));
+    data.push(...this.bold(false));
+    data.push('Subidbazar Point, Mitali Complex\n');
+    data.push('Sylhet, Bangladesh\n');
+    data.push('Tel: 01620026649\n');
+
+    data.push(dbl + '\n');
+
+    // KOT Title
     data.push(...this.align('center'));
     data.push(...this.bold(true));
     data.push(...this.fontSize(2, 2));
@@ -435,7 +448,7 @@ class QZTrayService {
     data.push(...this.bold(false));
     data.push(`Order      : ${invoice.invoiceNumber}\n`);
     data.push(`Time       : ${invoice.dateTime}\n`);
-    
+
     data.push(sep + '\n');
 
     // Column header
@@ -470,7 +483,7 @@ class QZTrayService {
       }
       data.push(...this.fontSize(1, 1));
       data.push(...this.bold(false));
-      
+
       // If there's a note on the item
       const specialNote = (item as any).specialRequest || (item as any).note;
       if (specialNote) {
@@ -482,7 +495,15 @@ class QZTrayService {
     }
 
     data.push(dbl + '\n');
-    data.push(...this.lineBreak(4));
+
+    // Footer
+    data.push(...this.align('center'));
+    data.push(...this.lineBreak());
+    data.push(...this.bold(true));
+    data.push('Thank you for dining at Pizzora!\n');
+    data.push(...this.bold(false));
+    data.push('www.rizqara.tech\n');
+    data.push(...this.lineBreak(3));
 
     // Cut paper
     data.push(...this.cutPaper());

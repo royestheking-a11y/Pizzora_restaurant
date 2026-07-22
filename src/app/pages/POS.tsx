@@ -761,7 +761,7 @@ export function POS() {
           }
         `}</style>
 
-        <div className="w-full max-w-sm pos-invoice-container" style={{ backgroundColor: '#fff', color: '#000', fontFamily: 'Arial, sans-serif', padding: '24px', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
+                <div className="w-full max-w-sm pos-invoice-container" style={{ backgroundColor: '#fff', color: '#000', fontFamily: 'Arial, sans-serif', padding: '24px', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '16px' }}>
             <h2 style={{ fontWeight: 'bold', fontSize: '20px', margin: '0 0 4px 0' }}>Pizzora Restaurant</h2>

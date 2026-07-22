@@ -50,7 +50,7 @@ export function Navbar() {
 
             {/* Mobile App-style Location Indicator */}
             <a
-              href="https://maps.google.com/maps?q=WV4P%2B3H,%20Sylhet"
+              href="https://maps.google.com/maps?q=WV46%2BW8,%20Sylhet"
               target="_blank"
               rel="noopener noreferrer"
               className="flex md:hidden items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition-transform"

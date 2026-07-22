@@ -166,7 +166,15 @@ export interface CashRegisterEntry {
   openedAt: string;
   closedAt: string | null;
   openingBalance: number;
-  totalCashSales: number;
+  totalCashSales: number; // legacy/total
+  salesBreakdown?: {
+    cash: number;
+    bkash: number;
+    nagad: number;
+    card: number;
+    other: number;
+    total: number;
+  };
   bankDeposit: number;
   shoppingCash: number;
   status: 'Open' | 'Closed' | string;

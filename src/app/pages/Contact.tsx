@@ -238,7 +238,7 @@ export function Contact() {
       <section id="map" className="px-4 sm:px-6 lg:px-8 pb-14">
         <div className="max-w-6xl mx-auto rounded-[24px] overflow-hidden shadow-xl h-[300px] md:h-[400px]">
           <iframe
-            src="https://maps.google.com/maps?q=WV4P%2B3H,%20Sylhet&t=&z=15&ie=UTF8&iwloc=&output=embed"
+            src="https://maps.google.com/maps?q=WV46%2BW8,%20Sylhet&t=&z=15&ie=UTF8&iwloc=&output=embed"
             width="100%"
             height="100%"
             style={{ border: 0 }}
