@@ -105,10 +105,12 @@ export function KitchenDisplay() {
         body: JSON.stringify(loginForm)
       });
 
-      if (res.ok) {
-        const { token } = await res.json();
+      const data = await res.json();
+      if (res.ok && data.token) {
+        const { token, username } = data;
         sessionStorage.setItem('pizzora_token', token);
         sessionStorage.setItem('pizzora_admin_logged_in', 'true');
+        sessionStorage.setItem('pizzora_admin_name', username || 'Manager');
         dispatch({ type: 'ADMIN_LOGIN' });
         window.location.reload();
       } else {
@@ -311,6 +313,8 @@ export function KitchenDisplay() {
   const handleLogout = () => {
     sessionStorage.removeItem('pizzora_token');
     sessionStorage.removeItem('pizzora_admin_logged_in');
+    sessionStorage.removeItem('pizzora_admin_name');
+    sessionStorage.removeItem('pizzora_admin_role');
     dispatch({ type: 'ADMIN_LOGOUT' });
     window.location.reload();
   };

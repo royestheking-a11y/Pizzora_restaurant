@@ -967,6 +967,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   console.warn("Invalid admin token, logging out.");
                   sessionStorage.removeItem('pizzora_token');
                   sessionStorage.removeItem('pizzora_admin_logged_in');
+                  sessionStorage.removeItem('pizzora_admin_name');
+                  sessionStorage.removeItem('pizzora_admin_role');
                   dispatchLocal({ type: 'ADMIN_LOGOUT' });
                 }
                 return {};

@@ -140,14 +140,14 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     // Always allow master admin
     if ((username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) || (username === 'admin' && password === 'admin')) {
       const token = jwt.sign({ username, role: 'admin' }, process.env.JWT_SECRET || 'secret', { expiresIn: '24h' });
-      return res.json({ token, role: 'admin' });
+      return res.json({ token, role: 'admin', username: 'Admin' });
     }
     
     // Check MongoDB for dynamically created managers
     const user = await UserAccount.findOne({ username, password });
     if (user) {
       const token = jwt.sign({ username: user.username, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '24h' });
-      return res.json({ token, role: user.role });
+      return res.json({ token, role: user.role, username: user.username });
     }
     
     res.status(401).json({ error: 'Invalid credentials' });

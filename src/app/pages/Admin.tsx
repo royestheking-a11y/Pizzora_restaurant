@@ -858,11 +858,13 @@ export function Admin() {
         body: JSON.stringify(loginForm)
       });
       
-      if (res.ok) {
-        const { token, role } = await res.json();
+      const data = await res.json();
+      if (res.ok && data.token) {
+        const { token, role, username } = data;
         sessionStorage.setItem('pizzora_token', token);
         sessionStorage.setItem('pizzora_admin_logged_in', 'true');
         sessionStorage.setItem('pizzora_admin_role', role || 'manager');
+        sessionStorage.setItem('pizzora_admin_name', username || 'Manager');
         dispatch({ type: 'ADMIN_LOGIN' });
         window.location.reload(); // Reload to initialize secure socket & fetch admin state
       } else {
@@ -1357,6 +1359,10 @@ export function Admin() {
           </button>
           <button
             onClick={() => {
+              sessionStorage.removeItem('pizzora_token');
+              sessionStorage.removeItem('pizzora_admin_logged_in');
+              sessionStorage.removeItem('pizzora_admin_role');
+              sessionStorage.removeItem('pizzora_admin_name');
               dispatch({ type: 'ADMIN_LOGOUT' });
               navigate('/admin');
             }}

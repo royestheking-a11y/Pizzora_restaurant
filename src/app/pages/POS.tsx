@@ -30,7 +30,7 @@ const POS_CATEGORIES = [
   'Lassi', 'Dessert', 'Biryani', 'Couple', 'Soft Drink', 'Water', 'Juice'
 ] as const;
 
-const POS_USER = 'Admin';
+const getPosUser = () => typeof window !== 'undefined' ? sessionStorage.getItem('pizzora_admin_name') || 'Admin' : 'Admin';
 
 type OrderType = 'Dine In' | 'Takeaway' | 'Delivery';
 type PaymentMethod = 'Cash' | 'Card' | 'bKash' | 'Nagad';
@@ -87,10 +87,12 @@ export function POS() {
         body: JSON.stringify(loginForm)
       });
 
-      if (res.ok) {
-        const { token } = await res.json();
+      const data = await res.json();
+      if (res.ok && data.token) {
+        const { token, username } = data;
         sessionStorage.setItem('pizzora_token', token);
         sessionStorage.setItem('pizzora_admin_logged_in', 'true');
+        sessionStorage.setItem('pizzora_admin_name', username || 'Manager');
         dispatch({ type: 'ADMIN_LOGIN' });
         window.location.reload(); // Reload to initialize secure socket & fetch admin state
       } else {
@@ -101,6 +103,15 @@ export function POS() {
       setLoginError('Network error. Please try again.');
       setIsAuthenticating(false);
     }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('pizzora_token');
+    sessionStorage.removeItem('pizzora_admin_logged_in');
+    sessionStorage.removeItem('pizzora_admin_name');
+    sessionStorage.removeItem('pizzora_admin_role');
+    dispatch({ type: 'ADMIN_LOGOUT' });
+    window.location.reload();
   };
 
   // ── POS state ─────────────────────────────────────────────────────────────
@@ -280,6 +291,7 @@ export function POS() {
     return [];
   }, [cart, state.menuItems]);
   const [showHeld, setShowHeld] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // ── Filtered menu ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -428,7 +440,7 @@ export function POS() {
       orderType: lastInvoice.orderType,
       tableNo: lastInvoice.orderType === 'Dine In' ? lastInvoice.table : undefined,
       customerName: lastInvoice.customer || undefined,
-      cashierName: POS_USER,
+      cashierName: getPosUser(),
       dateTime: lastInvoice.time,
       items: lastInvoice.items.map(c => ({
         name: c.item.name,
@@ -485,7 +497,7 @@ export function POS() {
       orderType: inv.orderType,
       tableNo: inv.orderType === 'Dine In' ? inv.table : undefined,
       customerName: inv.customer || undefined,
-      cashierName: POS_USER,
+      cashierName: getPosUser(),
       dateTime: inv.time,
       items: inv.items.map(c => ({
         name: c.item.name,
@@ -508,7 +520,7 @@ export function POS() {
     await logPrintJob({
       invoiceNumber: inv.invoiceNumber,
       orderId: inv.id,
-      printedBy: POS_USER,
+      printedBy: getPosUser(),
       isReprint,
       reprintReason,
       status: result.success ? 'success' : 'failed',
@@ -784,7 +796,7 @@ export function POS() {
           <div style={{ textAlign: 'center', marginBottom: '16px' }}>
             <p style={{ fontSize: '15px', margin: '2px 0', fontWeight: 'bold' }}>{lastInvoice.orderType}</p>
             <p style={{ fontSize: '15px', margin: '2px 0' }}>{lastInvoice.time}</p>
-            <p style={{ fontSize: '15px', margin: '2px 0' }}>Placed By: {POS_USER}</p>
+            <p style={{ fontSize: '15px', margin: '2px 0' }}>Placed By: {getPosUser()}</p>
             {lastInvoice.orderType === 'Dine In' && (
               <p style={{ fontSize: '15px', margin: '2px 0' }}>Table {lastInvoice.table}</p>
             )}
@@ -966,7 +978,7 @@ export function POS() {
                 POS Terminal
               </span>
               <span className="block leading-none mt-1.5" style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>
-                {POS_USER} • Logged In
+                {getPosUser()} • Logged In
               </span>
             </div>
           </div>
@@ -1069,6 +1081,16 @@ export function POS() {
                 {holdOrders.length}
               </span>
             )}
+          </button>
+
+          {/* Logout */}
+          <button 
+            onClick={() => setShowLogoutModal(true)}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-gray-100 ml-1" 
+            style={{ border: '1.5px solid #E5E7EB', backgroundColor: '#fff' }}
+            title="Logout"
+          >
+            <LogOut size={16} style={{ color: '#4B5563' }} />
           </button>
         </div>
       </div>
@@ -1443,6 +1465,37 @@ export function POS() {
                 <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-white transition-all active:scale-95" style={{ background: 'linear-gradient(135deg, #111, #333)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>Confirm & Close</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── LOGOUT CONFIRMATION MODAL ─────────────────────────────────────── */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-scaleIn">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#FEF2F2' }}>
+              <LogOut size={24} style={{ color: '#DC2626' }} />
+            </div>
+            <h3 className="text-xl font-black text-center mb-2" style={{ fontFamily: 'var(--font-heading)' }}>Logout POS?</h3>
+            <p className="text-gray-500 text-sm text-center mb-6 font-medium">Are you sure you want to end your cashier session?</p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowLogoutModal(false)} 
+                className="flex-1 py-3 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  setShowLogoutModal(false);
+                  handleLogout();
+                }} 
+                className="flex-1 py-3 rounded-xl font-bold text-white transition-all hover:opacity-90"
+                style={{ backgroundColor: '#DC2626' }}
+              >
+                Yes, Logout
+              </button>
+            </div>
           </div>
         </div>
       )}
