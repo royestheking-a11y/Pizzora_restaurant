@@ -210,7 +210,7 @@ const InventoryItemSchema = new mongoose.Schema({
   currentStock: Number,
   minStock: Number,
   maxStock: Number,
-  expiryDate: String,
+  addedDate: String,
 }, { strict: true });
 
 const StockMovementSchema = new mongoose.Schema({
@@ -221,6 +221,7 @@ const StockMovementSchema = new mongoose.Schema({
   quantity: Number,
   date: String,
   note: String,
+  totalCost: { type: Number, default: 0 },
 }, { strict: true });
 
 const ItemReviewSchema = new mongoose.Schema({

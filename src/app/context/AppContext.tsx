@@ -191,7 +191,7 @@ export interface InventoryItem {
   currentStock: number;
   minStock: number;
   maxStock: number;
-  expiryDate: string;
+  addedDate?: string;
 }
 
 export interface StockMovement {
@@ -202,6 +202,7 @@ export interface StockMovement {
   quantity: number;
   date: string;
   note: string;
+  totalCost?: number;
 }
 
 export interface ItemReview {

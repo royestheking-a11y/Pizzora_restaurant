@@ -28,6 +28,7 @@ export function InventoryManagement() {
   const { inventory: items, stockMovements: movements } = state;
   const [tab, setTab] = useState<'stock' | 'movements' | 'alerts'>('stock');
   const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState<'Today' | 'Yesterday' | 'Last 7 Days' | 'This Month' | 'All Time'>('Today');
   
   const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -47,7 +48,7 @@ export function InventoryManagement() {
 
   const blankForm = (): InventoryItem => ({
     id: '', name: '', sku: '', category: 'Food Raw Materials', unit: 'Kg',
-    supplier: '', costPrice: 0, currentStock: 0, minStock: 0, maxStock: 100, expiryDate: '',
+    supplier: '', costPrice: 0, currentStock: 0, minStock: 0, maxStock: 100, addedDate: new Date().toLocaleDateString('en-CA'),
   });
   const [form, setForm] = useState<InventoryItem>(blankForm());
 
@@ -56,7 +57,25 @@ export function InventoryManagement() {
     if (editing) {
       dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: { ...form, id: editing.id } });
     } else {
-      dispatch({ type: 'ADD_INVENTORY_ITEM', payload: { ...form, id: `inv-${Date.now()}` } });
+      const newItemId = `inv-${Date.now()}`;
+      dispatch({ type: 'ADD_INVENTORY_ITEM', payload: { ...form, id: newItemId } });
+      
+      // Auto-generate a Stock Movement for initial stock
+      if (form.currentStock > 0) {
+        dispatch({ 
+          type: 'ADD_STOCK_MOVEMENT', 
+          payload: {
+            id: `mv-${Date.now()}`,
+            itemId: newItemId,
+            itemName: form.name,
+            type: 'Purchase IN',
+            quantity: form.currentStock,
+            date: new Date().toLocaleDateString('en-CA'),
+            note: 'Initial Stock',
+            totalCost: form.currentStock * form.costPrice
+          }
+        });
+      }
     }
     setShowForm(false); setEditing(null); setForm(blankForm());
   };
@@ -73,6 +92,7 @@ export function InventoryManagement() {
     const m: StockMovement = {
       id: `mv-${Date.now()}`, itemId: movementItem, itemName: item.name,
       type: movementType, quantity: qty, date: new Date().toLocaleDateString('en-CA'), note: movementNote,
+      totalCost: movementType === 'Purchase IN' ? qty * item.costPrice : 0,
     };
     dispatch({ type: 'ADD_STOCK_MOVEMENT', payload: m });
     setShowMovementForm(false); setMovementQty(''); setMovementNote(''); setMovementItem('');
@@ -83,23 +103,72 @@ export function InventoryManagement() {
     i.category.toLowerCase().includes(search.toLowerCase())
   );
   const lowStock = items.filter(i => i.currentStock <= i.minStock);
-  const expiringSoon = items.filter(i => {
-    if (!i.expiryDate) return false;
-    const diff = (new Date(i.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-    return diff <= 7 && diff >= 0;
+
+  const getFilterDate = (daysAgo: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.toLocaleDateString('en-CA');
+  };
+  const todayDate = getFilterDate(0);
+  const yesterdayDate = getFilterDate(1);
+  const sevenDaysAgo = getFilterDate(7);
+  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString('en-CA');
+
+  const isDateInRange = (dateStr: string) => {
+    if (dateFilter === 'All Time') return true;
+    if (dateFilter === 'Today') return dateStr === todayDate;
+    if (dateFilter === 'Yesterday') return dateStr === yesterdayDate;
+    if (dateFilter === 'Last 7 Days') return dateStr >= sevenDaysAgo && dateStr <= todayDate;
+    if (dateFilter === 'This Month') return dateStr >= firstOfMonth && dateStr <= todayDate;
+    return true;
+  };
+
+  const filteredBazarMovements = movements.filter(m => isDateInRange(m.date) && m.type === 'Purchase IN');
+  
+  // Find items added in the range
+  const itemsAddedInRange = items.filter(i => {
+    const itemDate = i.addedDate || (i.id.includes('-') && !isNaN(Number(i.id.split('-')[1])) ? new Date(Number(i.id.split('-')[1])).toLocaleDateString('en-CA') : '');
+    return isDateInRange(itemDate);
   });
 
-  const totalValue = items.reduce((s, i) => s + i.currentStock * i.costPrice, 0);
+  const initialStockMovements = filteredBazarMovements.filter(m => m.note === 'Initial Stock').map(m => m.itemId);
+  
+  let filteredBazarCost = filteredBazarMovements.reduce((s, m) => {
+    const itemCostPrice = items.find(i => i.id === m.itemId)?.costPrice || 0;
+    const cost = m.totalCost || (m.quantity * itemCostPrice);
+    return s + cost;
+  }, 0);
+  
+  let filteredItemsAdded = filteredBazarMovements.reduce((s, m) => s + m.quantity, 0);
+
+  itemsAddedInRange.forEach(i => {
+    if (!initialStockMovements.includes(i.id) && i.currentStock > 0) {
+      filteredBazarCost += (i.currentStock * i.costPrice);
+      filteredItemsAdded += i.currentStock;
+    }
+  });
 
   return (
     <div>
-      {/* Stats */}
+      {/* Date Filter & Stats */}
+      <div className="flex justify-end mb-4">
+        <select 
+          value={dateFilter} 
+          onChange={e => setDateFilter(e.target.value as any)}
+          style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #E5E7EB', outline: 'none', fontSize: '13px', fontFamily: 'var(--font-heading)', fontWeight: 600, color: '#374151', cursor: 'pointer', backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
+        >
+          {['Today', 'Yesterday', 'Last 7 Days', 'This Month', 'All Time'].map(o => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Total Items', value: items.length, color: '#0891B2', bg: '#CFFAFE' },
+          { label: `${dateFilter === 'Today' ? "Today's" : dateFilter} Bazar Cost`, value: `৳${filteredBazarCost.toLocaleString()}`, color: '#0891B2', bg: '#CFFAFE' },
+          { label: 'Stock Added', value: filteredItemsAdded, color: '#16A34A', bg: '#DCFCE7' },
+          { label: 'Total Inventory Items', value: items.length, color: '#0891B2', bg: '#CFFAFE' },
           { label: 'Low Stock Alerts', value: lowStock.length, color: PZ, bg: '#FEE2E2' },
-          { label: 'Expiring Soon', value: expiringSoon.length, color: '#D97706', bg: '#FEF3C7' },
-          { label: 'Total Value', value: `৳${totalValue.toLocaleString()}`, color: '#16A34A', bg: '#DCFCE7' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className="bg-white p-4 rounded-2xl shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
             <p style={{ fontSize: '22px', fontWeight: 800, color, fontFamily: 'var(--font-heading)' }}>{value}</p>
@@ -114,7 +183,7 @@ export function InventoryManagement() {
           <button key={t} onClick={() => setTab(t)}
             className="px-4 py-2 rounded-xl text-sm font-bold capitalize transition-all"
             style={{ background: tab === t ? `linear-gradient(135deg,${PZ},${PZD})` : '#F3F4F6', color: tab === t ? '#fff' : '#6B7280', fontFamily: 'var(--font-heading)' }}>
-            {t === 'stock' ? 'Stock Items' : t === 'movements' ? 'Stock Movements' : `Alerts (${lowStock.length + expiringSoon.length})`}
+            {t === 'stock' ? 'Stock Items' : t === 'movements' ? 'Stock Movements' : `Alerts (${lowStock.length})`}
           </button>
         ))}
       </div>
@@ -145,7 +214,7 @@ export function InventoryManagement() {
             <table className="w-full">
               <thead>
                 <tr style={{ backgroundColor: '#FFF5F5', borderBottom: `1px solid rgba(249,0,43,0.1)` }}>
-                  {['SKU', 'Item Name', 'Category', 'Current Stock', 'Min Stock', 'Cost/Unit', 'Expiry', 'Status', 'Actions'].map(h => (
+                  {['SKU', 'Item Name', 'Category', 'Current Stock', 'Min Stock', 'Cost/Unit', 'Added Date', 'Status', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left" style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-heading)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -168,7 +237,9 @@ export function InventoryManagement() {
                       <td className="px-4 py-3" style={{ fontSize: '14px', fontWeight: 800, color: isLow ? PZ : '#16A34A', fontFamily: 'var(--font-heading)' }}>{item.currentStock} {item.unit}</td>
                       <td className="px-4 py-3" style={{ fontSize: '13px', color: '#6B7280' }}>{item.minStock} {item.unit}</td>
                       <td className="px-4 py-3" style={{ fontSize: '13px', fontWeight: 700, color: '#111' }}>৳{item.costPrice.toLocaleString()}</td>
-                      <td className="px-4 py-3" style={{ fontSize: '12px', color: '#6B7280' }}>{item.expiryDate || '—'}</td>
+                      <td className="px-4 py-3" style={{ fontSize: '12px', color: '#6B7280' }}>
+                        {item.addedDate || (item.id.includes('-') && !isNaN(Number(item.id.split('-')[1])) ? new Date(Number(item.id.split('-')[1])).toLocaleDateString('en-CA') : '—')}
+                      </td>
                       <td className="px-4 py-3">
                         <span className="px-2 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: isLow ? '#FEE2E2' : '#DCFCE7', color: isLow ? PZ : '#16A34A' }}>
                           {isLow ? 'Low Stock' : 'In Stock'}
@@ -209,7 +280,7 @@ export function InventoryManagement() {
             <table className="w-full">
               <thead>
                 <tr style={{ backgroundColor: '#FFF5F5', borderBottom: `1px solid rgba(249,0,43,0.1)` }}>
-                  {['Date', 'Item', 'Movement Type', 'Quantity', 'Note'].map(h => (
+                  {['Date', 'Item', 'Movement Type', 'Quantity', 'Cost', 'Note'].map(h => (
                     <th key={h} className="px-4 py-3 text-left" style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-heading)' }}>{h}</th>
                   ))}
                 </tr>
@@ -231,6 +302,13 @@ export function InventoryManagement() {
                     </td>
                     <td className="px-4 py-3" style={{ fontSize: '13px', fontWeight: 800, color: m.type.includes('IN') ? '#16A34A' : '#EF4444', fontFamily: 'var(--font-heading)' }}>
                       {m.type.includes('IN') ? '+' : '−'}{m.quantity}
+                    </td>
+                    <td className="px-4 py-3" style={{ fontSize: '13px', fontWeight: 700, color: '#111' }}>
+                      {(() => {
+                        const fallbackCost = m.quantity * (items.find(i => i.id === m.itemId)?.costPrice || 0);
+                        const finalCost = m.totalCost || fallbackCost;
+                        return finalCost > 0 ? `৳${finalCost.toLocaleString()}` : '—';
+                      })()}
                     </td>
                     <td className="px-4 py-3" style={{ fontSize: '12px', color: '#6B7280' }}>{m.note || '—'}</td>
                     </tr>
@@ -268,22 +346,7 @@ export function InventoryManagement() {
               </div>
             </div>
           )}
-          {expiringSoon.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm p-5" style={{ border: '1px solid rgba(217,119,6,0.2)' }}>
-              <h3 className="flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#D97706' }}>
-                <AlertTriangle size={16} /> Expiring Within 7 Days ({expiringSoon.length})
-              </h3>
-              <div className="space-y-2">
-                {expiringSoon.map(item => (
-                  <div key={item.id} className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: '#FFFBEB', border: '1px solid rgba(217,119,6,0.15)' }}>
-                    <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#111' }}>{item.name}</p>
-                    <p style={{ fontSize: '12px', color: '#D97706', fontWeight: 700 }}>Expires: {item.expiryDate}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {lowStock.length === 0 && expiringSoon.length === 0 && (
+          {lowStock.length === 0 && (
             <div className="bg-white rounded-2xl shadow-sm p-12 text-center" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
               <Package size={40} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
               <p style={{ color: '#6B7280', fontSize: '15px', fontFamily: 'var(--font-heading)', fontWeight: 600 }}>All stock levels are healthy!</p>
@@ -312,7 +375,7 @@ export function InventoryManagement() {
                 { label: 'Current Stock', key: 'currentStock', type: 'number', placeholder: '0' },
                 { label: 'Min Stock', key: 'minStock', type: 'number', placeholder: '0' },
                 { label: 'Max Stock', key: 'maxStock', type: 'number', placeholder: '100' },
-                { label: 'Expiry Date', key: 'expiryDate', type: 'date', placeholder: '' },
+                { label: 'Date Added', key: 'addedDate', type: 'date', placeholder: '' },
               ].map(({ label, key, type, placeholder }) => (
                 <div key={key}>
                   <label style={labelSt}>{label}</label>
