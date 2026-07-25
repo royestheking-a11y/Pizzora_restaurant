@@ -159,7 +159,7 @@ export function CashRegisterManagement() {
             hasRegisterToday ? (
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center h-full min-h-[300px]">
                 <div className="w-16 h-16 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle size={28} />
+                  <CheckCircle2 size={28} />
                 </div>
                 <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '18px' }}>Register Closed</h3>
                 <p className="text-sm text-gray-500 mt-2">The cash register has already been closed for today. All transactions are securely finalized.</p>
