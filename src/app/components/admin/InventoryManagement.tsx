@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import {
   Plus, Edit2, Trash2, Save, X, AlertTriangle, Package,
-  TrendingDown, TrendingUp, Search, ChevronDown, BarChart3,
+  TrendingDown, TrendingUp, Search, ChevronDown, BarChart3, Download
 } from 'lucide-react';
 import { useApp, InventoryItem, StockMovement } from '../../context/AppContext';
+import { generatePremiumPDF } from '../../utils/pdfGenerator';
 import { TableRowSkeleton } from '../Skeletons';
 import { ConfirmModal } from '../ConfirmModal';
 
@@ -123,6 +124,26 @@ export function InventoryManagement() {
     return true;
   };
 
+  const handleExportInventory = () => {
+    const data = filtered.map(i => [
+      i.name,
+      i.category,
+      `${i.currentStock} ${i.unit}`,
+      `BDT ${i.costPrice}`,
+      i.currentStock <= i.minStock ? 'Low Stock' : 'Optimal'
+    ]);
+    generatePremiumPDF({
+      title: 'Inventory Status Report',
+      columns: ['Item Name', 'Category', 'Current Stock', 'Price/Unit', 'Status'],
+      data,
+      filename: 'Inventory_Report'
+    });
+  };
+
+  const calculateTotalValue = () => {
+    return items.reduce((sum, item) => sum + (item.currentStock * (item.costPrice || 0)), 0);
+  };
+
   const filteredBazarMovements = movements.filter(m => isDateInRange(m.date) && m.type === 'Purchase IN');
   
   // Find items added in the range
@@ -203,11 +224,15 @@ export function InventoryManagement() {
                 style={{ border: `1.5px solid ${PZ}`, color: PZ, fontFamily: 'var(--font-heading)' }}>
                 <TrendingUp size={14} /> Stock In/Out
               </button>
-              <button onClick={() => { setShowForm(true); setEditing(null); setForm(blankForm()); }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-bold"
-                style={{ background: `linear-gradient(135deg,${PZ},${PZD})`, fontFamily: 'var(--font-heading)' }}>
-                <Plus size={14} /> Add Item
-              </button>
+              <button onClick={() => { setEditing(null); setForm(blankForm()); setShowForm(true); }} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-bold whitespace-nowrap transition-transform active:scale-95" style={{ background: `linear-gradient(135deg,${PZ},${PZD})`, fontFamily: 'var(--font-heading)' }}>
+              <Plus size={14} /> Add Item
+            </button>
+            <button 
+              onClick={handleExportInventory}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-sm font-bold whitespace-nowrap transition-transform active:scale-95"
+              style={{ background: '#F9002B', fontFamily: 'var(--font-heading)' }}>
+              <Download size={14} /> Export PDF
+            </button>
             </div>
           </div>
           <div className="overflow-x-auto">

@@ -7,9 +7,10 @@ import {
   Clock, ChevronDown, ChevronUp, Menu as MenuIcon, PlaySquare, Layers,
   RefreshCw, Send, CheckCircle2, XCircle, LayoutGrid, CreditCard,
   TrendingUp, Wallet, Smartphone, Banknote, Trash, BarChart2, Tag, ChefHat,
-  ShieldCheck, Lock, User, KeyRound, Fingerprint, Activity, BadgeCheck, EyeOff, Loader2, Search
+  ShieldCheck, Lock, User, KeyRound, Fingerprint, Activity, BadgeCheck, EyeOff, Loader2, Search, Download
 } from 'lucide-react';
 import { useApp, OrderStatus, TableOrderStatus, CarouselSlide } from '../context/AppContext';
+import { generatePremiumPDF } from '../utils/pdfGenerator';
 import { optimizeCloudinaryUrl } from '../utils/image';
 import { MenuItem } from '../data/restaurantData';
 import { TableManagement } from '../components/admin/TableManagement';
@@ -949,6 +950,24 @@ export function Admin() {
     return { day, rev };
   });
   const maxDayRev = Math.max(...weeklyBreakdown.map(d => d.rev), 1);
+
+  const handleExportPayments = () => {
+    const data = allUnifiedOrders.map((o, i) => [
+      (i + 1).toString(),
+      o.orderNumber || '-',
+      o.customerName || 'Walk-in',
+      `BDT ${o.total}`,
+      o.paymentMethod || 'Cash',
+      o.status,
+      new Date(o.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka' })
+    ]);
+    generatePremiumPDF({
+      title: 'All Payment Transactions',
+      columns: ['#', 'Order No.', 'Customer', 'Amount', 'Method', 'Status', 'Date'],
+      data,
+      filename: 'Payment_Transactions'
+    });
+  };
 
   const sidebarItems: { id: AdminTab; icon: typeof LayoutDashboard; label: string; badge?: number }[] = [
     { id: 'dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
@@ -2421,6 +2440,14 @@ export function Admin() {
                         {label}: {count}
                       </span>
                     ))}
+                    <button 
+                      onClick={handleExportPayments}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 ml-2"
+                      style={{ backgroundColor: '#F9002B', fontFamily: 'var(--font-heading)' }}
+                    >
+                      <Download size={16} />
+                      Export PDF
+                    </button>
                   </div>
                 </div>
                 <div className="overflow-x-auto">

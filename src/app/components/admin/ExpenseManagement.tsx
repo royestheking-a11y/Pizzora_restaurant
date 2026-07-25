@@ -3,6 +3,8 @@ import { Plus, Trash2, Save, X, DollarSign, TrendingDown, Calendar, Search, Edit
 import { useApp, ExpenseEntry } from '../../context/AppContext';
 import { TableRowSkeleton } from '../Skeletons';
 import { ConfirmModal } from '../ConfirmModal';
+import { generatePremiumPDF } from '../../utils/pdfGenerator';
+import { Download } from 'lucide-react';
 const PZ = '#F9002B';
 const PZD = '#C8001F';
 
@@ -63,6 +65,23 @@ export function ExpenseManagement() {
       dispatch({ type: 'ADD_EXPENSE', payload: { ...form, invoiceNo: autoInvoiceNo, id: `exp-${Date.now()}` } });
     }
     setShowForm(false); setEditing(null);
+  };
+
+  const handleExportExpenses = () => {
+    const data = filtered.map(e => [
+      new Date(e.date).toLocaleDateString('en-GB', { timeZone: 'Asia/Dhaka' }),
+      e.invoiceNo || '-',
+      e.category,
+      e.description || '-',
+      e.paymentMethod,
+      `BDT ${e.amount}`
+    ]);
+    generatePremiumPDF({
+      title: 'Expense Report',
+      columns: ['Date', 'Invoice No.', 'Category', 'Description', 'Method', 'Amount'],
+      data,
+      filename: 'Expense_Report'
+    });
   };
 
   const handlePrint = (exp: ExpenseEntry) => {
@@ -144,6 +163,12 @@ export function ExpenseManagement() {
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-bold whitespace-nowrap"
               style={{ background: `linear-gradient(135deg,${PZ},${PZD})`, fontFamily: 'var(--font-heading)' }}>
               <Plus size={14} /> Add Expense
+            </button>
+            <button 
+              onClick={handleExportExpenses}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-sm font-bold whitespace-nowrap transition-transform active:scale-95"
+              style={{ background: '#F9002B', fontFamily: 'var(--font-heading)' }}>
+              <Download size={14} /> Export PDF
             </button>
           </div>
           <div className="overflow-x-auto">
