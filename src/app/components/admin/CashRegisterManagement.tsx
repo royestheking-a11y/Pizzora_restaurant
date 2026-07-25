@@ -74,11 +74,14 @@ export function CashRegisterManagement() {
   const currentCashSales = currentSales.cash;
   const expectedDrawerCash = activeSession ? activeSession.openingBalance + currentCashSales : 0;
 
+  const dhakaStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+  const hasRegisterToday = sessions.some(s => s.date === dhakaStr);
+
   const handleOpenRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    // Prevent opening a second register if one is already open
-    if (activeSession) {
-      alert('A register is already open. Close the current register before opening a new one.');
+    // Prevent opening a second register if one is already open or one was already closed today
+    if (activeSession || hasRegisterToday) {
+      alert('A register is already active or was already closed for today.');
       return;
     }
     const balance = Number(openingBalance);
@@ -153,6 +156,15 @@ export function CashRegisterManagement() {
         {/* Left Col: Active Register Action */}
         <div className="lg:col-span-1">
           {!activeSession ? (
+            hasRegisterToday ? (
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center h-full min-h-[300px]">
+                <div className="w-16 h-16 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle size={28} />
+                </div>
+                <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '18px' }}>Register Closed</h3>
+                <p className="text-sm text-gray-500 mt-2">The cash register has already been closed for today. All transactions are securely finalized.</p>
+              </div>
+            ) : (
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -181,6 +193,7 @@ export function CashRegisterManagement() {
                 </button>
               </form>
             </div>
+            )
           ) : (
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <div className="text-center mb-6">
