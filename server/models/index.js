@@ -188,6 +188,7 @@ const CashRegisterEntrySchema = new mongoose.Schema({
   totalCashSales: Number,
   bankDeposit: Number,
   shoppingCash: Number,
+  cost: Number,
   status: String,
   salesBreakdown: {
     cash: Number,

@@ -177,7 +177,7 @@ app.get('/api/state/public', async (req, res) => {
 app.get('/api/state/admin', authenticateJWT, async (req, res) => {
   try {
     const state = {
-      orders: await Order.find().sort({ createdAt: -1 }).limit(100),
+      orders: await Order.find().sort({ createdAt: -1 }).limit(500),
       reservations: await Reservation.find().sort({ createdAt: -1 }).limit(50),
       messages: await Message.find().sort({ createdAt: -1 }).limit(50),
       cateringRequests: await CateringRequest.find().sort({ createdAt: -1 }).limit(100),
@@ -187,7 +187,7 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
       employees: await Employee.find().sort({ name: 1 }),
       payrollRecords: await PayrollRecord.find().sort({ year: -1, month: -1 }).limit(100),
       expenses: await ExpenseEntry.find().sort({ date: -1 }).limit(100),
-      cashRegister: await CashRegisterEntry.find().sort({ date: -1 }).limit(100),
+      cashRegister: await CashRegisterEntry.find().sort({ id: -1 }).limit(100),
       inventory: await InventoryItem.find().sort({ name: 1 }).limit(200),
       stockMovements: await StockMovement.find().sort({ date: -1 }).limit(200),
       users: await UserAccount.find().sort({ createdAt: -1 }),
@@ -437,7 +437,14 @@ async function processDbAction(action) {
     case 'UPDATE_EXPENSE': await ExpenseEntry.findOneAndUpdate({ id: action.payload.id }, action.payload); break;
     case 'DELETE_EXPENSE': await ExpenseEntry.findOneAndDelete({ id: action.payload }); break;
 
-    case 'ADD_CASH_ENTRY': await CashRegisterEntry.create(action.payload); break;
+    case 'ADD_CASH_ENTRY':
+      // Auto-close any existing open registers before opening a new one
+      await CashRegisterEntry.updateMany(
+        { status: 'Open' },
+        { $set: { status: 'Closed', closedAt: new Date().toISOString() } }
+      );
+      await CashRegisterEntry.create(action.payload);
+      break;
     case 'UPDATE_CASH_ENTRY': await CashRegisterEntry.findOneAndUpdate({ id: action.payload.id }, action.payload); break;
     case 'DELETE_CASH_ENTRY': await CashRegisterEntry.findOneAndDelete({ id: action.payload }); break;
 

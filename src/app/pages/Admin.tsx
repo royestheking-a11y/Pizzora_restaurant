@@ -58,6 +58,20 @@ const labelStyle: React.CSSProperties = {
 };
 
 // ─── Status Badge Helper ───────────────────────────────────────────────────
+
+function getDhakaTimeBounds() {
+  const dhakaStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+  const utcMidnight = new Date(dhakaStr + 'T00:00:00Z').getTime();
+  const startOfDay = utcMidnight - (6 * 60 * 60 * 1000); // UTC+6
+  const rawDayOfWeek = new Date(dhakaStr).getUTCDay(); // 0 is Sunday
+  const diffToMonday = rawDayOfWeek === 0 ? -6 : 1 - rawDayOfWeek;
+  const startOfWeek = startOfDay + (diffToMonday * 86400000);
+  const [year, month] = dhakaStr.split('-').map(Number);
+  const startOfMonth = new Date(Date.UTC(year, month - 1, 1)).getTime() - (6 * 60 * 60 * 1000);
+  const startOfYear = new Date(Date.UTC(year, 0, 1)).getTime() - (6 * 60 * 60 * 1000);
+  const dayOfWeek = rawDayOfWeek === 0 ? 6 : rawDayOfWeek - 1; // 0=Mon
+  return { startOfDay, startOfWeek, startOfMonth, startOfYear, dhakaStr, dayOfWeek };
+}
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string }> = {
     Pending:           { bg: '#FEF3C7', color: '#92400E' },
@@ -715,17 +729,15 @@ function LiveTopStats({ orders, expenses }: { orders: any[], expenses: any[] }) 
     return () => clearInterval(timer);
   }, []);
 
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  const { startOfDay, dhakaStr } = React.useMemo(() => getDhakaTimeBounds(), [now.getMinutes()]);
 
-  const todaysOrders = orders.filter(o => new Date(o.createdAt).getTime() >= startOfToday.getTime());
+  const todaysOrders = orders.filter(o => new Date(o.createdAt).getTime() >= startOfDay);
   const totalSell = todaysOrders.reduce((sum, o) => sum + o.total, 0);
 
   React.useEffect(() => {
-    const todayStr = startOfToday.toLocaleDateString('en-CA');
-    const todaysExpenses = expenses.filter(e => e.date === todayStr).reduce((s, e) => s + e.amount, 0);
+    const todaysExpenses = expenses.filter(e => e.date === dhakaStr).reduce((s, e) => s + e.amount, 0);
     setTotalEarn(totalSell - todaysExpenses);
-  }, [totalSell, expenses, now.getMinutes()]); // Update every minute to catch new expenses
+  }, [totalSell, expenses, dhakaStr]); // Update every minute to catch new expenses
 
   return (
     <div className="hidden lg:flex items-center gap-3">
@@ -733,10 +745,10 @@ function LiveTopStats({ orders, expenses }: { orders: any[], expenses: any[] }) 
       <div className="flex items-center gap-3 ml-2 px-4 py-2 rounded-xl shadow-sm" style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', border: '1px solid rgba(249,0,43,0.2)' }}>
         <div className="flex flex-col text-right">
           <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '14px', color: '#fff', lineHeight: 1.1 }}>
-            {now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            {now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Dhaka' })}
           </p>
           <p style={{ fontSize: '9px', color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
-            {now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+            {now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Dhaka' })}
           </p>
         </div>
       </div>
@@ -912,13 +924,9 @@ export function Admin() {
   const pendingTableOrders = (state.tableOrders ?? []).filter(o => o.status === 'Pending').length;
 
   // ── Payment Analytics ─────────────────────────────────────────────────
-  const now = new Date();
-  const startOfToday   = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const dayOfWeek      = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=Mon
-  const startOfWeek    = startOfToday - dayOfWeek * 86400000;
-  const startOfMonth   = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const { startOfDay, startOfWeek, startOfMonth, startOfYear, dhakaStr, dayOfWeek } = useMemo(() => getDhakaTimeBounds(), []);
 
-  const todayRevenue   = completedUnifiedOrders.filter(o => o.timestamp >= startOfToday).reduce((s, o) => s + o.total, 0);
+  const todayRevenue   = completedUnifiedOrders.filter(o => o.timestamp >= startOfDay).reduce((s, o) => s + o.total, 0);
   const weeklyRevenue  = completedUnifiedOrders.filter(o => o.timestamp >= startOfWeek).reduce((s, o) => s + o.total, 0);
   const monthlyRevenue = completedUnifiedOrders.filter(o => o.timestamp >= startOfMonth).reduce((s, o) => s + o.total, 0);
 
@@ -1588,7 +1596,7 @@ export function Admin() {
                 } else if (salesFilter === 'weekly') {
                   const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
                   startOfWeek.setHours(0, 0, 0, 0);
-                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfWeek.getTime());
+                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfWeek);
                   
                   const days = Array.from({length: 7}, (_, i) => {
                     const date = new Date(startOfWeek);
@@ -1612,7 +1620,7 @@ export function Admin() {
                 } else if (salesFilter === 'monthly') {
                   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
                   startOfMonth.setHours(0, 0, 0, 0);
-                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfMonth.getTime());
+                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfMonth);
                   
                   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
                   const days = Array.from({length: daysInMonth}, (_, i) => {
@@ -1637,7 +1645,7 @@ export function Admin() {
                 } else if (salesFilter === 'yearly') {
                   const startOfYear = new Date(now.getFullYear(), 0, 1);
                   startOfYear.setHours(0, 0, 0, 0);
-                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfYear.getTime());
+                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfYear);
                   
                   const months = Array.from({length: 12}, (_, i) => {
                     const date = new Date(startOfYear);
@@ -1730,7 +1738,7 @@ export function Admin() {
                       <tr key={order.id} className="border-b hover:bg-amber-50/30 transition-colors" style={{ borderColor: 'rgba(0,0,0,0.04)' }}>
                         <td className="px-4 py-3.5">
                           <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#F9002B' }}>#{order.orderNumber}</p>
-                          <p style={{ fontSize: '11px', color: '#9CA3AF' }}>{new Date(order.timestamp).toLocaleDateString()}</p>
+                          <p style={{ fontSize: '11px', color: '#9CA3AF' }}>{new Date(order.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka' })}</p>
                         </td>
                         <td className="px-4 py-3.5">
                           <p style={{ fontSize: '13px', fontWeight: 600, color: '#111', fontFamily: 'var(--font-heading)' }}>{order.displayTitle}</p>
@@ -2302,7 +2310,7 @@ export function Admin() {
               {/* Revenue Summary Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
-                  { label: 'Today', value: todayRevenue, icon: DollarSign, color: '#16A34A', bg: '#DCFCE7', sub: `${allUnifiedOrders.filter(o => o.timestamp >= startOfToday).length} orders` },
+                  { label: 'Today', value: todayRevenue, icon: DollarSign, color: '#16A34A', bg: '#DCFCE7', sub: `${allUnifiedOrders.filter(o => o.timestamp >= startOfDay).length} orders` },
                   { label: 'This Week', value: weeklyRevenue, icon: TrendingUp, color: '#2563EB', bg: '#DBEAFE', sub: `${allUnifiedOrders.filter(o => o.timestamp >= startOfWeek).length} orders` },
                   { label: 'This Month', value: monthlyRevenue, icon: CreditCard, color: '#7C3AED', bg: '#EDE9FE', sub: `${allUnifiedOrders.filter(o => o.timestamp >= startOfMonth).length} orders` },
                   { label: 'All Time', value: state.analytics?.totalRevenue || totalRevenue, icon: Wallet, color: '#F9002B', bg: '#FEF9EC', sub: `${state.analytics?.totalCustomers || allUnifiedOrders.length} total orders` },
@@ -2457,7 +2465,7 @@ export function Admin() {
                               <StatusBadge status={order.status} />
                             </td>
                             <td className="px-4 py-3" style={{ fontSize: '12px', color: '#6B7280' }}>
-                              {new Date(order.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                              {new Date(order.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', timeZone: 'Asia/Dhaka' })}
                             </td>
                           </tr>
                         );
@@ -2503,7 +2511,7 @@ export function Admin() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{new Date(msg.createdAt).toLocaleDateString()}</span>
+                      <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{new Date(msg.createdAt).toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka' })}</span>
                       <button onClick={() => dispatch({ type: 'READ_MESSAGE', payload: msg.id })} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="Mark as read">
                         <Eye size={14} style={{ color: '#6B7280' }} />
                       </button>

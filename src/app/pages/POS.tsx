@@ -159,14 +159,23 @@ export function POS() {
   const [showCloseRegisterModal, setShowCloseRegisterModal] = useState(false);
   const [bankDeposit, setBankDeposit] = useState('');
   const [shoppingCash, setShoppingCash] = useState('');
+  const [cost, setCost] = useState('');
 
   useEffect(() => {
-    if (state.isAdminLoggedIn && !state.isInitialLoading && !activeSession) {
+    // Only show the "Open Register" modal if:
+    // 1. Admin is logged in and data has loaded
+    // 2. No register is currently open (globally — any manager's register counts)
+    // 3. No register exists for today at all (even a closed one means it was already used)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    const hasAnyOpenRegister = state.cashRegister.some(r => r.status === 'Open');
+    const hasRegisterToday = state.cashRegister.some(r => r.date === today);
+    
+    if (state.isAdminLoggedIn && !state.isInitialLoading && !hasAnyOpenRegister && !hasRegisterToday) {
       setShowOpenRegisterModal(true);
     } else {
       setShowOpenRegisterModal(false);
     }
-  }, [state.isAdminLoggedIn, state.isInitialLoading, activeSession]);
+  }, [state.isAdminLoggedIn, state.isInitialLoading, state.cashRegister]);
 
   const handleOpenRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,7 +183,7 @@ export function POS() {
     if (isNaN(balance) || balance < 0) return alert('Enter a valid amount');
     dispatch({ type: 'ADD_CASH_ENTRY', payload: {
       id: `CS-${Date.now()}`,
-      date: new Date().toLocaleDateString('en-CA'),
+      date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' }),
       openedAt: new Date().toISOString(),
       closedAt: null,
       openingBalance: balance,
@@ -189,35 +198,66 @@ export function POS() {
 
   const computeCashSales = () => {
     if (!activeSession) return 0;
-    const start = new Date(activeSession.openedAt).getTime();
+    // Use start-of-day and end-of-day as boundaries so only this date's sales are counted
+    const sessionDate = activeSession.date; // 'YYYY-MM-DD'
+    const dayStart = new Date(sessionDate + 'T00:00:00').getTime();
+    const dayEnd = new Date(sessionDate + 'T23:59:59.999').getTime();
     return state.orders
-      .filter(o => 
-        (o.paymentMethod === 'Cash' || o.paymentMethod === 'Cash on Delivery') &&
-        new Date(o.createdAt).getTime() >= start
-      )
+      .filter(o => {
+        const t = new Date(o.createdAt).getTime();
+        return (o.paymentMethod === 'Cash' || o.paymentMethod === 'Cash on Delivery') &&
+          t >= dayStart && t <= dayEnd;
+      })
       .reduce((sum, o) => sum + o.total, 0);
   };
   const currentCashSales = computeCashSales();
   const expectedDrawerCash = activeSession ? activeSession.openingBalance + currentCashSales : 0;
+
+  const computeSalesBreakdown = () => {
+    const breakdown = { cash: 0, bkash: 0, nagad: 0, card: 0, other: 0, total: 0 };
+    if (!activeSession) return breakdown;
+    const sessionDate = activeSession.date;
+    const utcMidnight = new Date(sessionDate + 'T00:00:00Z').getTime();
+    const dayStart = utcMidnight - (6 * 60 * 60 * 1000); // Bangladesh is UTC+6
+    const dayEnd = dayStart + (24 * 60 * 60 * 1000) - 1;
+    
+    state.orders.filter(o => {
+      const t = new Date(o.createdAt).getTime();
+      return t >= dayStart && t <= dayEnd;
+    }).forEach(o => {
+      breakdown.total += o.total;
+      const m = (o.paymentMethod || '').toLowerCase();
+      if (m === 'cash' || m === 'cash on delivery') breakdown.cash += o.total;
+      else if (m === 'bkash') breakdown.bkash += o.total;
+      else if (m === 'nagad') breakdown.nagad += o.total;
+      else if (m === 'card') breakdown.card += o.total;
+      else breakdown.other += o.total;
+    });
+    return breakdown;
+  };
 
   const handleCloseRegister = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeSession) return;
     const bDeposit = Number(bankDeposit);
     const sCash = Number(shoppingCash);
-    if (isNaN(bDeposit) || isNaN(sCash)) return alert('Enter valid amounts');
+    const costAmt = Number(cost);
+    if (isNaN(bDeposit) || isNaN(sCash) || isNaN(costAmt)) return alert('Enter valid amounts');
     
     dispatch({ type: 'UPDATE_CASH_ENTRY', payload: {
       ...activeSession,
       status: 'Closed',
       closedAt: new Date().toISOString(),
       totalCashSales: currentCashSales,
+      salesBreakdown: computeSalesBreakdown(),
       bankDeposit: bDeposit,
-      shoppingCash: sCash
+      shoppingCash: sCash,
+      cost: costAmt
     }});
     setShowCloseRegisterModal(false);
     setBankDeposit('');
     setShoppingCash('');
+    setCost('');
   };
 
   // ── Offline Mode ──────────────────────────────────────────────────────────
@@ -1451,11 +1491,20 @@ export function POS() {
                 />
               </div>
 
-              <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-heading)' }}>Shopping Cash (Expenses)</label>
-              <div className="relative mb-6">
+              <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-heading)' }}>Shopping Cash</label>
+              <div className="relative mb-4">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">৳</span>
                 <input
                   type="number" required value={shoppingCash} onChange={e => setShoppingCash(e.target.value)}
+                  style={{ width: '100%', padding: '12px 12px 12px 36px', borderRadius: '12px', border: '1.5px solid #E5E7EB', fontSize: '15px', fontWeight: 600, outline: 'none', backgroundColor: '#F9FAFB' }}
+                />
+              </div>
+
+              <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-heading)' }}>Daily Cost / Expenses</label>
+              <div className="relative mb-6">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">৳</span>
+                <input
+                  type="number" required value={cost} onChange={e => setCost(e.target.value)}
                   style={{ width: '100%', padding: '12px 12px 12px 36px', borderRadius: '12px', border: '1.5px solid #E5E7EB', fontSize: '15px', fontWeight: 600, outline: 'none', backgroundColor: '#F9FAFB' }}
                 />
               </div>

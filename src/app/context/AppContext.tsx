@@ -177,6 +177,7 @@ export interface CashRegisterEntry {
   };
   bankDeposit: number;
   shoppingCash: number;
+  cost?: number;
   status: 'Open' | 'Closed' | string;
 }
 
@@ -716,7 +717,16 @@ function reducer(state: AppState, action: Action): AppState {
 
     // ── Cash Register ────────────────────────────────────────────────────────
     case 'ADD_CASH_ENTRY':
-      return { ...state, cashRegister: [action.payload, ...state.cashRegister] };
+      // Close any existing open registers in state before adding the new one
+      return {
+        ...state,
+        cashRegister: [
+          action.payload,
+          ...state.cashRegister.map(c =>
+            c.status === 'Open' ? { ...c, status: 'Closed' as const, closedAt: new Date().toISOString() } : c
+          )
+        ]
+      };
     case 'UPDATE_CASH_ENTRY':
       return { ...state, cashRegister: state.cashRegister.map(c => c.id === action.payload.id ? action.payload : c) };
     case 'DELETE_CASH_ENTRY':

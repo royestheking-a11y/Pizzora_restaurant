@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp, CashRegisterEntry } from '../../context/AppContext';
 import { Banknote, Save, Clock, Lock, CheckCircle2, TrendingUp, AlertCircle, Calendar, ArrowRight, DollarSign, Smartphone, CreditCard } from 'lucide-react';
 import { TableRowSkeleton } from '../Skeletons';
@@ -17,11 +17,15 @@ const labelStyle: React.CSSProperties = {
 
 export function CashRegisterManagement() {
   const { state, dispatch } = useApp();
-  const sessions = state.cashRegister;
+  const sessions = useMemo(() => 
+    [...state.cashRegister].sort((a, b) => b.date.localeCompare(a.date) || b.openedAt.localeCompare(a.openedAt)),
+    [state.cashRegister]
+  );
   const [activeSession, setActiveSession] = useState<CashRegisterEntry | null>(null);
   const [openingBalance, setOpeningBalance] = useState('');
   const [bankDeposit, setBankDeposit] = useState('');
   const [shoppingCash, setShoppingCash] = useState('');
+  const [cost, setCost] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
@@ -33,10 +37,20 @@ export function CashRegisterManagement() {
   const computeSalesBreakdown = () => {
     const breakdown = { cash: 0, bkash: 0, nagad: 0, card: 0, other: 0, total: 0 };
     if (!activeSession) return breakdown;
-    const start = new Date(activeSession.openedAt).getTime();
+    // Use start-of-day and end-of-day as boundaries so only this date's sales are counted
+    const sessionDate = activeSession.date; // 'YYYY-MM-DD'
+    const utcMidnight = new Date(sessionDate + 'T00:00:00Z').getTime();
+    const dayStart = utcMidnight - (6 * 60 * 60 * 1000); // Bangladesh is UTC+6
+    const dayEnd = dayStart + (24 * 60 * 60 * 1000) - 1;
     
-    const sessionOrders = state.orders.filter(o => new Date(o.createdAt).getTime() >= start);
-    const sessionTableOrders = (state.tableOrders || []).filter(o => o.createdAt >= start && o.status === 'Paid');
+    const sessionOrders = state.orders.filter(o => {
+      const t = new Date(o.createdAt).getTime();
+      return t >= dayStart && t <= dayEnd;
+    });
+    const sessionTableOrders = (state.tableOrders || []).filter(o => {
+      const t = typeof o.createdAt === 'number' ? o.createdAt : new Date(o.createdAt).getTime();
+      return t >= dayStart && t <= dayEnd && o.status === 'Paid';
+    });
     
     sessionOrders.forEach(o => {
       const amount = o.total;
@@ -62,12 +76,17 @@ export function CashRegisterManagement() {
 
   const handleOpenRegister = (e: React.FormEvent) => {
     e.preventDefault();
+    // Prevent opening a second register if one is already open
+    if (activeSession) {
+      alert('A register is already open. Close the current register before opening a new one.');
+      return;
+    }
     const balance = Number(openingBalance);
     if (isNaN(balance) || balance < 0) return alert('Enter a valid amount');
 
     const newSession: CashRegisterEntry = {
       id: `CS-${Date.now()}`,
-      date: new Date().toLocaleDateString('en-CA'),
+      date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' }),
       openedAt: new Date().toISOString(),
       closedAt: null,
       openingBalance: balance,
@@ -87,10 +106,11 @@ export function CashRegisterManagement() {
     
     const bDeposit = Number(bankDeposit);
     const sCash = Number(shoppingCash);
+    const costAmt = Number(cost);
     
-    if (isNaN(bDeposit) || isNaN(sCash)) return alert('Enter valid amounts');
+    if (isNaN(bDeposit) || isNaN(sCash) || isNaN(costAmt)) return alert('Enter valid amounts');
     
-    if (bDeposit + sCash !== expectedDrawerCash) {
+    if (Math.abs(bDeposit + sCash + costAmt - expectedDrawerCash) > 0.01) {
       setShowConfirmModal(true);
       return;
     }
@@ -109,11 +129,13 @@ export function CashRegisterManagement() {
       salesBreakdown: currentSales,
       bankDeposit: Number(bankDeposit),
       shoppingCash: Number(shoppingCash),
+      cost: Number(cost),
     };
 
     dispatch({ type: 'UPDATE_CASH_ENTRY', payload: closedSession });
     setBankDeposit('');
     setShoppingCash('');
+    setCost('');
     setShowConfirmModal(false);
   };
 
@@ -231,6 +253,16 @@ export function CashRegisterManagement() {
                   required
                 />
                 
+                <label style={labelStyle}>Daily Cost / Expenses (৳) *</label>
+                <input
+                  type="number"
+                  value={cost}
+                  onChange={e => setCost(e.target.value)}
+                  placeholder="e.g. 1500"
+                  style={inputStyle}
+                  required
+                />
+                
                 <button
                   type="submit"
                   className="w-full py-3 rounded-xl font-bold text-white transition-transform active:scale-[0.98] mt-2"
@@ -260,6 +292,7 @@ export function CashRegisterManagement() {
                     <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Sales Add</th>
                     <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Bank</th>
                     <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Shopping</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Cost</th>
                     <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
@@ -275,11 +308,11 @@ export function CashRegisterManagement() {
                       )}
                       {sessions.map(s => (
                         <tr key={s.id} className="hover:bg-gray-50/50">
-                          <td className="px-5 py-3.5">
+                          <td className="px-5 py-3.5 whitespace-nowrap">
                             <p className="font-bold text-sm text-gray-900">{s.date}</p>
                             <p className="text-xs text-gray-500">
-                              {new Date(s.openedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
-                              {s.closedAt ? ` - ${new Date(s.closedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : ' (Active)'}
+                              {new Date(s.openedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', timeZone: 'Asia/Dhaka'})} 
+                              {s.closedAt ? ` - ${new Date(s.closedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', timeZone: 'Asia/Dhaka'})}` : ' (Active)'}
                             </p>
                           </td>
                           <td className="px-5 py-3.5 font-bold text-sm">৳{s.openingBalance}</td>
@@ -287,14 +320,14 @@ export function CashRegisterManagement() {
                             {s.status === 'Open' ? (
                               <div className="flex flex-col">
                                 <span className="text-green-600 font-bold text-sm">৳{currentSales.total} Total</span>
-                                <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">Cash: ৳{currentSales.cash} | Digital: ৳{currentSales.total - currentSales.cash}</span>
+                                <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">Cash: ৳{currentSales.cash} | Digital: ৳{(currentSales.total - currentSales.cash) || 0}</span>
                               </div>
                             ) : (
                               <div className="flex flex-col group relative">
-                                <span className="text-green-600 font-bold text-sm">৳{s.salesBreakdown ? s.salesBreakdown.total : s.totalCashSales} Total</span>
+                                <span className="text-green-600 font-bold text-sm">৳{s.salesBreakdown?.total ?? (s.salesBreakdown ? (s.salesBreakdown.cash + s.salesBreakdown.bkash + s.salesBreakdown.nagad + s.salesBreakdown.card + s.salesBreakdown.other) : s.totalCashSales)} Total</span>
                                 {s.salesBreakdown ? (
-                                  <span className="text-[11px] text-gray-500 font-medium cursor-help whitespace-nowrap" title={`Cash: ৳${s.salesBreakdown.cash}\nbKash: ৳${s.salesBreakdown.bkash}\nNagad: ৳${s.salesBreakdown.nagad}\nCard/Other: ৳${s.salesBreakdown.card + s.salesBreakdown.other}`}>
-                                    Cash: ৳{s.salesBreakdown.cash} | Digital: ৳{s.salesBreakdown.total - s.salesBreakdown.cash} <AlertCircle size={10} className="inline mb-0.5 text-gray-400" />
+                                  <span className="text-[11px] text-gray-500 font-medium cursor-help whitespace-nowrap" title={`Cash: ৳${s.salesBreakdown.cash}\nbKash: ৳${s.salesBreakdown.bkash}\nNagad: ৳${s.salesBreakdown.nagad}\nCard/Other: ৳${(s.salesBreakdown.card || 0) + (s.salesBreakdown.other || 0)}`}>
+                                    Cash: ৳{s.salesBreakdown.cash} | Digital: ৳{((s.salesBreakdown.total ?? (s.salesBreakdown.cash + s.salesBreakdown.bkash + s.salesBreakdown.nagad + s.salesBreakdown.card + s.salesBreakdown.other)) - s.salesBreakdown.cash) || 0} <AlertCircle size={10} className="inline mb-0.5 text-gray-400" />
                                   </span>
                                 ) : (
                                   <span className="text-[11px] text-gray-400 italic">Legacy Entry</span>
@@ -302,11 +335,18 @@ export function CashRegisterManagement() {
                               </div>
                             )}
                           </td>
-                          <td className="px-5 py-3.5 font-bold text-sm">{s.status === 'Closed' ? `৳${s.bankDeposit}` : '-'}</td>
-                          <td className="px-5 py-3.5 font-bold text-sm text-red-600">{s.status === 'Closed' ? `৳${s.shoppingCash}` : '-'}</td>
+                          <td className="px-5 py-3.5 font-bold text-sm">
+                            {s.status === 'Open' ? '-' : `৳${s.bankDeposit}`}
+                          </td>
+                          <td className="px-5 py-3.5 font-bold text-sm text-red-600">
+                            {s.status === 'Open' ? '-' : `৳${s.shoppingCash}`}
+                          </td>
+                          <td className="px-5 py-3.5 font-bold text-sm text-red-600">
+                            {s.status === 'Open' ? '-' : `৳${s.cost || 0}`}
+                          </td>
                           <td className="px-5 py-3.5">
                             {s.status === 'Open' ? (
-                              <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">OPEN</span>
+                              <span className="px-3 py-1 bg-green-100 text-green-700 font-bold text-xs rounded-full">OPEN</span>
                             ) : (
                               <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-full">CLOSED</span>
                             )}
@@ -338,7 +378,7 @@ export function CashRegisterManagement() {
               
               <div className="bg-amber-50 rounded-xl p-4 mb-5 border border-amber-100">
                 <p className="text-sm text-amber-800 text-center font-medium">
-                  Your split (Bank: ৳{bankDeposit} + Shopping: ৳{shoppingCash} = <span className="font-bold text-amber-900">৳{Number(bankDeposit) + Number(shoppingCash)}</span>) 
+                  Your split (Bank: ৳{bankDeposit} + Shopping: ৳{shoppingCash} + Cost: ৳{cost} = <span className="font-bold text-amber-900">৳{Number(bankDeposit) + Number(shoppingCash) + Number(cost)}</span>) 
                   does not match the Expected Drawer Cash (<span className="font-bold text-amber-900">৳{expectedDrawerCash}</span>).
                 </p>
               </div>
