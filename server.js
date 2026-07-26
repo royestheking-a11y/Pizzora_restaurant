@@ -106,6 +106,25 @@ if (process.env.MONGO_URI) {
       
       // Remove old hardcoded 'manager' user if it exists
       await UserAccount.deleteOne({ username: 'manager' }).catch(err => console.error(err));
+
+      // ── One-time migration: backfill missing `date` field on legacy CashRegisterEntries ──
+      // Old records may have been saved before the `date` field was introduced, causing
+      // the POS "Open Register" popup to appear every login because hasRegisterToday fails.
+      try {
+        const legacyEntries = await CashRegisterEntry.find({ $or: [{ date: null }, { date: '' }, { date: { $exists: false } }] });
+        for (const entry of legacyEntries) {
+          const ts = entry.openedAt || entry.closedAt;
+          if (ts) {
+            const derivedDate = new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+            await CashRegisterEntry.updateOne({ id: entry.id }, { $set: { date: derivedDate } });
+          }
+        }
+        if (legacyEntries.length > 0) {
+          console.log(`[Migration] Backfilled date on ${legacyEntries.length} legacy CashRegisterEntry records.`);
+        }
+      } catch (err) {
+        console.error('[Migration] Failed to backfill CashRegisterEntry dates:', err);
+      }
       
     })
     .catch(err => console.error('MongoDB connection error:', err));

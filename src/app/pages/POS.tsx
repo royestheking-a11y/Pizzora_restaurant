@@ -161,29 +161,61 @@ export function POS() {
   const [shoppingCash, setShoppingCash] = useState('');
   const [cost, setCost] = useState('');
 
+  // ── Robust date helper: handles legacy entries missing a `date` field ──────
+  const getEntryDate = useCallback((r: { date?: string; openedAt?: string; closedAt?: string | null }) => {
+    // Primary: use the stored date if it's valid en-CA format (YYYY-MM-DD)
+    if (r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) return r.date;
+    // Fallback: derive from ISO timestamp (handles legacy records with no date field)
+    const ts = r.openedAt || (r.closedAt ?? undefined);
+    if (ts) return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    return null;
+  }, []);
+
   useEffect(() => {
-    // Only show the "Open Register" modal if:
-    // 1. Admin is logged in and data has loaded
-    // 2. No register is currently open (globally — any manager's register counts)
-    // 3. No register exists for today at all (even a closed one means it was already used)
+    // Guard: Only show the "Open Register" modal if ALL of:
+    // 1. Admin is logged in
+    // 2. Initial data load from DB is complete (avoids flashing on empty state)
+    // 3. No register is currently open (any user's register counts)
+    // 4. No register was opened at all today (even a closed one = shift already started)
+    // 5. We haven't already prompted this session (sessionStorage guard prevents
+    //    re-prompting when socket broadcasts update cashRegister mid-session)
+
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    const sessionKey = `pos_register_prompted_${today}`;
+
+    // If we already prompted (or user dismissed) in this browser session — never show again today
+    if (sessionStorage.getItem(sessionKey) === 'true') {
+      setShowOpenRegisterModal(false);
+      return;
+    }
+
     const hasAnyOpenRegister = state.cashRegister.some(r => r.status === 'Open');
-    const hasRegisterToday = state.cashRegister.some(r => r.date === today);
-    
+    const hasRegisterToday = state.cashRegister.some(r => getEntryDate(r) === today);
+
     if (state.isAdminLoggedIn && !state.isInitialLoading && !hasAnyOpenRegister && !hasRegisterToday) {
       setShowOpenRegisterModal(true);
     } else {
       setShowOpenRegisterModal(false);
     }
-  }, [state.isAdminLoggedIn, state.isInitialLoading, state.cashRegister]);
+  }, [state.isAdminLoggedIn, state.isInitialLoading, state.cashRegister, getEntryDate]);
+
+  // Dismiss without opening — marks "prompted" for the session so it never re-fires
+  const handleDismissRegisterModal = useCallback(() => {
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    sessionStorage.setItem(`pos_register_prompted_${today}`, 'true');
+    setShowOpenRegisterModal(false);
+  }, []);
 
   const handleOpenRegister = (e: React.FormEvent) => {
     e.preventDefault();
     const balance = Number(openingBalance);
     if (isNaN(balance) || balance < 0) return alert('Enter a valid amount');
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    // Mark as prompted so this never re-shows, even if the useEffect re-fires (e.g. socket update)
+    sessionStorage.setItem(`pos_register_prompted_${today}`, 'true');
     dispatch({ type: 'ADD_CASH_ENTRY', payload: {
       id: `CS-${Date.now()}`,
-      date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' }),
+      date: today,
       openedAt: new Date().toISOString(),
       closedAt: null,
       openingBalance: balance,
@@ -196,10 +228,14 @@ export function POS() {
     setOpeningBalance('');
   };
 
+
   const computeCashSales = () => {
     if (!activeSession) return 0;
     // Use start-of-day and end-of-day as boundaries so only this date's sales are counted
-    const sessionDate = activeSession.date; // 'YYYY-MM-DD'
+    // Fall back to openedAt if date field is missing (legacy records)
+    const sessionDate = (activeSession.date && /^\d{4}-\d{2}-\d{2}$/.test(activeSession.date))
+      ? activeSession.date
+      : new Date(activeSession.openedAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
     const dayStart = new Date(sessionDate + 'T00:00:00').getTime();
     const dayEnd = new Date(sessionDate + 'T23:59:59.999').getTime();
     return state.orders
@@ -216,7 +252,10 @@ export function POS() {
   const computeSalesBreakdown = () => {
     const breakdown = { cash: 0, bkash: 0, nagad: 0, card: 0, other: 0, total: 0 };
     if (!activeSession) return breakdown;
-    const sessionDate = activeSession.date;
+    // Fall back to openedAt if date field is missing (legacy records)
+    const sessionDate = (activeSession.date && /^\d{4}-\d{2}-\d{2}$/.test(activeSession.date))
+      ? activeSession.date
+      : new Date(activeSession.openedAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
     const utcMidnight = new Date(sessionDate + 'T00:00:00Z').getTime();
     const dayStart = utcMidnight - (6 * 60 * 60 * 1000); // Bangladesh is UTC+6
     const dayEnd = dayStart + (24 * 60 * 60 * 1000) - 1;
@@ -1422,7 +1461,15 @@ export function POS() {
       {showOpenRegisterModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
           <div className="bg-white rounded-3xl max-w-[400px] w-full overflow-hidden shadow-2xl animate-scale-up" style={{ border: '1px solid rgba(0,0,0,0.05)' }}>
-            <div className="p-8 text-center border-b" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+            <div className="p-8 text-center border-b relative" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+              {/* Emergency dismiss — silences the popup for the rest of the session */}
+              <button
+                onClick={handleDismissRegisterModal}
+                className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                title="Skip for now (register will not be opened)"
+              >
+                <X size={18} />
+              </button>
               <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #111, #333)' }}>
                 <Banknote size={32} className="text-white" />
               </div>

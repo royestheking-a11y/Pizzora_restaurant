@@ -18,7 +18,7 @@ const labelStyle: React.CSSProperties = {
 export function CashRegisterManagement() {
   const { state, dispatch } = useApp();
   const sessions = useMemo(() => 
-    [...state.cashRegister].sort((a, b) => b.date.localeCompare(a.date) || b.openedAt.localeCompare(a.openedAt)),
+    [...state.cashRegister].sort((a, b) => (b.date || b.openedAt || '').localeCompare(a.date || a.openedAt || '') || (b.openedAt || '').localeCompare(a.openedAt || '')),
     [state.cashRegister]
   );
   const [activeSession, setActiveSession] = useState<CashRegisterEntry | null>(null);
@@ -38,7 +38,10 @@ export function CashRegisterManagement() {
     const breakdown = { cash: 0, bkash: 0, nagad: 0, card: 0, other: 0, total: 0 };
     if (!activeSession) return breakdown;
     // Use start-of-day and end-of-day as boundaries so only this date's sales are counted
-    const sessionDate = activeSession.date; // 'YYYY-MM-DD'
+    // Fall back to openedAt if date field is missing (legacy records)
+    const sessionDate = (activeSession.date && /^\d{4}-\d{2}-\d{2}$/.test(activeSession.date))
+      ? activeSession.date
+      : new Date(activeSession.openedAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
     const utcMidnight = new Date(sessionDate + 'T00:00:00Z').getTime();
     const dayStart = utcMidnight - (6 * 60 * 60 * 1000); // Bangladesh is UTC+6
     const dayEnd = dayStart + (24 * 60 * 60 * 1000) - 1;
@@ -75,7 +78,13 @@ export function CashRegisterManagement() {
   const expectedDrawerCash = activeSession ? activeSession.openingBalance + currentCashSales : 0;
 
   const dhakaStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
-  const hasRegisterToday = sessions.some(s => s.date === dhakaStr);
+  const getEntryDate = (r: CashRegisterEntry) => {
+    if (r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) return r.date;
+    const ts = r.openedAt || (r.closedAt ?? undefined);
+    if (ts) return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    return null;
+  };
+  const hasRegisterToday = sessions.some(s => getEntryDate(s) === dhakaStr);
 
   const handleOpenRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -322,7 +331,7 @@ export function CashRegisterManagement() {
                       {sessions.map(s => (
                         <tr key={s.id} className="hover:bg-gray-50/50">
                           <td className="px-5 py-3.5 whitespace-nowrap">
-                            <p className="font-bold text-sm text-gray-900">{s.date}</p>
+                            <p className="font-bold text-sm text-gray-900">{getEntryDate(s) || '—'}</p>
                             <p className="text-xs text-gray-500">
                               {new Date(s.openedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', timeZone: 'Asia/Dhaka'})} 
                               {s.closedAt ? ` - ${new Date(s.closedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', timeZone: 'Asia/Dhaka'})}` : ' (Active)'}
