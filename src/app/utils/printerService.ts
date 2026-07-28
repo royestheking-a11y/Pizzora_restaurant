@@ -345,7 +345,7 @@ class QZTrayService {
     data.push(...this.bold(true));
     data.push('Thank you for dining at Pizzora!\n');
     data.push(...this.bold(false));
-    data.push('www.rizqara.tech\n');
+    data.push('Powered by www.rizqara.tech\n');
     data.push(...this.lineBreak(3));
 
     // Cut paper
@@ -502,7 +502,7 @@ class QZTrayService {
     data.push(...this.bold(true));
     data.push('Thank you for dining at Pizzora!\n');
     data.push(...this.bold(false));
-    data.push('www.rizqara.tech\n');
+    data.push('Powered by www.rizqara.tech\n');
     data.push(...this.lineBreak(3));
 
     // Cut paper
