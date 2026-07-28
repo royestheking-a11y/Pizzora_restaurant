@@ -232,7 +232,7 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
       tableOrders, wasteRecords, employees, payrollRecords,
       expenses, cashRegister, inventory, stockMovements, users
     ] = await Promise.all([
-      Order.find().sort({ createdAt: -1 }).limit(1500), // Last ~1500 orders for robust sales analytics
+      Order.find().sort({ createdAt: -1 }).limit(100), // Reduced to 100 for fast loading. Analytics handles the rest.
       Reservation.find().sort({ createdAt: -1 }).limit(100),
       Message.find().sort({ createdAt: -1 }).limit(100),
       CateringRequest.find().sort({ createdAt: -1 }).limit(100),
