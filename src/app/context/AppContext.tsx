@@ -255,6 +255,14 @@ interface AppState {
   analytics: {
     totalRevenue: number;
     totalCustomers: number;
+    todayRevenue?: number;
+    weeklyRevenue?: number;
+    monthlyRevenue?: number;
+    yearlyRevenue?: number;
+    dailyChart?: any[];
+    weeklyChart?: any[];
+    monthlyChart?: any[];
+    yearlyChart?: any[];
   } | null;
 }
 
@@ -290,7 +298,7 @@ type Action =
   | { type: 'ADD_CHEF'; payload: Chef }
   | { type: 'UPDATE_CHEF'; payload: Chef }
   | { type: 'DELETE_CHEF'; payload: string }
-  | { type: 'SET_ANALYTICS'; payload: { totalRevenue: number; totalCustomers: number } }
+  | { type: 'SET_ANALYTICS'; payload: { totalRevenue: number; totalCustomers: number; todayRevenue?: number; weeklyRevenue?: number; monthlyRevenue?: number; yearlyRevenue?: number; dailyChart?: any[]; weeklyChart?: any[]; monthlyChart?: any[]; yearlyChart?: any[]; } }
   // Table actions
   | { type: 'ADD_TABLE'; payload: RestaurantTable }
   | { type: 'UPDATE_TABLE'; payload: RestaurantTable }
