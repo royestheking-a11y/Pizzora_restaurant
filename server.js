@@ -223,6 +223,8 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
     // Use Bangladesh timezone (UTC+6) for "today"
     todayStart.setUTCHours(-6, 0, 0, 0); // midnight in Asia/Dhaka
 
+    const todayStartStr = todayStart.toISOString();
+
     // Run ALL queries in parallel — sequential awaits were causing Render/Cloudflare
     // to time out the HTTP/2 stream before the response could be sent.
     const [
@@ -230,7 +232,7 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
       tableOrders, wasteRecords, employees, payrollRecords,
       expenses, cashRegister, inventory, stockMovements, users
     ] = await Promise.all([
-      Order.find({ $or: [{ createdAt: { $gte: todayStart } }, { status: { $nin: ['Delivered', 'Cancelled'] } }] }).sort({ createdAt: -1 }),
+      Order.find({ $or: [{ createdAt: { $gte: todayStartStr } }, { status: { $nin: ['Delivered', 'Cancelled'] } }] }).sort({ createdAt: -1 }),
       Reservation.find().sort({ createdAt: -1 }).limit(50),
       Message.find().sort({ createdAt: -1 }).limit(50),
       CateringRequest.find().sort({ createdAt: -1 }).limit(100),
