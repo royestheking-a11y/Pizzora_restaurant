@@ -296,19 +296,19 @@ app.get('/api/analytics', authenticateJWT, async (req, res) => {
 
     const hours = Array.from({length: 24}, (_, i) => ({ name: `${i}:00`, sales: 0, orders: 0 }));
     const days = Array.from({length: 7}, (_, i) => {
-      const d = new Date(startOfWeek + (i * 86400000));
-      return { name: d.toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka', month: 'short', day: 'numeric', weekday: 'short' }), sales: 0, orders: 0, dayIndex: d.getUTCDay() };
+      const d = new Date(startOfWeek + (i * 86400000) + dhakaOffset);
+      return { name: d.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', weekday: 'short' }), sales: 0, orders: 0, dayIndex: d.getUTCDay() };
     });
     
     const daysInMonth = new Date(year, month, 0).getDate();
     const monthDays = Array.from({length: daysInMonth}, (_, i) => {
-      const d = new Date(startOfMonth + (i * 86400000));
-      return { name: d.toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka', month: 'short', day: 'numeric' }), sales: 0, orders: 0, dateIndex: d.getUTCDate() };
+      const d = new Date(startOfMonth + (i * 86400000) + dhakaOffset);
+      return { name: d.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' }), sales: 0, orders: 0, dateIndex: d.getUTCDate() };
     });
     
     const months = Array.from({length: 12}, (_, i) => {
       const d = new Date(Date.UTC(year, i, 1));
-      return { name: d.toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka', month: 'short', year: 'numeric' }), sales: 0, orders: 0, monthIndex: i };
+      return { name: d.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', year: 'numeric' }), sales: 0, orders: 0, monthIndex: i };
     });
 
     allOrders.forEach(o => {
