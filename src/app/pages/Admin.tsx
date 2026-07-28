@@ -927,9 +927,9 @@ export function Admin() {
   // ── Payment Analytics ─────────────────────────────────────────────────
   const { startOfDay, startOfWeek, startOfMonth, startOfYear, dhakaStr, dayOfWeek } = useMemo(() => getDhakaTimeBounds(), []);
 
-  const todayRevenue   = completedUnifiedOrders.filter(o => o.timestamp >= startOfDay).reduce((s, o) => s + o.total, 0);
-  const weeklyRevenue  = completedUnifiedOrders.filter(o => o.timestamp >= startOfWeek).reduce((s, o) => s + o.total, 0);
-  const monthlyRevenue = completedUnifiedOrders.filter(o => o.timestamp >= startOfMonth).reduce((s, o) => s + o.total, 0);
+  const todayRevenue   = state.analytics?.todayRevenue ?? completedUnifiedOrders.filter(o => o.timestamp >= startOfDay).reduce((s, o) => s + o.total, 0);
+  const weeklyRevenue  = state.analytics?.weeklyRevenue ?? completedUnifiedOrders.filter(o => o.timestamp >= startOfWeek).reduce((s, o) => s + o.total, 0);
+  const monthlyRevenue = state.analytics?.monthlyRevenue ?? completedUnifiedOrders.filter(o => o.timestamp >= startOfMonth).reduce((s, o) => s + o.total, 0);
 
   const bkashOrders  = completedUnifiedOrders.filter(o => o.paymentMethod === 'bKash');
   const nagadOrders  = completedUnifiedOrders.filter(o => o.paymentMethod === 'Nagad');
@@ -1595,100 +1595,26 @@ export function Admin() {
                   <ChartSkeleton />
                 </div>
               ) : (() => {
-                const now = new Date();
-                let filteredOrders = completedUnifiedOrders;
                 let chartData: any[] = [];
                 let totalSales = 0;
                 let totalOrders = 0;
 
-                if (salesFilter === 'daily') {
-                  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfDay);
-                  
-                  const hours = Array.from({length: 24}, (_, i) => ({ name: `${i}:00`, sales: 0, orders: 0 }));
-                  filteredOrders.forEach(o => {
-                    const h = new Date(o.timestamp).getHours();
-                    hours[h].sales += o.total;
-                    hours[h].orders += 1;
-                  });
-                  chartData = hours.filter(h => h.sales > 0 || (parseInt(h.name) >= 8 && parseInt(h.name) <= 23));
-                } else if (salesFilter === 'weekly') {
-                  const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-                  startOfWeek.setHours(0, 0, 0, 0);
-                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfWeek);
-                  
-                  const days = Array.from({length: 7}, (_, i) => {
-                    const date = new Date(startOfWeek);
-                    date.setDate(date.getDate() + i);
-                    return {
-                      name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' }),
-                      sales: 0,
-                      orders: 0,
-                      dayIndex: date.getDay()
-                    };
-                  });
-                  filteredOrders.forEach(o => {
-                    const d = new Date(o.timestamp).getDay();
-                    const day = days.find(x => x.dayIndex === d);
-                    if (day) {
-                      day.sales += o.total;
-                      day.orders += 1;
-                    }
-                  });
-                  chartData = days;
-                } else if (salesFilter === 'monthly') {
-                  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-                  startOfMonth.setHours(0, 0, 0, 0);
-                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfMonth);
-                  
-                  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-                  const days = Array.from({length: daysInMonth}, (_, i) => {
-                    const date = new Date(startOfMonth);
-                    date.setDate(i + 1);
-                    return {
-                      name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                      sales: 0,
-                      orders: 0,
-                      dateIndex: i + 1
-                    };
-                  });
-                  filteredOrders.forEach(o => {
-                    const d = new Date(o.timestamp).getDate();
-                    const day = days.find(x => x.dateIndex === d);
-                    if (day) {
-                      day.sales += o.total;
-                      day.orders += 1;
-                    }
-                  });
-                  chartData = days;
-                } else if (salesFilter === 'yearly') {
-                  const startOfYear = new Date(now.getFullYear(), 0, 1);
-                  startOfYear.setHours(0, 0, 0, 0);
-                  filteredOrders = completedUnifiedOrders.filter(o => o.timestamp >= startOfYear);
-                  
-                  const months = Array.from({length: 12}, (_, i) => {
-                    const date = new Date(startOfYear);
-                    date.setMonth(i);
-                    return {
-                      name: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-                      sales: 0,
-                      orders: 0,
-                      monthIndex: i
-                    };
-                  });
-                  filteredOrders.forEach(o => {
-                    const m = new Date(o.timestamp).getMonth();
-                    const month = months.find(x => x.monthIndex === m);
-                    if (month) {
-                      month.sales += o.total;
-                      month.orders += 1;
-                    }
-                  });
-                  chartData = months;
+                if (state.analytics) {
+                  if (salesFilter === 'daily') {
+                    chartData = state.analytics.dailyChart || [];
+                    totalSales = state.analytics.todayRevenue || 0;
+                  } else if (salesFilter === 'weekly') {
+                    chartData = state.analytics.weeklyChart || [];
+                    totalSales = state.analytics.weeklyRevenue || 0;
+                  } else if (salesFilter === 'monthly') {
+                    chartData = state.analytics.monthlyChart || [];
+                    totalSales = state.analytics.monthlyRevenue || 0;
+                  } else if (salesFilter === 'yearly') {
+                    chartData = state.analytics.yearlyChart || [];
+                    totalSales = state.analytics.yearlyRevenue || 0;
+                  }
+                  totalOrders = chartData.reduce((sum, item) => sum + (item.orders || 0), 0);
                 }
-
-                totalSales = filteredOrders.reduce((sum, o) => sum + o.total, 0);
-                totalOrders = filteredOrders.length;
 
                 const renderCustomBarLabel = (props: any) => {
                   const { x, y, width, index } = props;

@@ -1000,7 +1000,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   if (analyticsData.success) {
                     dispatchLocal({ type: 'SET_ANALYTICS', payload: {
                       totalRevenue: analyticsData.totalRevenue,
-                      totalCustomers: analyticsData.totalCustomers
+                      totalCustomers: analyticsData.totalCustomers,
+                      todayRevenue: analyticsData.todayRevenue,
+                      weeklyRevenue: analyticsData.weeklyRevenue,
+                      monthlyRevenue: analyticsData.monthlyRevenue,
+                      yearlyRevenue: analyticsData.yearlyRevenue,
+                      dailyChart: analyticsData.dailyChart,
+                      weeklyChart: analyticsData.weeklyChart,
+                      monthlyChart: analyticsData.monthlyChart,
+                      yearlyChart: analyticsData.yearlyChart,
                     }});
                   }
                 })

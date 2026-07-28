@@ -262,26 +262,105 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
 // Analytics Endpoint (Calculates stats across entire database)
 app.get('/api/analytics', authenticateJWT, async (req, res) => {
   try {
-    const ordersTotal = await Order.aggregate([
-      { $match: { status: 'Delivered' } },
-      { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } }
-    ]);
-    const tablesTotal = await TableOrder.aggregate([
-      { $match: { status: 'Paid' } },
-      { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } }
-    ]);
+    const start = Date.now();
+    // Only fetch minimal fields needed for analytics to save memory
+    const orders = await Order.find({ status: { $in: ['Delivered', 'Paid'] } }, 'createdAt total').lean();
+    const tableOrders = await TableOrder.find({ status: 'Paid' }, 'createdAt total').lean();
     
-    const oTotal = ordersTotal[0]?.total || 0;
-    const oCount = ordersTotal[0]?.count || 0;
-    const tTotal = tablesTotal[0]?.total || 0;
-    const tCount = tablesTotal[0]?.count || 0;
+    const allOrders = [
+      ...orders.map(o => ({ timestamp: new Date(o.createdAt).getTime(), total: o.total })),
+      ...tableOrders.map(o => ({ timestamp: new Date(o.createdAt).getTime(), total: o.total }))
+    ];
+    
+    const dhakaOffset = 6 * 60 * 60 * 1000;
+    
+    // Time boundaries based on Asia/Dhaka
+    const dhakaStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    const utcMidnight = new Date(dhakaStr + 'T00:00:00Z').getTime();
+    const startOfDay = utcMidnight - dhakaOffset;
+    
+    const rawDayOfWeek = new Date(dhakaStr).getUTCDay(); // 0 is Sunday
+    const diffToMonday = rawDayOfWeek === 0 ? -6 : 1 - rawDayOfWeek;
+    const startOfWeek = startOfDay + (diffToMonday * 86400000);
+    
+    const [year, month] = dhakaStr.split('-').map(Number);
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1)).getTime() - dhakaOffset;
+    const startOfYear = new Date(Date.UTC(year, 0, 1)).getTime() - dhakaOffset;
+
+    let totalRevenue = 0;
+    let todayRevenue = 0;
+    let weeklyRevenue = 0;
+    let monthlyRevenue = 0;
+    let yearlyRevenue = 0;
+    let totalCustomers = allOrders.length;
+
+    const hours = Array.from({length: 24}, (_, i) => ({ name: `${i}:00`, sales: 0, orders: 0 }));
+    const days = Array.from({length: 7}, (_, i) => {
+      const d = new Date(startOfWeek + (i * 86400000));
+      return { name: d.toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka', month: 'short', day: 'numeric', weekday: 'short' }), sales: 0, orders: 0, dayIndex: d.getUTCDay() };
+    });
+    
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const monthDays = Array.from({length: daysInMonth}, (_, i) => {
+      const d = new Date(startOfMonth + (i * 86400000));
+      return { name: d.toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka', month: 'short', day: 'numeric' }), sales: 0, orders: 0, dateIndex: d.getUTCDate() };
+    });
+    
+    const months = Array.from({length: 12}, (_, i) => {
+      const d = new Date(Date.UTC(year, i, 1));
+      return { name: d.toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka', month: 'short', year: 'numeric' }), sales: 0, orders: 0, monthIndex: i };
+    });
+
+    allOrders.forEach(o => {
+      totalRevenue += o.total;
+      
+      if (o.timestamp >= startOfDay) {
+        todayRevenue += o.total;
+        const h = new Date(o.timestamp + dhakaOffset).getUTCHours();
+        hours[h].sales += o.total;
+        hours[h].orders += 1;
+      }
+      
+      if (o.timestamp >= startOfWeek) {
+        weeklyRevenue += o.total;
+        const d = new Date(o.timestamp + dhakaOffset).getUTCDay();
+        const day = days.find(x => x.dayIndex === d);
+        if (day) { day.sales += o.total; day.orders += 1; }
+      }
+      
+      if (o.timestamp >= startOfMonth) {
+        monthlyRevenue += o.total;
+        const d = new Date(o.timestamp + dhakaOffset).getUTCDate();
+        const day = monthDays.find(x => x.dateIndex === d);
+        if (day) { day.sales += o.total; day.orders += 1; }
+      }
+      
+      if (o.timestamp >= startOfYear) {
+        yearlyRevenue += o.total;
+        const m = new Date(o.timestamp + dhakaOffset).getUTCMonth();
+        const mObj = months.find(x => x.monthIndex === m);
+        if (mObj) { mObj.sales += o.total; mObj.orders += 1; }
+      }
+    });
+
+    const dailyChart = hours.filter(h => h.sales > 0 || (parseInt(h.name) >= 8 && parseInt(h.name) <= 23));
 
     res.json({
       success: true,
-      totalRevenue: oTotal + tTotal,
-      totalCustomers: oCount + tCount
+      totalRevenue,
+      todayRevenue,
+      weeklyRevenue,
+      monthlyRevenue,
+      yearlyRevenue,
+      totalCustomers,
+      dailyChart,
+      weeklyChart: days,
+      monthlyChart: monthDays,
+      yearlyChart: months,
+      processTimeMs: Date.now() - start
     });
   } catch (error) {
+    console.error("Failed to calculate analytics", error);
     res.status(500).json({ error: 'Failed to calculate analytics' });
   }
 });
