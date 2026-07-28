@@ -2662,9 +2662,22 @@ export function Admin() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-              <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '16px', color: '#111' }}>Total Amount</span>
-              <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '20px', color: '#F9002B' }}>
+            <div className="flex flex-col gap-2 pt-4 border-t border-gray-200">
+              {(viewOrderDetails.discount || 0) > 0 && (
+                <>
+                  <div className="flex justify-between items-center text-gray-500">
+                    <span style={{ fontSize: '14px', fontWeight: 600 }}>Subtotal</span>
+                    <span style={{ fontSize: '14px', fontWeight: 600 }}>৳{(viewOrderDetails.subtotal || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-green-600 mb-2">
+                    <span style={{ fontSize: '14px', fontWeight: 600 }}>Discount</span>
+                    <span style={{ fontSize: '14px', fontWeight: 600 }}>-৳{(viewOrderDetails.discount || 0).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between items-center">
+                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '16px', color: '#111' }}>Total Amount</span>
+                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '20px', color: '#F9002B' }}>
                 ৳{viewOrderDetails.total?.toFixed(2)}
               </span>
             </div>

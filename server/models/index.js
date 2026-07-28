@@ -34,6 +34,8 @@ const MenuItemSchema = new mongoose.Schema({
 const OrderSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
   items: Array,
+  subtotal: Number,
+  discount: Number,
   total: Number,
   status: String,
   paymentMethod: String,
@@ -114,6 +116,8 @@ const TableOrderSchema = new mongoose.Schema({
   tableId: String,
   tableNumber: String,
   items: Array,
+  subtotal: Number,
+  discount: Number,
   total: Number,
   status: String,
   createdAt: Number,

@@ -474,6 +474,8 @@ export function POS() {
         quantity: c.quantity,
         specialRequest: c.note || '',
       })),
+      subtotal: lastInvoice.sub,
+      discount: lastInvoice.disc,
       total: lastInvoice.total,
       status: 'Delivered' as const,
       paymentMethod: lastInvoice.method,

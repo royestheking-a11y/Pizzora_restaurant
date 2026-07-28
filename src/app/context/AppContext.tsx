@@ -17,6 +17,8 @@ export type PaymentMethod = 'bKash' | 'Nagad' | 'Cash on Delivery' | 'Cash' | 'C
 export interface Order {
   id: string;
   items: CartItem[];
+  subtotal?: number;
+  discount?: number;
   total: number;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
@@ -112,6 +114,8 @@ export interface TableOrder {
   tableId: string;
   tableNumber: string;
   items: TableOrderItem[];
+  subtotal?: number;
+  discount?: number;
   total: number;
   status: TableOrderStatus;
   createdAt: number;
