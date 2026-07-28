@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import compression from 'compression';
 import { v2 as cloudinary } from 'cloudinary';
 import {
   MenuItem, Order, Reservation, Message, CateringRequest,
@@ -75,6 +76,10 @@ app.use('/api/', apiLimiter);
 
 // Need increased limit for base64 image uploads
 app.use(express.json({ limit: '10mb' }));
+
+// Gzip compress all responses — critical for Render's Cloudflare HTTP/2 layer
+// which drops connections on large uncompressed JSON payloads.
+app.use(compression());
 
 // ----- Self Ping Route to keep Render alive -----
 app.get('/api/ping', (req, res) => {
@@ -212,7 +217,7 @@ app.get('/api/state/public', async (req, res) => {
 app.get('/api/state/admin', authenticateJWT, async (req, res) => {
   try {
     const state = {
-      orders: await Order.find().sort({ createdAt: -1 }).limit(500),
+      orders: await Order.find().sort({ createdAt: -1 }).limit(100),
       reservations: await Reservation.find().sort({ createdAt: -1 }).limit(50),
       messages: await Message.find().sort({ createdAt: -1 }).limit(50),
       cateringRequests: await CateringRequest.find().sort({ createdAt: -1 }).limit(100),
