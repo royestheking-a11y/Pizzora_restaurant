@@ -31,6 +31,12 @@ process.on('unhandledRejection', (err) => {
 dotenv.config();
 
 const app = express();
+
+// Trust Render's reverse proxy so that X-Forwarded-For is read correctly.
+// Without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+// and aborts every request, causing ERR_CONNECTION_CLOSED on the client.
+app.set('trust proxy', 1);
+
 app.use(cors());
 app.use(helmet({
   crossOriginResourcePolicy: false, // allow images to load cross-origin if needed
