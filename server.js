@@ -223,30 +223,34 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
     // Use Bangladesh timezone (UTC+6) for "today"
     todayStart.setUTCHours(-6, 0, 0, 0); // midnight in Asia/Dhaka
 
-    const orders = await Order.find({
-      $or: [
-        { createdAt: { $gte: todayStart } },
-        { status: { $nin: ['Delivered', 'Cancelled'] } }
-      ]
-    }).sort({ createdAt: -1 });
+    // Run ALL queries in parallel — sequential awaits were causing Render/Cloudflare
+    // to time out the HTTP/2 stream before the response could be sent.
+    const [
+      orders, reservations, messages, cateringRequests, tables,
+      tableOrders, wasteRecords, employees, payrollRecords,
+      expenses, cashRegister, inventory, stockMovements, users
+    ] = await Promise.all([
+      Order.find({ $or: [{ createdAt: { $gte: todayStart } }, { status: { $nin: ['Delivered', 'Cancelled'] } }] }).sort({ createdAt: -1 }),
+      Reservation.find().sort({ createdAt: -1 }).limit(50),
+      Message.find().sort({ createdAt: -1 }).limit(50),
+      CateringRequest.find().sort({ createdAt: -1 }).limit(100),
+      RestaurantTable.find().sort({ tableNumber: 1 }),
+      TableOrder.find().sort({ createdAt: -1 }).limit(50),
+      WasteRecord.find().sort({ date: -1 }).limit(100),
+      Employee.find().sort({ name: 1 }),
+      PayrollRecord.find().sort({ year: -1, month: -1 }).limit(100),
+      ExpenseEntry.find().sort({ date: -1 }).limit(100),
+      CashRegisterEntry.find().sort({ id: -1 }).limit(100),
+      InventoryItem.find().sort({ name: 1 }).limit(200),
+      StockMovement.find().sort({ date: -1 }).limit(200),
+      UserAccount.find().sort({ createdAt: -1 }),
+    ]);
 
-    const state = {
-      orders,
-      reservations: await Reservation.find().sort({ createdAt: -1 }).limit(50),
-      messages: await Message.find().sort({ createdAt: -1 }).limit(50),
-      cateringRequests: await CateringRequest.find().sort({ createdAt: -1 }).limit(100),
-      tables: await RestaurantTable.find().sort({ tableNumber: 1 }),
-      tableOrders: await TableOrder.find().sort({ createdAt: -1 }).limit(50),
-      wasteRecords: await WasteRecord.find().sort({ date: -1 }).limit(100),
-      employees: await Employee.find().sort({ name: 1 }),
-      payrollRecords: await PayrollRecord.find().sort({ year: -1, month: -1 }).limit(100),
-      expenses: await ExpenseEntry.find().sort({ date: -1 }).limit(100),
-      cashRegister: await CashRegisterEntry.find().sort({ id: -1 }).limit(100),
-      inventory: await InventoryItem.find().sort({ name: 1 }).limit(200),
-      stockMovements: await StockMovement.find().sort({ date: -1 }).limit(200),
-      users: await UserAccount.find().sort({ createdAt: -1 }),
-    };
-    res.json(state);
+    res.json({
+      orders, reservations, messages, cateringRequests, tables,
+      tableOrders, wasteRecords, employees, payrollRecords,
+      expenses, cashRegister, inventory, stockMovements, users
+    });
   } catch (error) {
     console.error("Failed to load admin state", error);
     res.status(500).json({ error: "Failed to load admin state" });
