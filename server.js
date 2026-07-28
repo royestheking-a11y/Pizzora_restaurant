@@ -232,19 +232,19 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
       tableOrders, wasteRecords, employees, payrollRecords,
       expenses, cashRegister, inventory, stockMovements, users
     ] = await Promise.all([
-      Order.find({ $or: [{ createdAt: { $gte: todayStartStr } }, { status: { $nin: ['Delivered', 'Cancelled'] } }] }).sort({ createdAt: -1 }),
-      Reservation.find().sort({ createdAt: -1 }).limit(50),
-      Message.find().sort({ createdAt: -1 }).limit(50),
+      Order.find().sort({ createdAt: -1 }).limit(1500), // Last ~1500 orders for robust sales analytics
+      Reservation.find().sort({ createdAt: -1 }).limit(100),
+      Message.find().sort({ createdAt: -1 }).limit(100),
       CateringRequest.find().sort({ createdAt: -1 }).limit(100),
       RestaurantTable.find().sort({ tableNumber: 1 }),
-      TableOrder.find().sort({ createdAt: -1 }).limit(50),
-      WasteRecord.find().sort({ date: -1 }).limit(100),
+      TableOrder.find().sort({ createdAt: -1 }).limit(100),
+      WasteRecord.find().sort({ date: -1 }),
       Employee.find().sort({ name: 1 }),
-      PayrollRecord.find().sort({ year: -1, month: -1 }).limit(100),
-      ExpenseEntry.find().sort({ date: -1 }).limit(100),
-      CashRegisterEntry.find().sort({ id: -1 }).limit(100),
-      InventoryItem.find().sort({ name: 1 }).limit(200),
-      StockMovement.find().sort({ date: -1 }).limit(200),
+      PayrollRecord.find().sort({ year: -1, month: -1 }),
+      ExpenseEntry.find().sort({ date: -1 }),       // All expenses needed for accurate P&L
+      CashRegisterEntry.find().sort({ id: -1 }),    // All register entries for auditing
+      InventoryItem.find().sort({ name: 1 }),       // All inventory items
+      StockMovement.find().sort({ date: -1 }),      // All stock movements
       UserAccount.find().sort({ createdAt: -1 }),
     ]);
 
