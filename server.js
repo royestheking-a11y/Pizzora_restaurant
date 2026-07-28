@@ -216,8 +216,22 @@ app.get('/api/state/public', async (req, res) => {
 
 app.get('/api/state/admin', authenticateJWT, async (req, res) => {
   try {
+    // Only load today's orders + any still-active orders (not yet Delivered/Cancelled).
+    // This keeps the response small no matter how many total orders exist.
+    // Older orders are available on-demand via GET /api/orders/history (paginated).
+    const todayStart = new Date();
+    // Use Bangladesh timezone (UTC+6) for "today"
+    todayStart.setUTCHours(-6, 0, 0, 0); // midnight in Asia/Dhaka
+
+    const orders = await Order.find({
+      $or: [
+        { createdAt: { $gte: todayStart } },
+        { status: { $nin: ['Delivered', 'Cancelled'] } }
+      ]
+    }).sort({ createdAt: -1 });
+
     const state = {
-      orders: await Order.find().sort({ createdAt: -1 }).limit(100),
+      orders,
       reservations: await Reservation.find().sort({ createdAt: -1 }).limit(50),
       messages: await Message.find().sort({ createdAt: -1 }).limit(50),
       cateringRequests: await CateringRequest.find().sort({ createdAt: -1 }).limit(100),
