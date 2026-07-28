@@ -2681,6 +2681,7 @@ export function Admin() {
                 ৳{viewOrderDetails.total?.toFixed(2)}
               </span>
             </div>
+            </div>
           </div>
         </div>
       </ModalOverlay>
