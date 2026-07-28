@@ -297,7 +297,7 @@ function InvoiceModal({ orderId, onClose }: { orderId: string; onClose: () => vo
 
         <div style={{ textAlign: 'center', marginTop: '32px' }}>
           <p style={{ fontSize: '15px', margin: '2px 0' }}>Thank you for dining at Pizzora!</p>
-          <p style={{ fontSize: '13px', margin: '6px 0', color: '#555' }}>Powered by www.rizqara.tech</p>
+          <p style={{ fontSize: '13px', margin: '6px 0', color: '#555' }}>Powered by rizqara.tech</p>
         </div>
 
         <div className="flex gap-2 mt-8 pos-invoice-buttons">
