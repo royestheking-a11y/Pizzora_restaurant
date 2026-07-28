@@ -37,9 +37,19 @@ const app = express();
 // and aborts every request, causing ERR_CONNECTION_CLOSED on the client.
 app.set('trust proxy', 1);
 
-app.use(cors());
+app.use(cors({
+  origin: true, // reflect the request origin
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Helmet: disable CSP entirely — the app is an admin SPA served from
+// the same origin, so Helmet's restrictive default CSP was blocking
+// browser fetch() calls (connect-src 'self') through Cloudflare's CDN.
 app.use(helmet({
-  crossOriginResourcePolicy: false, // allow images to load cross-origin if needed
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: false,
 }));
 
 // Apply rate limiting
