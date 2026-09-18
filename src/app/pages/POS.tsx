@@ -501,8 +501,13 @@ export function POS() {
     setPrintError(null);
     setPrintSuccess(false);
 
-    // Auto-print receipt
+    // Auto-open cash drawer for cash orders
     const settings = loadPrinterSettings();
+    if (lastInvoice.method === 'Cash' && settings.autoOpenDrawer) {
+      await printerService.openCashDrawer(settings);
+    }
+
+    // Auto-print receipt
     if (settings.autoPrint) {
       await handlePrintReceipt(lastInvoice, false);
     }
@@ -611,10 +616,6 @@ export function POS() {
 
     if (result.success) {
       setPrintSuccess(true);
-      // Open cash drawer for cash payments
-      if (inv.method === 'Cash' && settings.autoOpenDrawer) {
-        await printerService.openCashDrawer(settings);
-      }
     } else {
       setPrintError(result.error || 'Print failed');
     }

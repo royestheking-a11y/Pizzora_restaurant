@@ -205,10 +205,14 @@ class QZTrayService {
 
   private init(): { hex: string }[] { return this.cmd(this.ESC, 0x40); }
   private cutPaper(): { hex: string }[] { return this.cmd(this.GS, 0x56, 0x41, 0x10); }
-  // Cash drawer kick: 400ms pulse (0xC8) on pin 2 (0x00)
-  private kickDrawer(): { hex: string }[] {
-    const pin2 = this.cmd(this.ESC, 0x70, 0x00, 0xC8, 0xC8)[0].hex;
-    return [{ hex: pin2 }];
+  // Cash drawer kick: Safe 100ms pulse (0x32 = 50 * 2ms = 100ms) on both Pin 2 (0x00) and Pin 5 (0x01)
+  // 100ms provides optimal magnetic pull force to open heavy/loaded drawers reliably
+  // while remaining well below the thermal threshold that burns printer driver transistors.
+  // Dual-pin ensures compatibility regardless of whether the drawer is wired for Pin 2 or Pin 5.
+  kickDrawer(): { hex: string }[] {
+    const pin2 = this.cmd(this.ESC, 0x70, 0x00, 0x32, 0x32)[0].hex;
+    const pin5 = this.cmd(this.ESC, 0x70, 0x01, 0x32, 0x32)[0].hex;
+    return [{ hex: pin2 + pin5 }];
   }
   private bold(on: boolean): { hex: string }[] { return this.cmd(this.ESC, 0x45, on ? 1 : 0); }
   private align(a: 'left' | 'center' | 'right'): { hex: string }[] {
@@ -233,9 +237,6 @@ class QZTrayService {
 
     // Init
     data.push(...this.init());
-
-    // Kick Cash Drawer (opens drawer as soon as print starts)
-    data.push(...this.kickDrawer());
 
     if (invoice.isRefund) {
       data.push(...this.align('center'));
@@ -375,7 +376,7 @@ class QZTrayService {
     try {
       const qz = this.qz as any;
       const config = qz.configs.create(s.printerName, {
-        copies: s.copies || 1,
+        copies: 1,
         encoding: 'UTF-8',
       });
 
