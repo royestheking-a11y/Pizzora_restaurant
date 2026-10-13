@@ -2762,7 +2762,7 @@ export function Admin() {
                 fontWeight: 'bold',
                 letterSpacing: '1px',
               }}>
-                {isTable ? '🍽️  DINE-IN ORDER' : '🛵  DELIVERY ORDER'}
+                {isTable ? 'DINE-IN ORDER' : 'DELIVERY ORDER'}
               </span>
             </div>
 

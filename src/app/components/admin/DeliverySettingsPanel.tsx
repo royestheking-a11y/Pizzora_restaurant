@@ -1,5 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Truck, Save, AlertCircle, CheckCircle2, Info, MapPin, LocateFixed } from 'lucide-react';
+import {
+  Truck,
+  Save,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  MapPin,
+  LocateFixed,
+  Calculator,
+  Navigation,
+  BarChart3,
+  ExternalLink,
+  Milestone,
+  TrendingUp,
+  Compass,
+  Coins,
+  ShieldCheck,
+} from 'lucide-react';
 import { useApp, DeliverySettings, calcDeliveryFee } from '../../context/AppContext';
 
 const fieldStyle: React.CSSProperties = {
@@ -55,7 +72,7 @@ export function DeliverySettingsPanel() {
     setTimeout(() => setSaved(false), 3000);
   };
 
-  /** Use browser Geolocation to auto-fill restaurant coordinates (admin runs this from the restaurant) */
+  /** Use browser Geolocation to auto-fill restaurant coordinates */
   const detectRestaurantLocation = () => {
     if (!navigator.geolocation) {
       setGeoState('error');
@@ -89,11 +106,11 @@ export function DeliverySettingsPanel() {
   const mapsUrl = `https://www.google.com/maps?q=${form.restaurantLat},${form.restaurantLng}`;
 
   return (
-    <div style={{ padding: '28px', maxWidth: '700px', margin: '0 auto', fontFamily: 'var(--font-body)' }}>
+    <div style={{ padding: '28px', maxWidth: '720px', margin: '0 auto', fontFamily: 'var(--font-body)' }}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
+      <div className="flex items-center gap-3.5 mb-8">
         <div
-          className="w-12 h-12 rounded-2xl flex items-center justify-center"
+          className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
           style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', boxShadow: '0 6px 20px rgba(249,0,43,0.25)' }}
         >
           <Truck size={22} className="text-white" />
@@ -103,43 +120,76 @@ export function DeliverySettingsPanel() {
             Delivery Charge Settings
           </h2>
           <p style={{ color: '#6B7280', fontSize: '13px' }}>
-            Configure distance-based delivery fees — GPS auto-detected at customer checkout
+            Configure dynamic distance-based delivery fees with GPS auto-detection
           </p>
         </div>
       </div>
 
       {/* How It Works Banner */}
       <div
-        className="flex items-start gap-3 p-4 rounded-xl mb-6"
-        style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}
+        className="p-4 rounded-2xl mb-6"
+        style={{ background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.14)' }}
       >
-        <Info size={16} style={{ color: '#3B82F6', flexShrink: 0, marginTop: '2px' }} />
-        <div>
-          <p style={{ color: '#374151', fontSize: '13px', lineHeight: 1.7, fontWeight: 600, marginBottom: '4px' }}>
-            How GPS delivery works:
-          </p>
-          <ol style={{ color: '#6B7280', fontSize: '12px', lineHeight: 1.8, paddingLeft: '16px', margin: 0 }}>
-            <li>Customer clicks <strong>"Auto-Detect My Location"</strong> in checkout</li>
-            <li>Browser gets their GPS coordinates (they must allow permission)</li>
-            <li>System calculates exact distance using <strong>Haversine formula</strong></li>
-            <li>Delivery fee is auto-calculated: flat {form.baseFee}৳ up to {form.baseKm} km, then +{form.extraPerKm}৳/km</li>
-            <li>Customer can also type distance manually if GPS fails</li>
-          </ol>
+        <div className="flex items-center gap-2 mb-2.5">
+          <div className="w-6 h-6 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+            <Info size={14} />
+          </div>
+          <span style={{ color: '#1E40AF', fontSize: '13px', fontWeight: 700, fontFamily: 'var(--font-heading)' }}>
+            How GPS Delivery System Works
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-2">
+          <div className="bg-white/80 p-2.5 rounded-xl border border-blue-100 flex items-start gap-2">
+            <div className="w-5 h-5 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+              <LocateFixed size={12} />
+            </div>
+            <p style={{ fontSize: '11px', color: '#4B5563', lineHeight: 1.4 }}>
+              <strong>1. Customer GPS</strong><br />
+              Client auto-detects accurate coordinates at checkout.
+            </p>
+          </div>
+          <div className="bg-white/80 p-2.5 rounded-xl border border-blue-100 flex items-start gap-2">
+            <div className="w-5 h-5 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+              <Compass size={12} />
+            </div>
+            <p style={{ fontSize: '11px', color: '#4B5563', lineHeight: 1.4 }}>
+              <strong>2. Haversine Math</strong><br />
+              Calculates straight-line km from restaurant pin.
+            </p>
+          </div>
+          <div className="bg-white/80 p-2.5 rounded-xl border border-blue-100 flex items-start gap-2">
+            <div className="w-5 h-5 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+              <Coins size={12} />
+            </div>
+            <p style={{ fontSize: '11px', color: '#4B5563', lineHeight: 1.4 }}>
+              <strong>3. Auto Charge</strong><br />
+              Flat {form.baseFee}৳ for {form.baseKm}km, +{form.extraPerKm}৳ per extra km.
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Form */}
+      {/* Form: Pricing Formula */}
       <div
         className="rounded-2xl p-6 mb-6 space-y-6"
         style={{ background: 'white', border: '1px solid rgba(249,0,43,0.1)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
       >
-        <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111', paddingBottom: '12px', borderBottom: '1px solid rgba(249,0,43,0.08)' }}>
-          💰 Pricing Formula
-        </h3>
+        <div className="flex items-center gap-2.5 pb-3 border-b border-gray-100">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+            <Calculator size={16} />
+          </div>
+          <div>
+            <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>
+              Pricing Formula
+            </h3>
+            <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Set baseline thresholds and increment rates</p>
+          </div>
+        </div>
 
         {/* Base Fee */}
         <div>
-          <label style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#374151', display: 'block', marginBottom: '8px' }}>
+          <label className="flex items-center gap-1.5" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#374151', marginBottom: '8px' }}>
+            <Coins size={14} className="text-amber-500" />
             Base Delivery Fee (৳)
           </label>
           <div className="relative">
@@ -153,13 +203,14 @@ export function DeliverySettingsPanel() {
             />
           </div>
           <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '5px' }}>
-            Fixed charge for the first {form.baseKm} km
+            Flat fee applied for all orders within the first {form.baseKm} km
           </p>
         </div>
 
         {/* Base Km */}
         <div>
-          <label style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#374151', display: 'block', marginBottom: '8px' }}>
+          <label className="flex items-center gap-1.5" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#374151', marginBottom: '8px' }}>
+            <Milestone size={14} className="text-blue-500" />
             Base Distance (km)
           </label>
           <div className="relative">
@@ -172,11 +223,15 @@ export function DeliverySettingsPanel() {
             />
             <span style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', fontSize: '13px', pointerEvents: 'none' }}>km</span>
           </div>
+          <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '5px' }}>
+            Distance radius covered by the flat base charge
+          </p>
         </div>
 
         {/* Extra Per Km */}
         <div>
-          <label style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#374151', display: 'block', marginBottom: '8px' }}>
+          <label className="flex items-center gap-1.5" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#374151', marginBottom: '8px' }}>
+            <TrendingUp size={14} className="text-[#F9002B]" />
             Extra Charge per km (৳/km)
           </label>
           <div className="relative">
@@ -191,7 +246,7 @@ export function DeliverySettingsPanel() {
             <span style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', fontSize: '13px', pointerEvents: 'none' }}>/km</span>
           </div>
           <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '5px' }}>
-            Added per km beyond base distance (rounded up)
+            Added per additional km beyond base distance (rounded up to nearest full km)
           </p>
         </div>
       </div>
@@ -201,29 +256,35 @@ export function DeliverySettingsPanel() {
         className="rounded-2xl p-6 mb-6 space-y-5"
         style={{ background: 'white', border: '1px solid rgba(249,0,43,0.1)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
       >
-        <div className="flex items-center justify-between">
-          <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>
-            📍 Restaurant GPS Location
-          </h3>
+        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-red-500/10 text-[#F9002B] flex items-center justify-center shrink-0">
+              <Navigation size={16} />
+            </div>
+            <div>
+              <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>
+                Restaurant GPS Location
+              </h3>
+              <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Central reference pin for all distance calculations</p>
+            </div>
+          </div>
           <a
             href={mapsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ fontSize: '12px', color: '#2563EB', textDecoration: 'none', fontWeight: 600 }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors font-medium text-xs"
           >
-            View on Maps ↗
+            <span>View on Maps</span>
+            <ExternalLink size={12} />
           </a>
         </div>
-        <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '-8px' }}>
-          This is the origin point used to calculate customer delivery distances. Open the restaurant on Google Maps, copy the coordinates, and paste them below. Or click "Use My Current Location" if you're at the restaurant.
-        </p>
 
         {/* Auto-detect restaurant location button */}
         <button
           type="button"
           onClick={detectRestaurantLocation}
           disabled={geoState === 'locating'}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all"
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold transition-all"
           style={{
             background: geoState === 'located' ? 'rgba(22,163,74,0.08)' : 'rgba(59,130,246,0.07)',
             border: geoState === 'located' ? '1.5px solid rgba(22,163,74,0.3)' : '1.5px solid rgba(59,130,246,0.2)',
@@ -234,24 +295,34 @@ export function DeliverySettingsPanel() {
           }}
         >
           {geoState === 'locating' ? (
-            <><span style={{ width: 16, height: 16, border: '2px solid #93C5FD', borderTopColor: '#2563EB', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} /><span>Detecting location...</span></>
+            <>
+              <span style={{ width: 16, height: 16, border: '2px solid #93C5FD', borderTopColor: '#2563EB', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+              <span>Detecting GPS location...</span>
+            </>
           ) : geoState === 'located' ? (
-            <><CheckCircle2 size={15} /><span>Location set from GPS!</span></>
+            <>
+              <CheckCircle2 size={16} />
+              <span>Location set from device GPS!</span>
+            </>
           ) : (
-            <><LocateFixed size={15} /><span>Use My Current Location (I'm at the restaurant)</span></>
+            <>
+              <LocateFixed size={16} />
+              <span>Use My Current Location (I am at the restaurant)</span>
+            </>
           )}
         </button>
 
         {geoState === 'error' && (
           <div className="flex items-center gap-2 p-3 rounded-xl" style={{ background: 'rgba(249,0,43,0.05)', border: '1px solid rgba(249,0,43,0.15)' }}>
-            <AlertCircle size={13} style={{ color: '#F9002B' }} />
+            <AlertCircle size={14} style={{ color: '#F9002B', flexShrink: 0 }} />
             <span style={{ color: '#6B7280', fontSize: '12px' }}>Could not detect location. Please enter coordinates manually below.</span>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '12px', color: '#374151', display: 'block', marginBottom: '6px' }}>
+            <label className="flex items-center gap-1.5" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
+              <MapPin size={13} className="text-[#F9002B]" />
               Latitude
             </label>
             <input
@@ -264,7 +335,8 @@ export function DeliverySettingsPanel() {
             />
           </div>
           <div>
-            <label style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '12px', color: '#374151', display: 'block', marginBottom: '6px' }}>
+            <label className="flex items-center gap-1.5" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
+              <MapPin size={13} className="text-[#F9002B]" />
               Longitude
             </label>
             <input
@@ -279,27 +351,27 @@ export function DeliverySettingsPanel() {
         </div>
 
         <div
-          className="flex items-start gap-2 p-3 rounded-xl"
+          className="flex items-start gap-2.5 p-3 rounded-xl"
           style={{ background: 'rgba(249,0,43,0.03)', border: '1px solid rgba(249,0,43,0.08)' }}
         >
-          <MapPin size={13} style={{ color: '#F9002B', flexShrink: 0, marginTop: '1px' }} />
-          <p style={{ color: '#6B7280', fontSize: '11px', lineHeight: 1.6 }}>
-            <strong>How to get coordinates:</strong> Open <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" style={{ color: '#2563EB' }}>Google Maps</a>, right-click on the restaurant, click the coordinates to copy them (format: lat, lng).
+          <Info size={14} style={{ color: '#F9002B', flexShrink: 0, marginTop: '2px' }} />
+          <p style={{ color: '#6B7280', fontSize: '12px', lineHeight: 1.6 }}>
+            <strong>How to get Google Maps coordinates:</strong> Open <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" style={{ color: '#2563EB', fontWeight: 600 }}>Google Maps</a>, right-click on the restaurant entrance, and click the numbers at the top of the menu to copy latitude and longitude.
           </p>
         </div>
       </div>
 
-      {/* Error / Success */}
+      {/* Error / Success Notifications */}
       {error && (
-        <div className="flex items-center gap-2 p-3 rounded-xl mb-4" style={{ background: 'rgba(249,0,43,0.07)', border: '1px solid rgba(249,0,43,0.2)' }}>
-          <AlertCircle size={14} style={{ color: '#F9002B', flexShrink: 0 }} />
-          <span style={{ color: '#F9002B', fontSize: '13px' }}>{error}</span>
+        <div className="flex items-center gap-2 p-3.5 rounded-xl mb-4" style={{ background: 'rgba(249,0,43,0.07)', border: '1px solid rgba(249,0,43,0.2)' }}>
+          <AlertCircle size={15} style={{ color: '#F9002B', flexShrink: 0 }} />
+          <span style={{ color: '#F9002B', fontSize: '13px', fontWeight: 500 }}>{error}</span>
         </div>
       )}
       {saved && (
-        <div className="flex items-center gap-2 p-3 rounded-xl mb-4" style={{ background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.2)' }}>
-          <CheckCircle2 size={14} style={{ color: '#16A34A', flexShrink: 0 }} />
-          <span style={{ color: '#16A34A', fontSize: '13px' }}>Settings saved! All customers will now get GPS-based delivery charges.</span>
+        <div className="flex items-center gap-2 p-3.5 rounded-xl mb-4" style={{ background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.2)' }}>
+          <CheckCircle2 size={15} style={{ color: '#16A34A', flexShrink: 0 }} />
+          <span style={{ color: '#16A34A', fontSize: '13px', fontWeight: 500 }}>Settings saved successfully! All customer orders will now compute delivery charges from this formula.</span>
         </div>
       )}
 
@@ -318,16 +390,25 @@ export function DeliverySettingsPanel() {
         className="rounded-2xl p-6"
         style={{ background: 'white', border: '1px solid rgba(249,0,43,0.1)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
       >
-        <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111', marginBottom: '16px' }}>
-          📊 Live Pricing Preview
-        </h3>
+        <div className="flex items-center gap-2.5 mb-5 pb-3 border-b border-gray-100">
+          <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+            <BarChart3 size={16} />
+          </div>
+          <div>
+            <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>
+              Live Pricing Preview
+            </h3>
+            <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Simulated delivery fees based on current formula</p>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full" style={{ borderCollapse: 'collapse', fontSize: '14px' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid rgba(249,0,43,0.1)' }}>
-                <th style={{ textAlign: 'left', padding: '8px 12px', fontFamily: 'var(--font-heading)', color: '#6B7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Distance</th>
-                <th style={{ textAlign: 'right', padding: '8px 12px', fontFamily: 'var(--font-heading)', color: '#6B7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Delivery Fee</th>
-                <th style={{ textAlign: 'left', padding: '8px 12px', fontFamily: 'var(--font-heading)', color: '#6B7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Breakdown</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontFamily: 'var(--font-heading)', color: '#6B7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Distance</th>
+                <th style={{ textAlign: 'right', padding: '10px 12px', fontFamily: 'var(--font-heading)', color: '#6B7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Delivery Fee</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontFamily: 'var(--font-heading)', color: '#6B7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Rate Type</th>
               </tr>
             </thead>
             <tbody>
@@ -336,10 +417,27 @@ export function DeliverySettingsPanel() {
                 const isBase = d <= form.baseKm;
                 return (
                   <tr key={d} style={{ borderBottom: '1px solid rgba(249,0,43,0.06)', background: i % 2 === 0 ? 'transparent' : 'rgba(249,0,43,0.02)' }}>
-                    <td style={{ padding: '10px 12px', color: '#111', fontWeight: 500 }}>{d} km</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-heading)', fontWeight: 700, color: '#F9002B', fontSize: '15px' }}>৳{fee}</td>
-                    <td style={{ padding: '10px 12px', color: '#9CA3AF', fontSize: '12px' }}>
-                      {isBase ? `Flat fee (within ${form.baseKm} km)` : `৳${form.baseFee} + ${Math.ceil(d - form.baseKm)} km × ৳${form.extraPerKm}`}
+                    <td style={{ padding: '12px', color: '#111', fontWeight: 600 }}>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Milestone size={13} className="text-gray-400" />
+                        {d} km
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'right', fontFamily: 'var(--font-heading)', fontWeight: 800, color: '#F9002B', fontSize: '15px' }}>
+                      ৳{fee}
+                    </td>
+                    <td style={{ padding: '12px', fontSize: '12px' }}>
+                      {isBase ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-50 text-green-700 font-medium text-xs">
+                          <ShieldCheck size={12} />
+                          Base zone (within {form.baseKm} km)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-medium text-xs">
+                          <TrendingUp size={12} />
+                          ৳{form.baseFee} + {Math.ceil(d - form.baseKm)} km × ৳{form.extraPerKm}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -348,7 +446,7 @@ export function DeliverySettingsPanel() {
           </table>
         </div>
         <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '12px' }}>
-          * Extra km is rounded up. Preview updates live as you change settings above.
+          * Extra distance is rounded up to the nearest km. Preview updates dynamically with input changes above.
         </p>
       </div>
 
