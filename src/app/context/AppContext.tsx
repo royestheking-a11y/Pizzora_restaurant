@@ -12,7 +12,12 @@ export interface CartItem {
 }
 
 export type OrderStatus = 'Pending' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
-export type PaymentMethod = 'bKash' | 'Nagad' | 'Cash on Delivery' | 'Cash' | 'Card';
+export type PaymentMethod = 'bKash' | 'Nagad' | 'Cash on Delivery' | 'Cash' | 'Card' | 'Split';
+
+export interface SplitPaymentItem {
+  method: 'Cash' | 'bKash' | 'Nagad' | 'Card';
+  amount: number;
+}
 
 export interface Order {
   id: string;
@@ -22,6 +27,7 @@ export interface Order {
   total: number;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
+  splitPayments?: SplitPaymentItem[];
   customerName: string;
   phone: string;
   address: string;

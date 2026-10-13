@@ -37,6 +37,7 @@ export interface InvoiceData {
   serviceCharge?: number;
   total: number;
   paymentMethod: string;
+  splitPayments?: Array<{ method: string; amount: number }>;
   amountPaid: number;
   change: number;
   isRefund?: boolean;
@@ -352,7 +353,14 @@ class QZTrayService {
     data.push(...this.bold(false));
     data.push(dbl + '\n');
 
-    data.push(totRow(`Payment (${invoice.paymentMethod}):`, `Tk ${currency(invoice.amountPaid)}`));
+    if (invoice.splitPayments && invoice.splitPayments.length > 0) {
+      data.push(totRow('Payment (Split):', ''));
+      invoice.splitPayments.forEach(p => {
+        data.push(totRow(`  * ${p.method}:`, `Tk ${currency(p.amount)}`));
+      });
+    } else {
+      data.push(totRow(`Payment (${invoice.paymentMethod}):`, `Tk ${currency(invoice.amountPaid)}`));
+    }
     if (invoice.change > 0) {
       data.push(totRow('Change:', `Tk ${currency(invoice.change)}`));
     }
@@ -807,10 +815,24 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
       <div class="double-line"></div>
 
       <table class="totals-table">
+        ${invoice.splitPayments && invoice.splitPayments.length > 0 ? `
+        <tr>
+          <td colspan="2" style="font-weight: bold; border-bottom: 1px dashed #bbb; padding-bottom: 3px;">
+            Payment (Split):
+          </td>
+        </tr>
+        ${invoice.splitPayments.map(p => `
+        <tr>
+          <td style="padding-left: 8px;">* ${escapeHtml(p.method)}:</td>
+          <td class="right">৳${formatMoney(p.amount)}</td>
+        </tr>
+        `).join('')}
+        ` : `
         <tr>
           <td>Payment (${escapeHtml(invoice.paymentMethod)}):</td>
           <td class="right">৳${formatMoney(invoice.amountPaid)}</td>
         </tr>
+        `}
         ${invoice.change > 0 ? `
         <tr>
           <td>Change:</td>

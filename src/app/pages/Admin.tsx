@@ -932,14 +932,46 @@ export function Admin() {
   const weeklyRevenue  = state.analytics?.weeklyRevenue ?? completedUnifiedOrders.filter(o => o.timestamp >= startOfWeek).reduce((s, o) => s + o.total, 0);
   const monthlyRevenue = state.analytics?.monthlyRevenue ?? completedUnifiedOrders.filter(o => o.timestamp >= startOfMonth).reduce((s, o) => s + o.total, 0);
 
-  const bkashOrders  = completedUnifiedOrders.filter(o => o.paymentMethod === 'bKash');
-  const nagadOrders  = completedUnifiedOrders.filter(o => o.paymentMethod === 'Nagad');
-  const cashOrders   = completedUnifiedOrders.filter(o => o.paymentMethod === 'Cash on Delivery' || o.paymentMethod === 'At Table' || o.paymentMethod === 'Cash');
-  const cardOrders   = completedUnifiedOrders.filter(o => o.paymentMethod === 'Card');
-  const bkashTotal   = bkashOrders.reduce((s, o) => s + o.total, 0);
-  const nagadTotal   = nagadOrders.reduce((s, o) => s + o.total, 0);
-  const cashTotal    = cashOrders.reduce((s, o) => s + o.total, 0);
-  const cardTotal    = cardOrders.reduce((s, o) => s + o.total, 0);
+  const bkashOrders  = completedUnifiedOrders.filter(o => o.paymentMethod === 'bKash' || o.splitPayments?.some((p: any) => p.method === 'bKash' && p.amount > 0));
+  const nagadOrders  = completedUnifiedOrders.filter(o => o.paymentMethod === 'Nagad' || o.splitPayments?.some((p: any) => p.method === 'Nagad' && p.amount > 0));
+  const cashOrders   = completedUnifiedOrders.filter(o => o.paymentMethod === 'Cash on Delivery' || o.paymentMethod === 'At Table' || o.paymentMethod === 'Cash' || o.splitPayments?.some((p: any) => p.method === 'Cash' && p.amount > 0));
+  const cardOrders   = completedUnifiedOrders.filter(o => o.paymentMethod === 'Card' || o.splitPayments?.some((p: any) => p.method === 'Card' && p.amount > 0));
+
+  const bkashTotal = completedUnifiedOrders.reduce((s, o) => {
+    if (o.paymentMethod === 'bKash') return s + o.total;
+    if (o.splitPayments) {
+      const p = o.splitPayments.find((x: any) => x.method === 'bKash');
+      return s + (p ? p.amount : 0);
+    }
+    return s;
+  }, 0);
+
+  const nagadTotal = completedUnifiedOrders.reduce((s, o) => {
+    if (o.paymentMethod === 'Nagad') return s + o.total;
+    if (o.splitPayments) {
+      const p = o.splitPayments.find((x: any) => x.method === 'Nagad');
+      return s + (p ? p.amount : 0);
+    }
+    return s;
+  }, 0);
+
+  const cashTotal = completedUnifiedOrders.reduce((s, o) => {
+    if (o.paymentMethod === 'Cash on Delivery' || o.paymentMethod === 'At Table' || o.paymentMethod === 'Cash') return s + o.total;
+    if (o.splitPayments) {
+      const p = o.splitPayments.find((x: any) => x.method === 'Cash');
+      return s + (p ? p.amount : 0);
+    }
+    return s;
+  }, 0);
+
+  const cardTotal = completedUnifiedOrders.reduce((s, o) => {
+    if (o.paymentMethod === 'Card') return s + o.total;
+    if (o.splitPayments) {
+      const p = o.splitPayments.find((x: any) => x.method === 'Card');
+      return s + (p ? p.amount : 0);
+    }
+    return s;
+  }, 0);
 
   const weekDays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const weeklyBreakdown = weekDays.map((day, i) => {
@@ -2413,9 +2445,24 @@ export function Admin() {
                               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '14px', color: '#16A34A' }}>৳{order.total.toLocaleString()}</span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: mc.bg, color: mc.color, fontFamily: 'var(--font-heading)' }}>
-                                {order.paymentMethod}
-                              </span>
+                              {order.splitPayments && order.splitPayments.length > 0 ? (
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-700" style={{ fontFamily: 'var(--font-heading)' }}>
+                                    Split Payment
+                                  </span>
+                                  <div className="flex flex-wrap gap-1 text-[10px]">
+                                    {order.splitPayments.map((sp: any, i: number) => (
+                                      <span key={i} className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-bold border border-gray-200">
+                                        {sp.method}: ৳{sp.amount}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: mc.bg, color: mc.color, fontFamily: 'var(--font-heading)' }}>
+                                  {order.paymentMethod}
+                                </span>
+                              )}
                             </td>
                             <td className="px-4 py-3">
                               <StatusBadge status={order.status} />
@@ -2639,7 +2686,21 @@ export function Admin() {
             
             <div>
               <label style={labelStyle}>Payment Method</label>
-              <p style={{ fontSize: '14px', color: '#4B5563' }}>{viewOrderDetails.paymentMethod}</p>
+              {viewOrderDetails.splitPayments && viewOrderDetails.splitPayments.length > 0 ? (
+                <div className="mt-1 p-2.5 rounded-lg bg-purple-50 border border-purple-200">
+                  <div className="text-xs font-bold text-purple-800 mb-1">Split Payment Breakdown:</div>
+                  <div className="space-y-1">
+                    {viewOrderDetails.splitPayments.map((sp: any, i: number) => (
+                      <div key={i} className="flex justify-between text-xs text-gray-700">
+                        <span className="font-semibold">• {sp.method}:</span>
+                        <span className="font-bold">৳{Number(sp.amount).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p style={{ fontSize: '14px', color: '#4B5563' }}>{viewOrderDetails.paymentMethod}</p>
+              )}
             </div>
 
             <div>
@@ -2803,7 +2864,11 @@ export function Admin() {
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Payment</span>
-                <span>{printOrder.paymentMethod}</span>
+                <span>
+                  {printOrder.splitPayments && printOrder.splitPayments.length > 0
+                    ? `Split (${printOrder.splitPayments.map((p: any) => `${p.method} ৳${p.amount}`).join(' + ')})`
+                    : printOrder.paymentMethod}
+                </span>
               </div>
             </div>
 

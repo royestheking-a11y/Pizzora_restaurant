@@ -112,6 +112,7 @@ export function ReprintSystem() {
         discount: 0,
         total: order.total || job.total,
         paymentMethod: order.paymentMethod || job.paymentMethod || 'Cash',
+        splitPayments: order.splitPayments,
         amountPaid: order.total || job.total,
         change: 0,
       };

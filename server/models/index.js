@@ -39,6 +39,7 @@ const OrderSchema = new mongoose.Schema({
   total: Number,
   status: String,
   paymentMethod: String,
+  splitPayments: Array,
   customerName: String,
   phone: String,
   address: String,

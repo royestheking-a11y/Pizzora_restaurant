@@ -7,10 +7,10 @@ import {
   LayoutGrid, RefreshCw, Receipt, ArrowLeft, ChevronRight, User,
   Pause, Play, LogOut, Star, WifiOff, CloudOff, CloudUpload, Lock, ExternalLink,
   BadgeCheck, ShieldCheck, KeyRound, EyeOff, Eye, Loader2, Fingerprint, Activity,
-  PrinterCheck, AlertTriangle, Settings
+  PrinterCheck, AlertTriangle, Settings, Split
 } from 'lucide-react';
 import type { MenuItem } from '../data/restaurantData';
-import { useApp } from '../context/AppContext';
+import { useApp, type SplitPaymentItem } from '../context/AppContext';
 import { enqueueOrder, getPendingOrders, dequeueOrder, getPendingCount } from '../utils/offlineQueue';
 import { POSCardSkeleton } from '../components/Skeletons';
 import {
@@ -33,7 +33,7 @@ const POS_CATEGORIES = [
 const getPosUser = () => typeof window !== 'undefined' ? sessionStorage.getItem('pizzora_admin_name') || 'Admin' : 'Admin';
 
 type OrderType = 'Dine In' | 'Takeaway' | 'Delivery';
-type PaymentMethod = 'Cash' | 'Card' | 'bKash' | 'Nagad';
+type PaymentMethod = 'Cash' | 'Card' | 'bKash' | 'Nagad' | 'Split';
 type DiscountType = 'flat' | 'percent';
 
 interface CartItem {
@@ -143,7 +143,28 @@ export function POS() {
 
   const [showInvoice, setShowInvoice] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
-  const [lastInvoice, setLastInvoice] = useState<{ id: string; invoiceNumber: string; items: CartItem[]; sub: number; vat: number; disc: number; total: number; method: PaymentMethod; change: number; orderType: OrderType; table: string; customer: string; time: string } | null>(null);
+  const [lastInvoice, setLastInvoice] = useState<{
+    id: string;
+    invoiceNumber: string;
+    items: CartItem[];
+    sub: number;
+    vat: number;
+    disc: number;
+    total: number;
+    method: PaymentMethod;
+    splitPayments?: SplitPaymentItem[];
+    change: number;
+    orderType: OrderType;
+    table: string;
+    customer: string;
+    time: string;
+  } | null>(null);
+  const [splitAmounts, setSplitAmounts] = useState<{
+    Cash: string;
+    bKash: string;
+    Nagad: string;
+    Card: string;
+  }>({ Cash: '', bKash: '', Nagad: '', Card: '' });
   const [printerStatus, setPrinterStatus] = useState<PrinterStatus>(printerService.getStatus());
   const [isPrinting, setIsPrinting] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
@@ -241,10 +262,20 @@ export function POS() {
     return state.orders
       .filter(o => {
         const t = new Date(o.createdAt).getTime();
-        return (o.paymentMethod === 'Cash' || o.paymentMethod === 'Cash on Delivery') &&
-          t >= dayStart && t <= dayEnd;
+        return t >= dayStart && t <= dayEnd;
       })
-      .reduce((sum, o) => sum + o.total, 0);
+      .reduce((sum, o) => {
+        if (o.paymentMethod === 'Cash' || o.paymentMethod === 'Cash on Delivery') {
+          return sum + o.total;
+        }
+        if (o.paymentMethod === 'Split' && o.splitPayments) {
+          const cashPortion = o.splitPayments
+            .filter((p: any) => p.method === 'Cash')
+            .reduce((s: number, p: any) => s + p.amount, 0);
+          return sum + cashPortion;
+        }
+        return sum;
+      }, 0);
   };
   const currentCashSales = computeCashSales();
   const expectedDrawerCash = activeSession ? activeSession.openingBalance + currentCashSales : 0;
@@ -265,12 +296,23 @@ export function POS() {
       return t >= dayStart && t <= dayEnd;
     }).forEach(o => {
       breakdown.total += o.total;
-      const m = (o.paymentMethod || '').toLowerCase();
-      if (m === 'cash' || m === 'cash on delivery') breakdown.cash += o.total;
-      else if (m === 'bkash') breakdown.bkash += o.total;
-      else if (m === 'nagad') breakdown.nagad += o.total;
-      else if (m === 'card') breakdown.card += o.total;
-      else breakdown.other += o.total;
+      if (o.paymentMethod === 'Split' && o.splitPayments && o.splitPayments.length > 0) {
+        o.splitPayments.forEach((p: any) => {
+          const m = (p.method || '').toLowerCase();
+          if (m === 'cash') breakdown.cash += p.amount;
+          else if (m === 'bkash') breakdown.bkash += p.amount;
+          else if (m === 'nagad') breakdown.nagad += p.amount;
+          else if (m === 'card') breakdown.card += p.amount;
+          else breakdown.other += p.amount;
+        });
+      } else {
+        const m = (o.paymentMethod || '').toLowerCase();
+        if (m === 'cash' || m === 'cash on delivery') breakdown.cash += o.total;
+        else if (m === 'bkash') breakdown.bkash += o.total;
+        else if (m === 'nagad') breakdown.nagad += o.total;
+        else if (m === 'card') breakdown.card += o.total;
+        else breakdown.other += o.total;
+      }
     });
     return breakdown;
   };
@@ -408,6 +450,13 @@ export function POS() {
   const change = cashTendered ? Math.max(0, Number(cashTendered) - total) : 0;
   const due = cashTendered ? Math.max(0, total - Number(cashTendered)) : 0;
 
+  const splitCash = parseFloat(splitAmounts.Cash) || 0;
+  const splitBkash = parseFloat(splitAmounts.bKash) || 0;
+  const splitNagad = parseFloat(splitAmounts.Nagad) || 0;
+  const splitCard = parseFloat(splitAmounts.Card) || 0;
+  const splitTotal = splitCash + splitBkash + splitNagad + splitCard;
+  const splitRemaining = Math.max(0, total - splitTotal);
+
   // ── Hold / Resume ─────────────────────────────────────────────────────────
   const holdOrder = () => {
     if (!cart.length) return;
@@ -441,6 +490,11 @@ export function POS() {
   const previewCheckout = async () => {
     if (!cart.length) return;
 
+    if (paymentMethod === 'Split' && splitTotal < total) {
+      alert(`Split payment not balanced! Remaining due: ৳${(total - splitTotal).toLocaleString()}`);
+      return;
+    }
+
     let currentId = activeHoldMetadata?.id;
     let currentInvoice = activeHoldMetadata?.invoiceNumber;
 
@@ -451,10 +505,20 @@ export function POS() {
       setActiveHoldMetadata({ id: currentId, invoiceNumber: currentInvoice });
     }
 
+    const activeSplitPayments: SplitPaymentItem[] = paymentMethod === 'Split' ? [
+      ...(splitBkash > 0 ? [{ method: 'bKash' as const, amount: splitBkash }] : []),
+      ...(splitCash > 0 ? [{ method: 'Cash' as const, amount: splitCash }] : []),
+      ...(splitNagad > 0 ? [{ method: 'Nagad' as const, amount: splitNagad }] : []),
+      ...(splitCard > 0 ? [{ method: 'Card' as const, amount: splitCard }] : []),
+    ] : [];
+
     const invoiceTime = new Date().toLocaleString();
     setLastInvoice({
       id: currentId, invoiceNumber: currentInvoice, items: cart, sub: subtotal, vat: 0, disc: discountAmt, total,
-      method: paymentMethod, change, orderType, table: tableNo,
+      method: paymentMethod, 
+      splitPayments: activeSplitPayments.length > 0 ? activeSplitPayments : undefined,
+      change: paymentMethod === 'Cash' ? change : 0, 
+      orderType, table: tableNo,
       customer: customerName, time: invoiceTime,
     });
 
@@ -480,6 +544,7 @@ export function POS() {
       total: lastInvoice.total,
       status: 'Delivered' as const,
       paymentMethod: lastInvoice.method,
+      splitPayments: lastInvoice.splitPayments,
       customerName: lastInvoice.customer || (lastInvoice.orderType === 'Dine In' ? `Table ${lastInvoice.table}` : 'POS Customer'),
       phone: '',
       address: lastInvoice.orderType === 'Dine In' ? `Table ${lastInvoice.table}` : lastInvoice.orderType,
@@ -499,12 +564,15 @@ export function POS() {
     setIsPreview(false);
     clearCart();
     setCashTendered('');
+    setSplitAmounts({ Cash: '', bKash: '', Nagad: '', Card: '' });
     setPrintError(null);
     setPrintSuccess(false);
 
-    // Auto-open cash drawer for cash orders
+    // Auto-open cash drawer for cash orders or split orders with cash
     const settings = loadPrinterSettings();
-    if (lastInvoice.method === 'Cash' && settings.autoOpenDrawer) {
+    const hasCash = lastInvoice.method === 'Cash' ||
+      (lastInvoice.method === 'Split' && lastInvoice.splitPayments?.some(p => p.method === 'Cash' && p.amount > 0));
+    if (hasCash && settings.autoOpenDrawer) {
       await printerService.openCashDrawer(settings);
     }
 
@@ -539,7 +607,8 @@ export function POS() {
       discount: lastInvoice.disc,
       total: lastInvoice.total,
       paymentMethod: lastInvoice.method,
-      amountPaid: lastInvoice.method === 'Cash' ? lastInvoice.total + lastInvoice.change : lastInvoice.total,
+      splitPayments: lastInvoice.splitPayments,
+      amountPaid: (lastInvoice.method === 'Cash' || lastInvoice.method === 'Split') ? lastInvoice.total + lastInvoice.change : lastInvoice.total,
       change: lastInvoice.change,
     };
 
@@ -565,6 +634,7 @@ export function POS() {
     setShowInvoice(false);
     clearCart();
     setCashTendered('');
+    setSplitAmounts({ Cash: '', bKash: '', Nagad: '', Card: '' });
   };
 
   // ── Print receipt helper ──────────────────────────────────────────────────
@@ -596,7 +666,8 @@ export function POS() {
       discount: inv.disc,
       total: inv.total,
       paymentMethod: inv.method,
-      amountPaid: inv.method === 'Cash' ? inv.total + inv.change : inv.total,
+      splitPayments: inv.splitPayments,
+      amountPaid: (inv.method === 'Cash' || inv.method === 'Split') ? inv.total + inv.change : inv.total,
       change: inv.change,
     };
 
@@ -919,10 +990,22 @@ export function POS() {
               <span>{lastInvoice.total.toFixed(2)}</span>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '6px 0', fontWeight: 'normal' }}>
-              <span>Paid via {lastInvoice.method}:</span>
-              <span>{lastInvoice.total.toFixed(2)}</span>
-            </div>
+            {lastInvoice.splitPayments && lastInvoice.splitPayments.length > 0 ? (
+              <div style={{ margin: '8px 0', padding: '6px 0', borderTop: '1px dashed #000', borderBottom: '1px dashed #000' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>Paid via Split Payment:</div>
+                {lastInvoice.splitPayments.map((p, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', margin: '2px 0', paddingLeft: '8px', fontWeight: 'normal' }}>
+                    <span>• {p.method}:</span>
+                    <span style={{ fontWeight: 600 }}>৳{p.amount.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', margin: '6px 0', fontWeight: 'normal' }}>
+                <span>Paid via {lastInvoice.method}:</span>
+                <span>{lastInvoice.total.toFixed(2)}</span>
+              </div>
+            )}
             {lastInvoice.change > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', margin: '6px 0', fontWeight: 'normal' }}>
                 <span>Change:</span>
@@ -1375,16 +1458,26 @@ export function POS() {
               </div>
 
               {/* Payment method */}
-              <div className="grid grid-cols-4 gap-1.5">
-                {(['Cash', 'Card', 'bKash', 'Nagad'] as PaymentMethod[]).map(m => (
+              <div className="grid grid-cols-5 gap-1">
+                {(['Cash', 'Card', 'bKash', 'Nagad', 'Split'] as PaymentMethod[]).map(m => (
                   <button key={m} onClick={() => setPaymentMethod(m)}
-                    className="py-2 rounded-lg text-xs font-bold transition-all"
-                    style={{ background: paymentMethod === m ? `linear-gradient(135deg,${PZ},${PZD})` : '#F3F4F6', color: paymentMethod === m ? '#fff' : '#6B7280', fontFamily: 'var(--font-heading)' }}>
-                    {m}
+                    className="py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1"
+                    style={{
+                      background: paymentMethod === m
+                        ? m === 'Split'
+                          ? 'linear-gradient(135deg, #7C3AED, #6D28D9)'
+                          : `linear-gradient(135deg,${PZ},${PZD})`
+                        : '#F3F4F6',
+                      color: paymentMethod === m ? '#fff' : '#6B7280',
+                      fontFamily: 'var(--font-heading)',
+                      boxShadow: paymentMethod === m ? '0 2px 6px rgba(0,0,0,0.1)' : 'none'
+                    }}>
+                    {m === 'Split' ? <><Split size={11} /><span>Split</span></> : m}
                   </button>
                 ))}
               </div>
 
+              {/* Single Cash Tender */}
               {paymentMethod === 'Cash' && (
                 <div>
                   <div className="relative">
@@ -1403,6 +1496,164 @@ export function POS() {
                 </div>
               )}
 
+              {/* Split Payment (Divide Money) Panel */}
+              {paymentMethod === 'Split' && (
+                <div className="p-3 rounded-xl border border-purple-200 bg-purple-50/50 space-y-2.5">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-purple-200/60">
+                    <div className="flex items-center gap-1.5">
+                      <Split size={13} className="text-purple-600" />
+                      <span className="text-xs font-bold text-purple-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                        Divide Payment (৳{total.toLocaleString()})
+                      </span>
+                    </div>
+                    <div>
+                      {splitRemaining > 0 ? (
+                        <span className="text-xs font-bold text-red-600">
+                          Due: ৳{splitRemaining.toLocaleString()}
+                        </span>
+                      ) : splitTotal > total ? (
+                        <span className="text-xs font-bold text-amber-600">
+                          +৳{(splitTotal - total).toLocaleString()} Extra
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold text-green-600 flex items-center gap-1">
+                          <CheckCircle2 size={12} /> Balanced
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Method Split Inputs */}
+                  <div className="space-y-1.5">
+                    {/* bKash */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-14 text-xs font-bold text-[#E2136E]" style={{ fontFamily: 'var(--font-heading)' }}>bKash</span>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">৳</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={splitAmounts.bKash}
+                          onChange={e => setSplitAmounts(s => ({ ...s, bKash: e.target.value }))}
+                          placeholder="0"
+                          className="w-full pl-6 pr-2 py-1.5 rounded-lg border border-gray-200 text-xs font-bold bg-white outline-none focus:border-[#E2136E]"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const other = splitCash + splitNagad + splitCard;
+                          const rem = Math.max(0, total - other);
+                          setSplitAmounts(s => ({ ...s, bKash: rem ? String(rem) : '' }));
+                        }}
+                        className="px-2 py-1 rounded bg-[#E2136E]/10 text-[#E2136E] text-[11px] font-bold hover:bg-[#E2136E]/20 transition-colors"
+                        title="Fill remaining balance to bKash"
+                      >
+                        Fill
+                      </button>
+                    </div>
+
+                    {/* Cash */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-14 text-xs font-bold text-green-700" style={{ fontFamily: 'var(--font-heading)' }}>Cash</span>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">৳</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={splitAmounts.Cash}
+                          onChange={e => setSplitAmounts(s => ({ ...s, Cash: e.target.value }))}
+                          placeholder="0"
+                          className="w-full pl-6 pr-2 py-1.5 rounded-lg border border-gray-200 text-xs font-bold bg-white outline-none focus:border-green-600"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const other = splitBkash + splitNagad + splitCard;
+                          const rem = Math.max(0, total - other);
+                          setSplitAmounts(s => ({ ...s, Cash: rem ? String(rem) : '' }));
+                        }}
+                        className="px-2 py-1 rounded bg-green-100 text-green-700 text-[11px] font-bold hover:bg-green-200 transition-colors"
+                        title="Fill remaining balance to Cash"
+                      >
+                        Fill
+                      </button>
+                    </div>
+
+                    {/* Nagad */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-14 text-xs font-bold text-[#F7941D]" style={{ fontFamily: 'var(--font-heading)' }}>Nagad</span>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">৳</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={splitAmounts.Nagad}
+                          onChange={e => setSplitAmounts(s => ({ ...s, Nagad: e.target.value }))}
+                          placeholder="0"
+                          className="w-full pl-6 pr-2 py-1.5 rounded-lg border border-gray-200 text-xs font-bold bg-white outline-none focus:border-[#F7941D]"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const other = splitCash + splitBkash + splitCard;
+                          const rem = Math.max(0, total - other);
+                          setSplitAmounts(s => ({ ...s, Nagad: rem ? String(rem) : '' }));
+                        }}
+                        className="px-2 py-1 rounded bg-orange-100 text-orange-700 text-[11px] font-bold hover:bg-orange-200 transition-colors"
+                        title="Fill remaining balance to Nagad"
+                      >
+                        Fill
+                      </button>
+                    </div>
+
+                    {/* Card */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-14 text-xs font-bold text-blue-700" style={{ fontFamily: 'var(--font-heading)' }}>Card</span>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">৳</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={splitAmounts.Card}
+                          onChange={e => setSplitAmounts(s => ({ ...s, Card: e.target.value }))}
+                          placeholder="0"
+                          className="w-full pl-6 pr-2 py-1.5 rounded-lg border border-gray-200 text-xs font-bold bg-white outline-none focus:border-blue-600"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const other = splitCash + splitBkash + splitNagad;
+                          const rem = Math.max(0, total - other);
+                          setSplitAmounts(s => ({ ...s, Card: rem ? String(rem) : '' }));
+                        }}
+                        className="px-2 py-1 rounded bg-blue-100 text-blue-700 text-[11px] font-bold hover:bg-blue-200 transition-colors"
+                        title="Fill remaining balance to Card"
+                      >
+                        Fill
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Summary row */}
+                  <div className="flex justify-between items-center pt-1 border-t border-purple-200/50 text-[11px]">
+                    <span className="text-gray-600">
+                      Entered: <strong>৳{splitTotal.toLocaleString()}</strong> of ৳{total.toLocaleString()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSplitAmounts({ Cash: '', bKash: '', Nagad: '', Card: '' })}
+                      className="text-gray-500 hover:text-red-600 font-semibold"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Action buttons */}
               <div className="flex gap-2 pt-1">
                 <button onClick={holdOrder}
@@ -1410,10 +1661,20 @@ export function POS() {
                   style={{ border: `1.5px solid #E5E7EB`, color: '#6B7280', fontFamily: 'var(--font-heading)' }}>
                   <Pause size={12} /> Hold
                 </button>
-                <button onClick={previewCheckout}
-                  className="flex-[2] py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                  style={{ background: `linear-gradient(135deg,${PZ},${PZD})`, fontFamily: 'var(--font-heading)' }}>
-                  <Receipt size={14} /> Pay ৳{total.toLocaleString()}
+                <button
+                  onClick={previewCheckout}
+                  disabled={paymentMethod === 'Split' && splitTotal < total}
+                  className="flex-[2] py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    background: paymentMethod === 'Split'
+                      ? 'linear-gradient(135deg, #7C3AED, #6D28D9)'
+                      : `linear-gradient(135deg,${PZ},${PZD})`,
+                    fontFamily: 'var(--font-heading)'
+                  }}>
+                  <Receipt size={14} />
+                  {paymentMethod === 'Split' && splitTotal < total
+                    ? `Due ৳${(total - splitTotal).toLocaleString()}`
+                    : `Pay ৳${total.toLocaleString()}`}
                 </button>
               </div>
             </div>
