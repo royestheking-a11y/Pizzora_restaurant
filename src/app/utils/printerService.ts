@@ -629,16 +629,10 @@ class QZTrayService {
     }
 
     // 2. In Direct Browser Print mode:
-    // Thermal printers (Rongta RP326/RP335/RP80) trigger the cash drawer via the RJ11 DK port
-    // when configured in Windows Printer Properties -> Device Settings -> Cash Drawer -> Open Before Printing.
-    // Triggering a micro 1mm print job fires the driver's configured kick pulse.
-    try {
-      const microPulseHtml = `<!DOCTYPE html><html><head><style>@page{size:80mm 1mm;margin:0;}html,body{margin:0;padding:0;height:0;overflow:hidden;}</style></head><body></body></html>`;
-      const ok = await printHtmlViaIframe(microPulseHtml);
-      return ok ? { success: true } : { success: false, error: 'Could not send drawer kick signal' };
-    } catch (e: any) {
-      return { success: false, error: e?.message || 'Drawer trigger failed' };
-    }
+    // Thermal printers (Rongta RP326/RP335/RP80) trigger the cash drawer automatically
+    // via the Windows driver on every receipt print (Media: Cash Drawer Before Printing).
+    // Do NOT send a blank micro-job, as drivers interpret micro-jobs with label header text!
+    return { success: true };
   }
 
   // ─── Test Print ──────────────────────────────────────────────────────────────

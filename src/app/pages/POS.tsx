@@ -568,11 +568,11 @@ export function POS() {
     setPrintError(null);
     setPrintSuccess(false);
 
-    // Auto-open cash drawer for cash orders or split orders with cash
+    // Auto-open cash drawer for cash orders or split orders with cash (QZ Tray mode sends raw pulse; Direct Browser mode kicks via driver on print)
     const settings = loadPrinterSettings();
     const hasCash = lastInvoice.method === 'Cash' ||
       (lastInvoice.method === 'Split' && lastInvoice.splitPayments?.some(p => p.method === 'Cash' && p.amount > 0));
-    if (hasCash && settings.autoOpenDrawer) {
+    if (hasCash && settings.autoOpenDrawer && settings.printMode === 'qz') {
       await printerService.openCashDrawer(settings);
     }
 
