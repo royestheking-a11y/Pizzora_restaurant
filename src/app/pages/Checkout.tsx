@@ -2,9 +2,9 @@ import { useState, ReactNode } from 'react';
 import { useNavigate, Link } from 'react-router';
 import {
   ArrowLeft, Check, ShoppingBag, CreditCard, Truck,
-  Clock, MapPin, Phone, User, FileText, ChevronRight, Package,
+  Clock, MapPin, Phone, User, FileText, ChevronRight, Package, Navigation, LocateFixed, AlertCircle,
 } from 'lucide-react';
-import { useApp, PaymentMethod } from '../context/AppContext';
+import { useApp, PaymentMethod, haversineDistance } from '../context/AppContext';
 
 const paymentMethods: { id: PaymentMethod; label: string; icon: ReactNode; desc: string }[] = [
   { id: 'Cash on Delivery', label: 'Cash on Delivery', icon: <div className="w-9 h-9 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 font-extrabold text-xl shadow-sm">৳</div>, desc: 'Pay when your order arrives' },
@@ -16,16 +16,51 @@ const paymentMethods: { id: PaymentMethod; label: string; icon: ReactNode; desc:
 const STEPS = ['Delivery Info', 'Payment', 'Confirm'];
 
 export function Checkout() {
-  const { state, dispatch, cartTotal } = useApp();
+  const { state, dispatch, cartTotal, calcDeliveryFee } = useApp();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash on Delivery');
   const [form, setForm] = useState({ name: '', phone: '', address: '', city: 'Sylhet', notes: '' });
+  const [distanceKm, setDistanceKm] = useState<string>('');
+  const [geoState, setGeoState] = useState<'idle' | 'locating' | 'located' | 'error'>('idle');
+  const [geoError, setGeoError] = useState('');
   const [loading, setLoading] = useState(false);
   const [orderId, setOrderId] = useState('');
 
-  const delivery = cartTotal > 0 ? 40 : 0;
+  const parsedDistance = parseFloat(distanceKm) || 0;
+  const ds = state.deliverySettings;
+  const delivery = cartTotal > 0 ? calcDeliveryFee(Math.max(parsedDistance, 0.1)) : 0;
   const grandTotal = cartTotal + delivery;
+
+  /** Use browser Geolocation API to auto-detect customer distance from restaurant */
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      setGeoState('error');
+      setGeoError('Your browser does not support location detection.');
+      return;
+    }
+    setGeoState('locating');
+    setGeoError('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const dist = haversineDistance(
+          latitude, longitude,
+          ds.restaurantLat ?? 24.8965,
+          ds.restaurantLng ?? 91.8744
+        );
+        setDistanceKm(String(dist));
+        setGeoState('located');
+      },
+      (err) => {
+        setGeoState('error');
+        if (err.code === 1) setGeoError('Location permission denied. Please type your distance manually.');
+        else if (err.code === 2) setGeoError('Location unavailable. Please type your distance manually.');
+        else setGeoError('Could not detect location. Please type your distance manually.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
@@ -342,6 +377,71 @@ export function Checkout() {
                       </div>
                     </div>
 
+                    {/* Distance — with GPS auto-detect */}
+                    <div className="sm:col-span-2">
+                      <label style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Distance from Restaurant
+                      </label>
+
+                      {/* GPS Detect Button */}
+                      <button
+                        type="button"
+                        onClick={detectLocation}
+                        disabled={geoState === 'locating'}
+                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl mb-3 font-semibold transition-all"
+                        style={{
+                          background: geoState === 'located'
+                            ? 'rgba(22,163,74,0.08)'
+                            : geoState === 'error'
+                            ? 'rgba(249,0,43,0.05)'
+                            : 'rgba(59,130,246,0.07)',
+                          border: geoState === 'located'
+                            ? '1.5px solid rgba(22,163,74,0.3)'
+                            : geoState === 'error'
+                            ? '1.5px solid rgba(249,0,43,0.2)'
+                            : '1.5px solid rgba(59,130,246,0.2)',
+                          color: geoState === 'located' ? '#16A34A' : geoState === 'error' ? '#F9002B' : '#2563EB',
+                          fontSize: '13px',
+                          fontFamily: 'var(--font-heading)',
+                          cursor: geoState === 'locating' ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {geoState === 'locating' ? (
+                          <><span className="w-4 h-4 border-2 border-blue-300 border-t-blue-600 rounded-full" style={{ animation: 'spin 0.8s linear infinite', display: 'inline-block' }} /><span>Detecting your location...</span></>
+                        ) : geoState === 'located' ? (
+                          <><Check size={15} /><span>Location detected — {parsedDistance} km from restaurant</span></>
+                        ) : (
+                          <><LocateFixed size={15} /><span>Auto-Detect My Location (GPS)</span></>
+                        )}
+                      </button>
+
+                      {/* GPS Error */}
+                      {geoState === 'error' && (
+                        <div className="flex items-start gap-2 p-3 rounded-xl mb-3" style={{ background: 'rgba(249,0,43,0.05)', border: '1px solid rgba(249,0,43,0.15)' }}>
+                          <AlertCircle size={13} style={{ color: '#F9002B', flexShrink: 0, marginTop: '1px' }} />
+                          <p style={{ color: '#6B7280', fontSize: '12px' }}>{geoError}</p>
+                        </div>
+                      )}
+
+                      {/* Manual Input */}
+                      <div className="relative">
+                        <Navigation size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#9CA3AF' }} />
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          placeholder={geoState === 'idle' ? `Or type manually (≤${ds.baseKm} km = ৳${ds.baseFee})` : `${parsedDistance} km detected`}
+                          value={distanceKm}
+                          onChange={e => { setDistanceKm(e.target.value); if (geoState === 'located') setGeoState('idle'); }}
+                          style={inputStyle}
+                        />
+                        <span style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: '#9CA3AF', pointerEvents: 'none' }}>km</span>
+                      </div>
+                      <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '5px' }}>
+                        First {ds.baseKm} km = ৳{ds.baseFee} &middot; each extra km = +৳{ds.extraPerKm}
+                      </p>
+                    </div>
+
                     {/* City */}
                     <div>
                       <label style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -529,8 +629,15 @@ export function Checkout() {
                   <span style={{ color: '#6B7280', fontSize: '14px' }}>Subtotal</span>
                   <span style={{ color: '#111', fontSize: '14px', fontWeight: 600 }}>৳{cartTotal}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span style={{ color: '#6B7280', fontSize: '14px' }}>Delivery</span>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span style={{ color: '#6B7280', fontSize: '14px' }}>Delivery</span>
+                    {parsedDistance > 0 && (
+                      <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px' }}>
+                        {parsedDistance} km{parsedDistance > ds.baseKm ? ` (+${Math.ceil(parsedDistance - ds.baseKm)} km extra)` : ''}
+                      </p>
+                    )}
+                  </div>
                   <span style={{ color: '#111', fontSize: '14px', fontWeight: 600 }}>৳{delivery}</span>
                 </div>
                 <div
@@ -563,6 +670,7 @@ export function Checkout() {
           box-shadow: 0 0 0 3px rgba(249,0,43,0.06) !important;
         }
         input::placeholder { color: #9CA3AF; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );

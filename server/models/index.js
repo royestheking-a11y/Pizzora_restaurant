@@ -296,3 +296,14 @@ const PrintJobSchema = new mongoose.Schema({
 PrintJobSchema.index({ printedAt: -1 });
 PrintJobSchema.index({ orderId: 1 });
 export const PrintJob = mongoose.model('PrintJob', PrintJobSchema);
+
+// ── Restaurant Settings (singleton doc for global config) ─────────────────
+const RestaurantSettingsSchema = new mongoose.Schema({
+  key: { type: String, required: true, unique: true, default: 'main' },
+  deliverySettings: {
+    baseFee:    { type: Number, default: 40 },   // ৳ for first baseKm
+    baseKm:     { type: Number, default: 2 },    // km covered by baseFee
+    extraPerKm: { type: Number, default: 10 },   // ৳ per additional km
+  },
+}, { strict: false });
+export const RestaurantSettings = mongoose.model('RestaurantSettings', RestaurantSettingsSchema);

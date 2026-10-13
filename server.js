@@ -16,7 +16,7 @@ import {
   CarouselSlide, RestaurantTable, TableOrder, WasteRecord,
   Employee, PayrollRecord, GalleryImage, Chef,
   ExpenseEntry, CashRegisterEntry, InventoryItem, StockMovement, ItemReview,
-  InvoiceCounter, PrintJob, UserAccount
+  InvoiceCounter, PrintJob, UserAccount, RestaurantSettings
 } from './server/models/index.js';
 import { seedDatabaseIfEmpty } from './server/seed.js';
 
@@ -199,6 +199,12 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 
 app.get('/api/state/public', async (req, res) => {
   try {
+    // Get delivery settings (auto-create with defaults if missing)
+    const settings = await RestaurantSettings.findOneAndUpdate(
+      { key: 'main' },
+      { $setOnInsert: { key: 'main', deliverySettings: { baseFee: 40, baseKm: 2, extraPerKm: 10 } } },
+      { upsert: true, new: true }
+    );
     const state = {
       menuItems: await MenuItem.find().sort({ _id: -1 }),
       carouselSlides: await CarouselSlide.find().sort({ order: 1 }),
@@ -206,11 +212,39 @@ app.get('/api/state/public', async (req, res) => {
       chefs: await Chef.find(),
       reviews: await ItemReview.find().sort({ date: -1 }).limit(20),
       tables: await RestaurantTable.find().sort({ tableNumber: 1 }),
+      deliverySettings: settings?.deliverySettings ?? { baseFee: 40, baseKm: 2, extraPerKm: 10 },
     };
     res.json(state);
   } catch (error) {
     console.error("Failed to load public state", error);
     res.status(500).json({ error: "Failed to load public state" });
+  }
+});
+
+// ── Delivery Settings API ─────────────────────────────────────────────────────
+app.get('/api/settings/delivery', async (req, res) => {
+  try {
+    const settings = await RestaurantSettings.findOne({ key: 'main' });
+    res.json(settings?.deliverySettings ?? { baseFee: 40, baseKm: 2, extraPerKm: 10 });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch delivery settings' });
+  }
+});
+
+app.put('/api/settings/delivery', authenticateJWT, async (req, res) => {
+  try {
+    const { baseFee, baseKm, extraPerKm } = req.body;
+    if ([baseFee, baseKm, extraPerKm].some(v => typeof v !== 'number' || v < 0)) {
+      return res.status(400).json({ error: 'Invalid delivery settings' });
+    }
+    const updated = await RestaurantSettings.findOneAndUpdate(
+      { key: 'main' },
+      { $set: { deliverySettings: { baseFee, baseKm, extraPerKm } } },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, deliverySettings: updated.deliverySettings });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update delivery settings' });
   }
 });
 
@@ -600,6 +634,15 @@ async function processDbAction(action) {
     case 'ADD_USER': await UserAccount.create(action.payload); break;
     case 'UPDATE_USER': await UserAccount.findOneAndUpdate({ id: action.payload.id }, action.payload); break;
     case 'DELETE_USER': await UserAccount.findOneAndDelete({ id: action.payload }); break;
+
+    // Delivery Settings
+    case 'UPDATE_DELIVERY_SETTINGS':
+      await RestaurantSettings.findOneAndUpdate(
+        { key: 'main' },
+        { $set: { deliverySettings: action.payload } },
+        { upsert: true, new: true }
+      );
+      break;
   }
 }
 

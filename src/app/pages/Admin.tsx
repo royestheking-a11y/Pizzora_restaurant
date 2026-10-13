@@ -25,14 +25,15 @@ import { ManualInvoice } from '../components/admin/ManualInvoice';
 import { PrinterSettings } from '../components/admin/PrinterSettings';
 import { ReprintSystem } from '../components/admin/ReprintSystem';
 import { RoleManagement } from '../components/admin/RoleManagement';
-import { Printer, RotateCcw } from 'lucide-react';
+import { DeliverySettingsPanel } from '../components/admin/DeliverySettingsPanel';
+import { Printer, RotateCcw, Truck } from 'lucide-react';
 import { AdminStatSkeleton, AdminListSkeleton, TableRowSkeleton, POSCardSkeleton, ChartSkeleton } from '../components/Skeletons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Mock auth - replaced by real auth
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AdminTab = 'dashboard' | 'sales' | 'orders' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles';
+type AdminTab = 'dashboard' | 'sales' | 'orders' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles' | 'delivery-settings';
 
 // ─── Input Style Helper ────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
@@ -987,6 +988,7 @@ export function Admin() {
     { id: 'manual-invoice',    icon: Printer,       label: 'Invoice System' },
     { id: 'printer-settings',  icon: Printer,       label: 'Printer Settings' },
     { id: 'reprint',           icon: RotateCcw,     label: 'Reprint System' },
+    { id: 'delivery-settings', icon: Truck,         label: 'Delivery Charges' },
     ...(adminRole === 'admin' ? [{ id: 'roles' as AdminTab, icon: ShieldCheck, label: 'Role Management' }] : []),
   ];
 
@@ -1893,6 +1895,7 @@ export function Admin() {
           {activeTab === 'printer-settings' && <PrinterSettings />}
           {activeTab === 'reprint' && <ReprintSystem />}
           {activeTab === 'roles' && adminRole === 'admin' && <RoleManagement />}
+          {activeTab === 'delivery-settings' && <DeliverySettingsPanel />}
           {/* ══ TABLE MANAGEMENT ════════════════════════════ */}
           {activeTab === 'tables' && <TableManagement />}
 

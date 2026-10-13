@@ -77,7 +77,8 @@ export function ReprintSystem() {
   }, [search]);
 
   useEffect(() => {
-    if (printerService.getStatus() !== 'online') {
+    const s = loadPrinterSettings();
+    if (s.printMode === 'qz' && printerService.getStatus() !== 'online') {
       setTimeout(() => printerService.connect(), 1000);
     }
     loadJobs();

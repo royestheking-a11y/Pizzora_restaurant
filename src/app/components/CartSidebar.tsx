@@ -6,7 +6,8 @@ export function CartSidebar() {
   const { state, dispatch, removeFromCart, updateQuantity, cartTotal, cartCount } = useApp();
   const navigate = useNavigate();
 
-  const delivery = cartTotal > 0 ? 40 : 0;
+  // Show the base delivery fee (actual fee is calculated at checkout based on distance)
+  const delivery = cartTotal > 0 ? state.deliverySettings.baseFee : 0;
   const grandTotal = cartTotal + delivery;
 
   const handleCheckout = () => {
@@ -145,8 +146,11 @@ export function CartSidebar() {
                 <span>৳{cartTotal}</span>
               </div>
               <div className="flex justify-between" style={{ fontSize: '14px', color: '#6B7280' }}>
-                <span>Delivery</span>
-                <span>৳{delivery}</span>
+                <div>
+                  <span>Delivery</span>
+                  <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '1px' }}>Based on distance at checkout</p>
+                </div>
+                <span>from ৳{delivery}</span>
               </div>
               <div className="flex justify-between pt-2 border-t" style={{ borderColor: 'rgba(249,0,43,0.1)' }}>
                 <span style={{ fontWeight: 700, fontSize: '16px', color: '#111', fontFamily: 'var(--font-heading)' }}>Total</span>

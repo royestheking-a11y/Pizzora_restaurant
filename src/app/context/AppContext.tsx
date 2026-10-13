@@ -228,6 +228,53 @@ export interface UserAccount {
   createdAt?: string;
 }
 
+// ─── Delivery Settings ────────────────────────────────────────────────────────
+
+export interface DeliverySettings {
+  baseFee: number;    // ৳ charge for first baseKm
+  baseKm: number;     // km covered by baseFee (default: 2)
+  extraPerKm: number; // ৳ per additional km beyond baseKm
+  restaurantLat: number;  // Restaurant GPS latitude
+  restaurantLng: number;  // Restaurant GPS longitude
+}
+
+/** Calculate delivery fee: flat baseFee for first baseKm, then +extraPerKm/km */
+export function calcDeliveryFee(distanceKm: number, settings: DeliverySettings): number {
+  if (distanceKm <= 0) return 0;
+  if (distanceKm <= settings.baseKm) return settings.baseFee;
+  const extra = Math.ceil((distanceKm - settings.baseKm) * settings.extraPerKm);
+  return settings.baseFee + extra;
+}
+
+/**
+ * Haversine formula — calculates straight-line distance (km) between two
+ * GPS coordinates. Accurate enough for city-scale delivery radius.
+ */
+export function haversineDistance(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number
+): number {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10; // rounded to 1 decimal place
+}
+
+// Pizzora Sylhet – Zindabazar area (update from admin if needed)
+const DEFAULT_DELIVERY_SETTINGS: DeliverySettings = {
+  baseFee: 40,
+  baseKm: 2,
+  extraPerKm: 10,
+  restaurantLat: 24.8965,   // Sylhet city centre
+  restaurantLng: 91.8744,
+};
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 interface AppState {
@@ -251,6 +298,7 @@ interface AppState {
   stockMovements: StockMovement[];
   reviews: ItemReview[];
   users: UserAccount[];
+  deliverySettings: DeliverySettings;
   isAdminLoggedIn: boolean;
   cartOpen: boolean;
   notification: { message: string; type: 'success' | 'error' | 'info' } | null;
@@ -351,7 +399,9 @@ type Action =
   // User Accounts
   | { type: 'ADD_USER'; payload: UserAccount }
   | { type: 'UPDATE_USER'; payload: UserAccount }
-  | { type: 'DELETE_USER'; payload: string };
+  | { type: 'DELETE_USER'; payload: string }
+  // Delivery Settings
+  | { type: 'UPDATE_DELIVERY_SETTINGS'; payload: DeliverySettings };
 
 // ─── Default Carousel Slides ──────────────────────────────────────────────────
 
@@ -432,6 +482,7 @@ const initialState: AppState = {
   stockMovements: [],
   reviews: [],
   users: [],
+  deliverySettings: DEFAULT_DELIVERY_SETTINGS,
   isAdminLoggedIn: savedAdminLogin,
   cartOpen: false,
   notification: null,
@@ -466,6 +517,7 @@ function reducer(state: AppState, action: Action): AppState {
         stockMovements: action.payload.stockMovements ?? state.stockMovements ?? [],
         reviews: action.payload.reviews ?? state.reviews ?? [],
         users: action.payload.users ?? state.users ?? [],
+        deliverySettings: action.payload.deliverySettings ?? state.deliverySettings ?? DEFAULT_DELIVERY_SETTINGS,
       };
 
     case 'ADD_TO_CART': {
@@ -783,6 +835,9 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_INITIAL_LOADING':
       return { ...state, isInitialLoading: action.payload };
 
+    case 'UPDATE_DELIVERY_SETTINGS':
+      return { ...state, deliverySettings: action.payload };
+
     default:
       return state;
   }
@@ -809,6 +864,8 @@ interface AppContextType {
   updateEmployee: (emp: Employee) => void;
   deleteEmployee: (id: string) => void;
   addPayrollRecord: (record: PayrollRecord) => void;
+  updateDeliverySettings: (settings: DeliverySettings) => void;
+  calcDeliveryFee: (distanceKm: number) => number;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -1153,6 +1210,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showNotification('Salary slip generated', 'success');
   };
 
+  const updateDeliverySettings = (settings: DeliverySettings) => {
+    dispatch({ type: 'UPDATE_DELIVERY_SETTINGS', payload: settings });
+    showNotification('Delivery settings updated', 'success');
+  };
+
+  const calcDeliveryFeeCtx = (distanceKm: number) =>
+    calcDeliveryFee(distanceKm, state.deliverySettings);
+
   const cartTotal = state.cart.reduce((sum, c) => sum + c.item.price * c.quantity, 0);
   const cartCount = state.cart.reduce((sum, c) => sum + c.quantity, 0);
 
@@ -1177,6 +1242,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateEmployee,
         deleteEmployee,
         addPayrollRecord,
+        updateDeliverySettings,
+        calcDeliveryFee: calcDeliveryFeeCtx,
       }}
     >
       {children}

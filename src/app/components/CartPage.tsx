@@ -20,7 +20,7 @@ export function CartPage() {
   const [promoError, setPromoError] = useState('');
   const [removingId, setRemovingId] = useState<string | null>(null);
 
-  const delivery = cartTotal > 0 ? 40 : 0;
+  const delivery = cartTotal > 0 ? state.deliverySettings.baseFee : 0;
   const discount = appliedPromo ? Math.floor(cartTotal * (appliedPromo.discount / 100)) : 0;
   const grandTotal = cartTotal + delivery - discount;
 
@@ -286,9 +286,12 @@ export function CartPage() {
                       <span style={{ color: '#6B7280', fontSize: '14px' }}>Subtotal ({cartCount} items)</span>
                       <span style={{ color: '#111', fontSize: '14px', fontWeight: 600 }}>৳{cartTotal}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span style={{ color: '#6B7280', fontSize: '14px' }}>Delivery</span>
-                      <span style={{ color: '#111', fontSize: '14px', fontWeight: 600 }}>৳{delivery}</span>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span style={{ color: '#6B7280', fontSize: '14px' }}>Delivery</span>
+                        <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '1px' }}>Final charge based on distance</p>
+                      </div>
+                      <span style={{ color: '#111', fontSize: '14px', fontWeight: 600 }}>from ৳{delivery}</span>
                     </div>
                     {appliedPromo && (
                       <div className="flex justify-between">

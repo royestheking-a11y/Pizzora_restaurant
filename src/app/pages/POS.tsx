@@ -345,7 +345,8 @@ export function POS() {
 
   // ── Printer status listener ────────────────────────────────────────────────
   useEffect(() => {
-    if (printerService.getStatus() !== 'online') {
+    const s = loadPrinterSettings();
+    if (s.printMode === 'qz' && printerService.getStatus() !== 'online') {
       setTimeout(() => printerService.connect(), 1000);
     }
     const unsubscribe = printerService.onStatusChange(setPrinterStatus);
@@ -1087,19 +1088,31 @@ export function POS() {
 
           {/* Printer Status Badge */}
           <div
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all hover:scale-105 active:scale-95"
             style={{
-              backgroundColor: printerStatus === 'online' ? '#F0FDF4' : printerStatus === 'connecting' ? '#FFF7ED' : '#FEF2F2',
-              color: printerStatus === 'online' ? '#15803D' : printerStatus === 'connecting' ? '#92400E' : '#991B1B',
-              border: `1.5px solid ${printerStatus === 'online' ? '#BBF7D0' : printerStatus === 'connecting' ? '#FED7AA' : '#FECACA'}`,
+              backgroundColor: (printerStatus === 'online' || printerStatus === 'ready') ? '#F0FDF4' : printerStatus === 'connecting' ? '#FFF7ED' : '#FEF2F2',
+              color: (printerStatus === 'online' || printerStatus === 'ready') ? '#15803D' : printerStatus === 'connecting' ? '#92400E' : '#991B1B',
+              border: `1.5px solid ${(printerStatus === 'online' || printerStatus === 'ready') ? '#BBF7D0' : printerStatus === 'connecting' ? '#FED7AA' : '#FECACA'}`,
               fontFamily: 'var(--font-heading)',
-              cursor: printerStatus !== 'online' ? 'pointer' : 'default',
+              cursor: 'pointer',
             }}
-            title={printerStatus === 'online' ? 'Printer Connected' : 'Click to connect QZ Tray'}
-            onClick={() => printerStatus !== 'online' && printerService.connect()}
+            title={
+              (printerStatus === 'online' || printerStatus === 'ready')
+                ? 'System Thermal Printer Ready (No QZ Tray needed)'
+                : printerStatus === 'connecting'
+                ? 'Connecting to QZ Tray…'
+                : 'Printer Offline — Click to configure'
+            }
+            onClick={() => {
+              const s = loadPrinterSettings();
+              if (s.printMode === 'qz' && printerStatus !== 'online') {
+                printerService.connect();
+              }
+              navigate('/admin');
+            }}
           >
             <Printer size={12} />
-            {printerStatus === 'online' ? 'Printer' : printerStatus === 'connecting' ? 'Connecting…' : 'No Printer'}
+            {(printerStatus === 'online' || printerStatus === 'ready') ? 'Printer Ready' : printerStatus === 'connecting' ? 'Connecting…' : 'No Printer'}
           </div>
 
           {/* Offline Queue Badge */}

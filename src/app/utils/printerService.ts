@@ -9,10 +9,12 @@
  * with a specific ESC/POS command sent to the printer.
  */
 
-export type PrinterStatus = 'online' | 'offline' | 'connecting' | 'not_installed';
+export type PrinterStatus = 'online' | 'offline' | 'connecting' | 'not_installed' | 'ready';
+export type PrintMode = 'browser' | 'qz';
 import { getBackendUrl } from '../context/AppContext';
 
 export interface PrinterSettings {
+  printMode: PrintMode; // 'browser' (default) or 'qz'
   printerName: string;
   autoPrint: boolean;
   autoOpenDrawer: boolean;
@@ -28,7 +30,7 @@ export interface InvoiceData {
   customerName?: string;
   cashierName: string;
   dateTime: string;
-  items: Array<{ name: string; quantity: number; price: number; variant?: string }>;
+  items: Array<{ name: string; quantity: number; price: number; variant?: string; specialRequest?: string; note?: string }>;
   subtotal: number;
   discount: number;
   vat?: number;
@@ -44,6 +46,7 @@ const SETTINGS_KEY = 'pizzora_printer_settings';
 const QZ_WS_URL = 'ws://localhost:8182';
 
 const DEFAULT_SETTINGS: PrinterSettings = {
+  printMode: 'browser', // Default: Direct System / Browser Print (NO QZ Tray required!)
   printerName: '',
   autoPrint: true,
   autoOpenDrawer: true,
@@ -55,7 +58,13 @@ const DEFAULT_SETTINGS: PrinterSettings = {
 export function loadPrinterSettings(): PrinterSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
+    if (!raw) return DEFAULT_SETTINGS;
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      printMode: parsed.printMode || 'browser',
+    };
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -65,6 +74,7 @@ export function savePrinterSettings(s: Partial<PrinterSettings>): PrinterSetting
   const current = loadPrinterSettings();
   const merged = { ...current, ...s };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+  printerService.notifyStatus();
   return merged;
 }
 
@@ -79,12 +89,21 @@ class QZTrayService {
     return () => { this.listeners.delete(fn); };
   }
 
-  private setStatus(s: PrinterStatus) {
-    this.status = s;
+  notifyStatus() {
+    const s = this.getStatus();
     this.listeners.forEach(fn => fn(s));
   }
 
+  private setStatus(s: PrinterStatus) {
+    this.status = s;
+    this.listeners.forEach(fn => fn(this.getStatus()));
+  }
+
   getStatus(): PrinterStatus {
+    const s = loadPrinterSettings();
+    if (s.printMode === 'browser') {
+      return 'ready';
+    }
     return this.status;
   }
 
@@ -362,14 +381,32 @@ class QZTrayService {
   ): Promise<{ success: boolean; error?: string }> {
     const s = settings || loadPrinterSettings();
 
+    // 1. Direct Browser Print (Default & Recommended - No QZ Tray needed!)
+    if (s.printMode !== 'qz') {
+      const html = generateReceiptHtml(invoice, s);
+      const ok = await printHtmlViaIframe(html);
+      return ok
+        ? { success: true }
+        : { success: false, error: 'Could not open print window. Please allow print/popups in browser.' };
+    }
+
+    // 2. QZ Tray Mode (Raw ESC/POS)
     if (!s.printerName) {
-      return { success: false, error: 'No printer selected. Please configure printer in Settings.' };
+      console.warn('[QZ Tray] No printer configured, falling back to Direct Browser Print');
+      const html = generateReceiptHtml(invoice, s);
+      const ok = await printHtmlViaIframe(html);
+      return ok ? { success: true } : { success: false, error: 'No printer selected.' };
     }
 
     if (this.status !== 'online') {
       const connected = await this.connect();
       if (!connected) {
-        return { success: false, error: 'QZ Tray is not running. Please start QZ Tray on this computer.' };
+        console.warn('[QZ Tray] Not running, automatically falling back to Direct Browser Print');
+        const html = generateReceiptHtml(invoice, s);
+        const ok = await printHtmlViaIframe(html);
+        return ok
+          ? { success: true }
+          : { success: false, error: 'QZ Tray is not running and browser print failed.' };
       }
     }
 
@@ -394,8 +431,10 @@ class QZTrayService {
 
       return { success: true };
     } catch (err: any) {
-      console.error('[QZ Tray] Print error:', err);
-      return { success: false, error: err?.message || 'Unknown print error' };
+      console.error('[QZ Tray] Print error, falling back to Direct Browser Print:', err);
+      const html = generateReceiptHtml(invoice, s);
+      const ok = await printHtmlViaIframe(html);
+      return ok ? { success: true } : { success: false, error: err?.message || 'Unknown print error' };
     }
   }
 
@@ -519,14 +558,23 @@ class QZTrayService {
   ): Promise<{ success: boolean; error?: string }> {
     const s = settings || loadPrinterSettings();
 
-    if (!s.printerName) {
-      return { success: false, error: 'No printer selected. Please configure printer in Settings.' };
+    // 1. Direct Browser Print Mode (Default & Recommended - No QZ Tray needed!)
+    if (s.printMode !== 'qz') {
+      const html = generateKOTHtml(invoice, s);
+      const ok = await printHtmlViaIframe(html);
+      return ok
+        ? { success: true }
+        : { success: false, error: 'Could not open print window for KOT.' };
     }
 
-    if (this.status !== 'online') {
-      const connected = await this.connect();
-      if (!connected) {
-        return { success: false, error: 'QZ Tray is not running. Please start QZ Tray on this computer.' };
+    // 2. QZ Tray Mode
+    if (!s.printerName || this.status !== 'online') {
+      const connected = this.status === 'online' || (await this.connect());
+      if (!connected || !s.printerName) {
+        console.warn('[QZ Tray] Offline, automatically falling back to Direct Browser Print for KOT');
+        const html = generateKOTHtml(invoice, s);
+        const ok = await printHtmlViaIframe(html);
+        return ok ? { success: true } : { success: false, error: 'QZ Tray is not running.' };
       }
     }
 
@@ -548,8 +596,10 @@ class QZTrayService {
       await qz.print(config, printData);
       return { success: true };
     } catch (err: any) {
-      console.error('[QZ Tray] KOT Print error:', err);
-      return { success: false, error: err?.message || 'Unknown print error' };
+      console.error('[QZ Tray] KOT Print error, falling back to Direct Browser Print:', err);
+      const html = generateKOTHtml(invoice, s);
+      const ok = await printHtmlViaIframe(html);
+      return ok ? { success: true } : { success: false, error: err?.message || 'Unknown print error' };
     }
   }
 
@@ -557,46 +607,568 @@ class QZTrayService {
   async openCashDrawer(settings?: PrinterSettings): Promise<{ success: boolean; error?: string }> {
     const s = settings || loadPrinterSettings();
 
-    if (!s.printerName) {
-      return { success: false, error: 'No printer selected to trigger cash drawer.' };
-    }
-
-    if (this.status !== 'online') {
-      const connected = await this.connect();
-      if (!connected) {
-        return { success: false, error: 'QZ Tray is not running.' };
+    // If QZ mode is explicitly configured and online, send ESC/POS kick pulse
+    if (s.printMode === 'qz' && this.status === 'online' && s.printerName) {
+      try {
+        const qz = this.qz as any;
+        const config = qz.configs.create(s.printerName, { encoding: 'ISO-8859-1' });
+        await qz.print(config, [{ type: 'raw', format: 'hex', data: this.kickDrawer()[0].hex }]);
+        return { success: true };
+      } catch (err: any) {
+        console.error('[QZ Tray] Drawer error:', err);
+        return { success: false, error: err?.message || 'Failed to open cash drawer' };
       }
     }
 
-    try {
-      const qz = this.qz as any;
-      const config = qz.configs.create(s.printerName, { encoding: 'ISO-8859-1' });
-      await qz.print(config, [{ type: 'raw', format: 'hex', data: this.kickDrawer()[0].hex }]);
-      return { success: true };
-    } catch (err: any) {
-      console.error('[QZ Tray] Drawer error:', err);
-      return { success: false, error: err?.message || 'Failed to open cash drawer' };
-    }
+    // In Direct Browser Print mode:
+    // Thermal printers (Rongta RP335, Epson, etc.) have the cash drawer connected via RJ11.
+    // When enabled in Windows Printer Properties (Device Settings -> Cash Drawer -> Open before/after print),
+    // the driver kicks the drawer automatically whenever a receipt prints.
+    return { success: true };
   }
 
   // ─── Test Print ──────────────────────────────────────────────────────────────
   async testPrint(settings?: PrinterSettings): Promise<{ success: boolean; error?: string }> {
     const s = settings || loadPrinterSettings();
     return this.printReceipt({
-      invoiceNumber: 'PIZ-TEST-000000',
-      orderId: 'TEST',
-      orderType: 'Test Print',
-      cashierName: 'System',
+      invoiceNumber: 'PIZ-TEST-' + String(Date.now()).slice(-6),
+      orderId: 'TEST-001',
+      orderType: 'Dine In',
+      tableNo: '3',
+      cashierName: 'Admin',
       dateTime: new Date().toLocaleString(),
-      items: [{ name: 'Test Item', quantity: 1, price: 100 }],
-      subtotal: 100,
-      discount: 0,
-      total: 100,
+      items: [
+        { name: '12" Pepperoni Pizza', quantity: 1, price: 650, variant: 'Medium' },
+        { name: 'Garlic Breadsticks', quantity: 1, price: 180 },
+        { name: 'Coca-Cola (500ml)', quantity: 2, price: 50 },
+      ],
+      subtotal: 930,
+      discount: 50,
+      vat: 0,
+      serviceCharge: 0,
+      total: 880,
       paymentMethod: 'Cash',
-      amountPaid: 100,
+      amountPaid: 1000,
+      change: 120,
+    }, s);
+  }
+
+  // ─── Test Print KOT ──────────────────────────────────────────────────────────
+  async testPrintKOT(settings?: PrinterSettings): Promise<{ success: boolean; error?: string }> {
+    const s = settings || loadPrinterSettings();
+    return this.printKOT({
+      invoiceNumber: 'PIZ-TEST-' + String(Date.now()).slice(-6),
+      orderId: 'TEST-001',
+      orderType: 'Dine In',
+      tableNo: '3',
+      cashierName: 'Admin',
+      dateTime: new Date().toLocaleTimeString(),
+      items: [
+        { name: '12" Pepperoni Pizza', quantity: 2, price: 650, variant: 'Medium', note: 'Extra Crispy Crust' },
+        { name: 'Garlic Breadsticks', quantity: 1, price: 180, note: 'Serve Hot First' },
+      ],
+      subtotal: 1480,
+      discount: 0,
+      total: 1480,
+      paymentMethod: 'Cash',
+      amountPaid: 1480,
       change: 0,
     }, s);
   }
+}
+
+// ─── Direct Browser HTML Generators & Print Runner ───────────────────────────
+
+function escapeHtml(str: string = ''): string {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSettings): string {
+  const is58 = settings.paperWidth === '58mm';
+  const widthMm = is58 ? '58mm' : '80mm';
+  const contentWidth = is58 ? '48mm' : '72mm';
+  const numCopies = Math.max(1, settings.copies || 1);
+
+  const formatMoney = (n: number) => (Number(n) || 0).toFixed(2);
+
+  const itemsHtml = invoice.items.map(item => {
+    const lineTotal = formatMoney(item.price * item.quantity);
+    const variantStr = item.variant ? `<div class="item-variant">(${escapeHtml(item.variant)})</div>` : '';
+    const note = item.specialRequest || item.note;
+    const noteStr = note ? `<div class="item-note">* Note: ${escapeHtml(note)}</div>` : '';
+
+    return `
+      <tr>
+        <td class="col-qty">${item.quantity}x</td>
+        <td class="col-item">
+          <div class="item-name">${escapeHtml(item.name)}</div>
+          ${variantStr}
+          ${noteStr}
+        </td>
+        <td class="col-price">৳${lineTotal}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const renderSingleReceipt = (copyNum: number) => `
+    <div class="receipt-instance" style="${copyNum > 0 ? 'page-break-before: always; padding-top: 4mm;' : ''}">
+      <div class="center">
+        <div class="header-brand">PIZZORA RESTAURANT</div>
+        <div class="header-info">Subidbazar Point, Mitali Complex</div>
+        <div class="header-info">Sylhet, Bangladesh</div>
+        <div class="header-info">Tel: 01620026649</div>
+        ${copyNum > 0 ? `<div style="font-size: 10px; font-weight: bold; margin-top: 2px;">(CUSTOMER COPY ${copyNum + 1})</div>` : ''}
+      </div>
+
+      ${invoice.isRefund ? '<div class="refund-banner">*** REFUND RECEIPT ***</div>' : ''}
+
+      <div class="double-line"></div>
+
+      <table class="meta-table">
+        <tr>
+          <td class="bold">Order Type:</td>
+          <td class="right bold">${escapeHtml(invoice.orderType)}</td>
+        </tr>
+        <tr>
+          <td>Invoice #:</td>
+          <td class="right bold">${escapeHtml(invoice.invoiceNumber)}</td>
+        </tr>
+        <tr>
+          <td>Date/Time:</td>
+          <td class="right">${escapeHtml(invoice.dateTime)}</td>
+        </tr>
+        <tr>
+          <td>Cashier:</td>
+          <td class="right">${escapeHtml(invoice.cashierName)}</td>
+        </tr>
+        ${invoice.orderType === 'Dine In' && invoice.tableNo ? `
+        <tr>
+          <td class="bold">Table No:</td>
+          <td class="right bold" style="font-size: ${is58 ? '12px' : '13px'};">Table ${escapeHtml(invoice.tableNo)}</td>
+        </tr>` : ''}
+        ${invoice.customerName ? `
+        <tr>
+          <td>Customer:</td>
+          <td class="right">${escapeHtml(invoice.customerName)}</td>
+        </tr>` : ''}
+      </table>
+
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th class="left col-qty">Qty</th>
+            <th class="left col-item">Item</th>
+            <th class="right col-price">Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+      </table>
+
+      <div class="dashed-line"></div>
+
+      <table class="totals-table">
+        <tr>
+          <td>Subtotal:</td>
+          <td class="right">৳${formatMoney(invoice.subtotal)}</td>
+        </tr>
+        ${invoice.discount > 0 ? `
+        <tr>
+          <td>Discount:</td>
+          <td class="right">-৳${formatMoney(invoice.discount)}</td>
+        </tr>` : ''}
+        ${invoice.vat && invoice.vat > 0 ? `
+        <tr>
+          <td>VAT:</td>
+          <td class="right">৳${formatMoney(invoice.vat)}</td>
+        </tr>` : ''}
+        ${invoice.serviceCharge && invoice.serviceCharge > 0 ? `
+        <tr>
+          <td>Service Charge:</td>
+          <td class="right">৳${formatMoney(invoice.serviceCharge)}</td>
+        </tr>` : ''}
+      </table>
+
+      <div class="double-line"></div>
+
+      <table class="totals-table">
+        <tr class="grand-total-row">
+          <td>TOTAL:</td>
+          <td class="right">৳${formatMoney(invoice.total)}</td>
+        </tr>
+      </table>
+
+      <div class="double-line"></div>
+
+      <table class="totals-table">
+        <tr>
+          <td>Payment (${escapeHtml(invoice.paymentMethod)}):</td>
+          <td class="right">৳${formatMoney(invoice.amountPaid)}</td>
+        </tr>
+        ${invoice.change > 0 ? `
+        <tr>
+          <td>Change:</td>
+          <td class="right">৳${formatMoney(invoice.change)}</td>
+        </tr>` : ''}
+      </table>
+
+      <div class="dashed-line"></div>
+
+      <div class="footer">
+        <div class="bold">Thank you for dining at Pizzora!</div>
+        <div style="font-size: 9px; color: #555; margin-top: 2px;">Powered by rizqara.tech</div>
+      </div>
+
+      <div class="cut-spacing"></div>
+    </div>
+  `;
+
+  let fullBody = '';
+  for (let i = 0; i < numCopies; i++) {
+    fullBody += renderSingleReceipt(i);
+  }
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Receipt - ${escapeHtml(invoice.invoiceNumber)}</title>
+  <style>
+    @page {
+      size: ${widthMm} auto;
+      margin: 0;
+    }
+    @media print {
+      html, body {
+        width: ${contentWidth} !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+      }
+      .no-print { display: none !important; }
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Courier New', Courier, monospace, -apple-system, sans-serif;
+      font-size: ${is58 ? '11px' : '12px'};
+      line-height: 1.25;
+      color: #000;
+      background: #fff;
+      padding: 3mm 2mm;
+      width: ${contentWidth};
+      margin: 0 auto;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .left { text-align: left; }
+    .bold { font-weight: bold; }
+    
+    .header-brand {
+      font-size: ${is58 ? '16px' : '19px'};
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+    }
+    .header-info {
+      font-size: ${is58 ? '10px' : '11px'};
+      line-height: 1.2;
+      margin-bottom: 2px;
+    }
+    
+    .refund-banner {
+      border: 2px dashed #000;
+      font-size: ${is58 ? '12px' : '14px'};
+      font-weight: bold;
+      padding: 4px;
+      margin: 5px 0;
+      text-align: center;
+    }
+
+    .dashed-line {
+      border-top: 1px dashed #000;
+      margin: 6px 0;
+    }
+    .double-line {
+      border-top: 2px solid #000;
+      margin: 6px 0;
+    }
+
+    .meta-table {
+      width: 100%;
+      font-size: ${is58 ? '10px' : '11px'};
+      margin: 4px 0;
+    }
+    .meta-table td {
+      padding: 1.5px 0;
+    }
+
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 5px 0;
+    }
+    .items-table th {
+      border-top: 1px dashed #000;
+      border-bottom: 1px dashed #000;
+      padding: 3px 0;
+      font-weight: bold;
+      font-size: ${is58 ? '10px' : '11px'};
+    }
+    .items-table td {
+      padding: 3px 0;
+      vertical-align: top;
+      font-size: ${is58 ? '10px' : '11px'};
+    }
+    .col-qty { width: 14%; font-weight: bold; }
+    .col-item { width: 56%; }
+    .col-price { width: 30%; text-align: right; }
+    .item-name { font-weight: 600; word-break: break-word; }
+    .item-variant { font-size: ${is58 ? '9px' : '10px'}; color: #222; }
+    .item-note { font-size: ${is58 ? '9px' : '10px'}; font-style: italic; color: #333; margin-top: 1px; }
+
+    .totals-table {
+      width: 100%;
+      margin: 4px 0;
+      font-size: ${is58 ? '11px' : '12px'};
+    }
+    .totals-table td {
+      padding: 1.5px 0;
+    }
+    .grand-total-row td {
+      font-size: ${is58 ? '14px' : '16px'};
+      font-weight: 900;
+      padding: 4px 0;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 10px;
+      font-size: ${is58 ? '10px' : '11px'};
+      line-height: 1.3;
+    }
+    .cut-spacing {
+      height: 10mm;
+    }
+  </style>
+</head>
+<body>
+  ${fullBody}
+</body>
+</html>`;
+}
+
+export function generateKOTHtml(invoice: InvoiceData, settings: PrinterSettings): string {
+  const is58 = settings.paperWidth === '58mm';
+  const widthMm = is58 ? '58mm' : '80mm';
+  const contentWidth = is58 ? '48mm' : '72mm';
+
+  const itemsHtml = invoice.items.map(item => {
+    const variantStr = item.variant ? `<div style="font-size: ${is58 ? '11px' : '12px'}; font-weight: normal; margin-top: 1px;">(${escapeHtml(item.variant)})</div>` : '';
+    const note = item.specialRequest || item.note;
+    const noteStr = note ? `<div style="font-weight: bold; margin-top: 2px; padding: 2px 4px; background: #eee; border-left: 2px solid #000;">** ${escapeHtml(note)} **</div>` : '';
+    return `
+      <div style="margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px dashed #ccc;">
+        <div style="display: flex; gap: 8px; align-items: flex-start;">
+          <div style="font-size: ${is58 ? '15px' : '17px'}; font-weight: 900; min-width: 28px;">[ ${item.quantity} ]</div>
+          <div style="flex: 1;">
+            <div style="font-size: ${is58 ? '14px' : '16px'}; font-weight: bold; line-height: 1.2;">${escapeHtml(item.name)}</div>
+            ${variantStr}
+            ${noteStr}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>KOT - ${escapeHtml(invoice.invoiceNumber)}</title>
+  <style>
+    @page {
+      size: ${widthMm} auto;
+      margin: 0;
+    }
+    @media print {
+      html, body {
+        width: ${contentWidth} !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+      }
+      .no-print { display: none !important; }
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Courier New', Courier, monospace, -apple-system, sans-serif;
+      font-size: ${is58 ? '11px' : '12px'};
+      line-height: 1.25;
+      color: #000;
+      background: #fff;
+      padding: 3mm 2mm;
+      width: ${contentWidth};
+      margin: 0 auto;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .kot-banner {
+      border: 2px solid #000;
+      padding: 6px;
+      margin: 4px 0;
+      text-align: center;
+      font-size: ${is58 ? '16px' : '18px'};
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
+    .kot-target {
+      font-size: ${is58 ? '18px' : '22px'};
+      font-weight: 900;
+      padding: 6px 0;
+      text-align: center;
+      border-bottom: 2px solid #000;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .meta-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: ${is58 ? '10px' : '11px'};
+      margin-bottom: 3px;
+    }
+    .cut-spacing {
+      height: 10mm;
+    }
+  </style>
+</head>
+<body>
+  <div class="center" style="font-size: 13px; font-weight: bold;">PIZZORA RESTAURANT</div>
+  
+  <div class="kot-banner">*** KITCHEN TICKET ***</div>
+
+  <div class="kot-target">
+    ${invoice.orderType === 'Dine In' && invoice.tableNo ? `TABLE ${escapeHtml(invoice.tableNo)}` : escapeHtml(invoice.orderType)}
+  </div>
+
+  <div class="meta-line">
+    <span>Order: <strong>${escapeHtml(invoice.invoiceNumber)}</strong></span>
+    <span>Time: <strong>${escapeHtml(invoice.dateTime)}</strong></span>
+  </div>
+  <div class="meta-line" style="margin-bottom: 8px;">
+    <span>Cashier: ${escapeHtml(invoice.cashierName)}</span>
+  </div>
+
+  <div style="border-top: 2px solid #000; margin-bottom: 8px;"></div>
+
+  <div>
+    ${itemsHtml}
+  </div>
+
+  <div style="text-align: center; margin-top: 10px; font-size: 10px; border-top: 1px dashed #000; padding-top: 4px;">
+    Kitchen Copy · Pizzora POS
+  </div>
+
+  <div class="cut-spacing"></div>
+</body>
+</html>`;
+}
+
+export function printHtmlViaIframe(htmlContent: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return resolve(false);
+    }
+
+    try {
+      const oldFrame = document.getElementById('pizzora-thermal-print-frame');
+      if (oldFrame) {
+        try { oldFrame.remove(); } catch {}
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.id = 'pizzora-thermal-print-frame';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.visibility = 'hidden';
+
+      document.body.appendChild(iframe);
+
+      const iframeWindow = iframe.contentWindow;
+      const iframeDoc = iframeWindow?.document || iframe.contentDocument;
+
+      if (!iframeDoc || !iframeWindow) {
+        resolve(false);
+        return;
+      }
+
+      iframeDoc.open();
+      iframeDoc.write(htmlContent);
+      iframeDoc.close();
+
+      let hasPrinted = false;
+      const executePrint = () => {
+        if (hasPrinted) return;
+        hasPrinted = true;
+        try {
+          iframeWindow.focus();
+          iframeWindow.print();
+          resolve(true);
+        } catch (printErr) {
+          console.error('[Browser Print] Iframe print failed:', printErr);
+          try {
+            const popup = window.open('', '_blank', 'width=380,height=600');
+            if (popup) {
+              popup.document.write(htmlContent);
+              popup.document.close();
+              popup.focus();
+              setTimeout(() => {
+                popup.print();
+                popup.close();
+              }, 400);
+              resolve(true);
+              return;
+            }
+          } catch {}
+          resolve(false);
+        } finally {
+          setTimeout(() => {
+            try { iframe.remove(); } catch {}
+          }, 15000);
+        }
+      };
+
+      if (iframeDoc.readyState === 'complete') {
+        setTimeout(executePrint, 200);
+      } else {
+        iframe.onload = () => setTimeout(executePrint, 150);
+        setTimeout(executePrint, 500);
+      }
+    } catch (e) {
+      console.error('[Browser Print] Error setting up print iframe:', e);
+      resolve(false);
+    }
+  });
 }
 
 // Singleton
