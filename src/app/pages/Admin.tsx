@@ -990,7 +990,9 @@ export function Admin() {
       o.orderNumber || '-',
       o.customerName || 'Walk-in',
       `BDT ${o.total}`,
-      o.paymentMethod || 'Cash',
+      o.splitPayments && o.splitPayments.length > 0
+        ? `Split (${o.splitPayments.map((p: any) => `${p.method} Tk ${p.amount}`).join(' + ')})`
+        : (o.paymentMethod || 'Cash'),
       o.status,
       new Date(o.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka' })
     ]);
@@ -2429,6 +2431,7 @@ export function Admin() {
                           'At Table':          { color: '#2563EB', bg: '#DBEAFE' },
                           'Cash':              { color: '#16A34A', bg: '#F0FDF4' },
                           'Card':              { color: '#2563EB', bg: '#DBEAFE' },
+                          'Split':             { color: '#7C3AED', bg: '#F5F3FF' },
                         };
                         const mc = methodColors[order.paymentMethod] || { color: '#6B7280', bg: '#F3F4F6' };
                         return (
