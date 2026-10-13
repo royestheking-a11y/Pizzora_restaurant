@@ -699,7 +699,8 @@ function escapeHtml(str: string = ''): string {
 export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSettings): string {
   const is58 = settings.paperWidth === '58mm';
   const widthMm = is58 ? '58mm' : '80mm';
-  const contentWidth = is58 ? '48mm' : '72mm';
+  // Safe printable area: 68mm for 80mm rolls (print head is 72mm max), 46mm for 58mm rolls
+  const contentWidth = is58 ? '46mm' : '68mm';
   const numCopies = Math.max(1, settings.copies || 1);
 
   const formatMoney = (n: number) => (Number(n) || 0).toFixed(2);
@@ -718,7 +719,7 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
           ${variantStr}
           ${noteStr}
         </td>
-        <td class="col-price">৳${lineTotal}</td>
+        <td class="col-price">Tk ${lineTotal}</td>
       </tr>
     `;
   }).join('');
@@ -730,7 +731,7 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
         <div class="header-info">Subidbazar Point, Mitali Complex</div>
         <div class="header-info">Sylhet, Bangladesh</div>
         <div class="header-info">Tel: 01620026649</div>
-        ${copyNum > 0 ? `<div style="font-size: 10px; font-weight: bold; margin-top: 2px;">(CUSTOMER COPY ${copyNum + 1})</div>` : ''}
+        ${copyNum > 0 ? `<div style="font-size: 11px; font-weight: 900; margin-top: 2px;">(CUSTOMER COPY ${copyNum + 1})</div>` : ''}
       </div>
 
       ${invoice.isRefund ? '<div class="refund-banner">*** REFUND RECEIPT ***</div>' : ''}
@@ -739,30 +740,30 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
 
       <table class="meta-table">
         <tr>
-          <td class="bold">Order Type:</td>
-          <td class="right bold">${escapeHtml(invoice.orderType)}</td>
+          <td class="meta-label">Order Type:</td>
+          <td class="meta-val">${escapeHtml(invoice.orderType)}</td>
         </tr>
         <tr>
-          <td>Invoice #:</td>
-          <td class="right bold">${escapeHtml(invoice.invoiceNumber)}</td>
+          <td class="meta-label">Invoice #:</td>
+          <td class="meta-val">${escapeHtml(invoice.invoiceNumber)}</td>
         </tr>
         <tr>
-          <td>Date/Time:</td>
-          <td class="right">${escapeHtml(invoice.dateTime)}</td>
+          <td class="meta-label">Date/Time:</td>
+          <td class="meta-val">${escapeHtml(invoice.dateTime)}</td>
         </tr>
         <tr>
-          <td>Cashier:</td>
-          <td class="right">${escapeHtml(invoice.cashierName)}</td>
+          <td class="meta-label">Cashier:</td>
+          <td class="meta-val">${escapeHtml(invoice.cashierName)}</td>
         </tr>
         ${invoice.orderType === 'Dine In' && invoice.tableNo ? `
         <tr>
-          <td class="bold">Table No:</td>
-          <td class="right bold" style="font-size: ${is58 ? '12px' : '13px'};">Table ${escapeHtml(invoice.tableNo)}</td>
+          <td class="meta-label">Table No:</td>
+          <td class="meta-val" style="font-size: ${is58 ? '12px' : '13px'}; font-weight: 900;">Table ${escapeHtml(invoice.tableNo)}</td>
         </tr>` : ''}
         ${invoice.customerName ? `
         <tr>
-          <td>Customer:</td>
-          <td class="right">${escapeHtml(invoice.customerName)}</td>
+          <td class="meta-label">Customer:</td>
+          <td class="meta-val">${escapeHtml(invoice.customerName)}</td>
         </tr>` : ''}
       </table>
 
@@ -784,22 +785,22 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
       <table class="totals-table">
         <tr>
           <td>Subtotal:</td>
-          <td class="right">৳${formatMoney(invoice.subtotal)}</td>
+          <td class="right">Tk ${formatMoney(invoice.subtotal)}</td>
         </tr>
         ${invoice.discount > 0 ? `
         <tr>
           <td>Discount:</td>
-          <td class="right">-৳${formatMoney(invoice.discount)}</td>
+          <td class="right">-Tk ${formatMoney(invoice.discount)}</td>
         </tr>` : ''}
         ${invoice.vat && invoice.vat > 0 ? `
         <tr>
           <td>VAT:</td>
-          <td class="right">৳${formatMoney(invoice.vat)}</td>
+          <td class="right">Tk ${formatMoney(invoice.vat)}</td>
         </tr>` : ''}
         ${invoice.serviceCharge && invoice.serviceCharge > 0 ? `
         <tr>
           <td>Service Charge:</td>
-          <td class="right">৳${formatMoney(invoice.serviceCharge)}</td>
+          <td class="right">Tk ${formatMoney(invoice.serviceCharge)}</td>
         </tr>` : ''}
       </table>
 
@@ -808,7 +809,7 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
       <table class="totals-table">
         <tr class="grand-total-row">
           <td>TOTAL:</td>
-          <td class="right">৳${formatMoney(invoice.total)}</td>
+          <td class="right">Tk ${formatMoney(invoice.total)}</td>
         </tr>
       </table>
 
@@ -817,34 +818,34 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
       <table class="totals-table">
         ${invoice.splitPayments && invoice.splitPayments.length > 0 ? `
         <tr>
-          <td colspan="2" style="font-weight: bold; border-bottom: 1px dashed #bbb; padding-bottom: 3px;">
+          <td colspan="2" style="font-weight: 900; border-bottom: 1.5px dashed #000; padding-bottom: 3px;">
             Payment (Split):
           </td>
         </tr>
         ${invoice.splitPayments.map(p => `
         <tr>
-          <td style="padding-left: 8px;">* ${escapeHtml(p.method)}:</td>
-          <td class="right">৳${formatMoney(p.amount)}</td>
+          <td style="padding-left: 6px; font-weight: 700;">* ${escapeHtml(p.method)}:</td>
+          <td class="right">Tk ${formatMoney(p.amount)}</td>
         </tr>
         `).join('')}
         ` : `
         <tr>
           <td>Payment (${escapeHtml(invoice.paymentMethod)}):</td>
-          <td class="right">৳${formatMoney(invoice.amountPaid)}</td>
+          <td class="right">Tk ${formatMoney(invoice.amountPaid)}</td>
         </tr>
         `}
         ${invoice.change > 0 ? `
         <tr>
           <td>Change:</td>
-          <td class="right">৳${formatMoney(invoice.change)}</td>
+          <td class="right">Tk ${formatMoney(invoice.change)}</td>
         </tr>` : ''}
       </table>
 
       <div class="dashed-line"></div>
 
       <div class="footer">
-        <div class="bold">Thank you for dining at Pizzora!</div>
-        <div style="font-size: 9px; color: #555; margin-top: 2px;">Powered by rizqara.tech</div>
+        <div class="bold" style="font-size: ${is58 ? '11px' : '12px'};">Thank you for dining at Pizzora!</div>
+        <div style="font-size: 10px; font-weight: 700; margin-top: 3px;">Powered by rizqara.tech</div>
       </div>
 
       <div class="cut-spacing"></div>
@@ -880,21 +881,34 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
       padding: 0;
     }
     body {
-      font-family: 'Courier New', Courier, monospace, -apple-system, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       font-size: ${is58 ? '11px' : '12px'};
+      font-weight: 700;
       line-height: 1.25;
-      color: #000;
-      background: #fff;
-      padding: 3mm 2mm;
+      color: #000000;
+      background: #ffffff;
       width: ${contentWidth};
+      max-width: ${contentWidth};
       margin: 0 auto;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    .receipt-instance {
+      width: ${contentWidth};
+      max-width: ${contentWidth};
+      box-sizing: border-box;
+      margin: 0 auto;
+      padding: 2mm 2mm 4mm 2mm;
+      color: #000000;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-weight: 700;
     }
     .center { text-align: center; }
     .right { text-align: right; }
     .left { text-align: left; }
-    .bold { font-weight: bold; }
+    .bold { font-weight: 800; }
     
     .header-brand {
       font-size: ${is58 ? '16px' : '19px'};
@@ -902,83 +916,117 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
       letter-spacing: 0.5px;
       margin-bottom: 2px;
       text-transform: uppercase;
+      color: #000;
     }
     .header-info {
       font-size: ${is58 ? '10px' : '11px'};
-      line-height: 1.2;
-      margin-bottom: 2px;
+      font-weight: 700;
+      line-height: 1.25;
+      margin-bottom: 1.5px;
+      color: #000;
     }
     
     .refund-banner {
       border: 2px dashed #000;
       font-size: ${is58 ? '12px' : '14px'};
-      font-weight: bold;
+      font-weight: 900;
       padding: 4px;
       margin: 5px 0;
       text-align: center;
+      color: #000;
     }
 
     .dashed-line {
-      border-top: 1px dashed #000;
-      margin: 6px 0;
+      border-top: 1.5px dashed #000;
+      margin: 5px 0;
     }
     .double-line {
       border-top: 2px solid #000;
-      margin: 6px 0;
+      margin: 5px 0;
     }
 
     .meta-table {
       width: 100%;
-      font-size: ${is58 ? '10px' : '11px'};
-      margin: 4px 0;
+      border-collapse: collapse;
+      font-size: ${is58 ? '11px' : '12px'};
+      margin: 3px 0;
     }
     .meta-table td {
       padding: 1.5px 0;
+      color: #000;
+      font-weight: 700;
+    }
+    .meta-table .meta-label {
+      text-align: left;
+      white-space: nowrap;
+      width: 38%;
+      font-weight: 800;
+    }
+    .meta-table .meta-val {
+      text-align: right;
+      padding-right: 2px;
+      word-break: break-word;
+      font-weight: 700;
     }
 
     .items-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 5px 0;
+      margin: 4px 0;
     }
     .items-table th {
-      border-top: 1px dashed #000;
-      border-bottom: 1px dashed #000;
+      border-top: 1.5px dashed #000;
+      border-bottom: 1.5px dashed #000;
       padding: 3px 0;
-      font-weight: bold;
-      font-size: ${is58 ? '10px' : '11px'};
+      font-weight: 900;
+      font-size: ${is58 ? '11px' : '12px'};
+      color: #000;
     }
     .items-table td {
       padding: 3px 0;
       vertical-align: top;
-      font-size: ${is58 ? '10px' : '11px'};
+      font-size: ${is58 ? '11px' : '12px'};
+      font-weight: 700;
+      color: #000;
     }
-    .col-qty { width: 14%; font-weight: bold; }
-    .col-item { width: 56%; }
-    .col-price { width: 30%; text-align: right; }
-    .item-name { font-weight: 600; word-break: break-word; }
-    .item-variant { font-size: ${is58 ? '9px' : '10px'}; color: #222; }
-    .item-note { font-size: ${is58 ? '9px' : '10px'}; font-style: italic; color: #333; margin-top: 1px; }
+    .col-qty { width: 14%; font-weight: 900; }
+    .col-item { width: 54%; font-weight: 700; }
+    .col-price { width: 32%; text-align: right; padding-right: 2px; font-weight: 800; white-space: nowrap; }
+    .item-name { font-weight: 800; word-break: break-word; color: #000; }
+    .item-variant { font-size: ${is58 ? '10px' : '11px'}; color: #000; font-weight: 700; }
+    .item-note { font-size: ${is58 ? '10px' : '11px'}; font-style: italic; color: #000; font-weight: 800; margin-top: 1px; }
 
     .totals-table {
       width: 100%;
-      margin: 4px 0;
+      border-collapse: collapse;
+      margin: 3px 0;
       font-size: ${is58 ? '11px' : '12px'};
+      font-weight: 700;
+      color: #000;
     }
     .totals-table td {
       padding: 1.5px 0;
+      color: #000;
+    }
+    .totals-table td.right {
+      text-align: right;
+      padding-right: 2px;
+      font-weight: 800;
+      white-space: nowrap;
     }
     .grand-total-row td {
-      font-size: ${is58 ? '14px' : '16px'};
+      font-size: ${is58 ? '15px' : '17px'};
       font-weight: 900;
       padding: 4px 0;
+      color: #000;
     }
 
     .footer {
       text-align: center;
-      margin-top: 10px;
+      margin-top: 8px;
       font-size: ${is58 ? '10px' : '11px'};
       line-height: 1.3;
+      color: #000;
     }
     .cut-spacing {
       height: 10mm;
@@ -994,18 +1042,18 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
 export function generateKOTHtml(invoice: InvoiceData, settings: PrinterSettings): string {
   const is58 = settings.paperWidth === '58mm';
   const widthMm = is58 ? '58mm' : '80mm';
-  const contentWidth = is58 ? '48mm' : '72mm';
+  const contentWidth = is58 ? '46mm' : '68mm';
 
   const itemsHtml = invoice.items.map(item => {
-    const variantStr = item.variant ? `<div style="font-size: ${is58 ? '11px' : '12px'}; font-weight: normal; margin-top: 1px;">(${escapeHtml(item.variant)})</div>` : '';
+    const variantStr = item.variant ? `<div style="font-size: ${is58 ? '11px' : '12px'}; font-weight: 700; margin-top: 1px;">(${escapeHtml(item.variant)})</div>` : '';
     const note = item.specialRequest || item.note;
-    const noteStr = note ? `<div style="font-weight: bold; margin-top: 2px; padding: 2px 4px; background: #eee; border-left: 2px solid #000;">** ${escapeHtml(note)} **</div>` : '';
+    const noteStr = note ? `<div style="font-weight: 900; margin-top: 2px; padding: 2px 4px; border: 1.5px solid #000; background: #fff;">** ${escapeHtml(note)} **</div>` : '';
     return `
-      <div style="margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px dashed #ccc;">
-        <div style="display: flex; gap: 8px; align-items: flex-start;">
+      <div style="margin-bottom: 7px; padding-bottom: 5px; border-bottom: 1.5px dashed #000;">
+        <div style="display: flex; gap: 6px; align-items: flex-start;">
           <div style="font-size: ${is58 ? '15px' : '17px'}; font-weight: 900; min-width: 28px;">[ ${item.quantity} ]</div>
           <div style="flex: 1;">
-            <div style="font-size: ${is58 ? '14px' : '16px'}; font-weight: bold; line-height: 1.2;">${escapeHtml(item.name)}</div>
+            <div style="font-size: ${is58 ? '14px' : '16px'}; font-weight: 900; line-height: 1.2;">${escapeHtml(item.name)}</div>
             ${variantStr}
             ${noteStr}
           </div>
@@ -1038,32 +1086,45 @@ export function generateKOTHtml(invoice: InvoiceData, settings: PrinterSettings)
       padding: 0;
     }
     body {
-      font-family: 'Courier New', Courier, monospace, -apple-system, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       font-size: ${is58 ? '11px' : '12px'};
+      font-weight: 700;
       line-height: 1.25;
-      color: #000;
-      background: #fff;
-      padding: 3mm 2mm;
+      color: #000000;
+      background: #ffffff;
       width: ${contentWidth};
+      max-width: ${contentWidth};
       margin: 0 auto;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    .kot-instance {
+      width: ${contentWidth};
+      max-width: ${contentWidth};
+      box-sizing: border-box;
+      margin: 0 auto;
+      padding: 2mm 2mm 4mm 2mm;
+      color: #000000;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-weight: 700;
     }
     .center { text-align: center; }
-    .bold { font-weight: bold; }
+    .bold { font-weight: 900; }
     .kot-banner {
       border: 2px solid #000;
-      padding: 6px;
+      padding: 5px;
       margin: 4px 0;
       text-align: center;
-      font-size: ${is58 ? '16px' : '18px'};
+      font-size: ${is58 ? '15px' : '17px'};
       font-weight: 900;
-      letter-spacing: 1px;
+      letter-spacing: 0.5px;
     }
     .kot-target {
       font-size: ${is58 ? '18px' : '22px'};
       font-weight: 900;
-      padding: 6px 0;
+      padding: 5px 0;
       text-align: center;
       border-bottom: 2px solid #000;
       margin-bottom: 6px;
@@ -1072,7 +1133,8 @@ export function generateKOTHtml(invoice: InvoiceData, settings: PrinterSettings)
     .meta-line {
       display: flex;
       justify-content: space-between;
-      font-size: ${is58 ? '10px' : '11px'};
+      font-size: ${is58 ? '11px' : '12px'};
+      font-weight: 700;
       margin-bottom: 3px;
     }
     .cut-spacing {
@@ -1081,33 +1143,35 @@ export function generateKOTHtml(invoice: InvoiceData, settings: PrinterSettings)
   </style>
 </head>
 <body>
-  <div class="center" style="font-size: 13px; font-weight: bold;">PIZZORA RESTAURANT</div>
-  
-  <div class="kot-banner">*** KITCHEN TICKET ***</div>
+  <div class="kot-instance">
+    <div class="center" style="font-size: 13px; font-weight: 900;">PIZZORA RESTAURANT</div>
+    
+    <div class="kot-banner">*** KITCHEN TICKET ***</div>
 
-  <div class="kot-target">
-    ${invoice.orderType === 'Dine In' && invoice.tableNo ? `TABLE ${escapeHtml(invoice.tableNo)}` : escapeHtml(invoice.orderType)}
+    <div class="kot-target">
+      ${invoice.orderType === 'Dine In' && invoice.tableNo ? `TABLE ${escapeHtml(invoice.tableNo)}` : escapeHtml(invoice.orderType)}
+    </div>
+
+    <div class="meta-line">
+      <span>Order: <strong>${escapeHtml(invoice.invoiceNumber)}</strong></span>
+      <span>Time: <strong>${escapeHtml(invoice.dateTime)}</strong></span>
+    </div>
+    <div class="meta-line" style="margin-bottom: 8px;">
+      <span>Cashier: ${escapeHtml(invoice.cashierName)}</span>
+    </div>
+
+    <div style="border-top: 2px solid #000; margin-bottom: 8px;"></div>
+
+    <div>
+      ${itemsHtml}
+    </div>
+
+    <div style="text-align: center; margin-top: 10px; font-size: 11px; font-weight: 800; border-top: 1.5px dashed #000; padding-top: 4px;">
+      Kitchen Copy · Pizzora POS
+    </div>
+
+    <div class="cut-spacing"></div>
   </div>
-
-  <div class="meta-line">
-    <span>Order: <strong>${escapeHtml(invoice.invoiceNumber)}</strong></span>
-    <span>Time: <strong>${escapeHtml(invoice.dateTime)}</strong></span>
-  </div>
-  <div class="meta-line" style="margin-bottom: 8px;">
-    <span>Cashier: ${escapeHtml(invoice.cashierName)}</span>
-  </div>
-
-  <div style="border-top: 2px solid #000; margin-bottom: 8px;"></div>
-
-  <div>
-    ${itemsHtml}
-  </div>
-
-  <div style="text-align: center; margin-top: 10px; font-size: 10px; border-top: 1px dashed #000; padding-top: 4px;">
-    Kitchen Copy · Pizzora POS
-  </div>
-
-  <div class="cut-spacing"></div>
 </body>
 </html>`;
 }
@@ -1151,6 +1215,9 @@ export function printHtmlViaIframe(htmlContent: string): Promise<boolean> {
           }
         }
         @media print {
+          @page {
+            margin: 0 !important;
+          }
           html, body {
             margin: 0 !important;
             padding: 0 !important;
@@ -1167,12 +1234,17 @@ export function printHtmlViaIframe(htmlContent: string): Promise<boolean> {
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
           }
+          #pizzora-thermal-print-container .receipt-instance,
+          #pizzora-thermal-print-container .kot-instance {
+            display: block !important;
+            visibility: visible !important;
+          }
         }
       `;
+      document.head.appendChild(printStyleEl);
       document.head.appendChild(printStyleEl);
 
       // 4. Inject receipt content container into document body
