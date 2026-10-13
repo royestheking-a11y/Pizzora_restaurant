@@ -869,8 +869,8 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
     }
     @media print {
       html, body {
-        width: ${contentWidth} !important;
-        margin: 0 auto !important;
+        width: 100% !important;
+        margin: 0 !important;
         padding: 0 !important;
       }
       .no-print { display: none !important; }
@@ -1074,8 +1074,8 @@ export function generateKOTHtml(invoice: InvoiceData, settings: PrinterSettings)
     }
     @media print {
       html, body {
-        width: ${contentWidth} !important;
-        margin: 0 auto !important;
+        width: 100% !important;
+        margin: 0 !important;
         padding: 0 !important;
       }
       .no-print { display: none !important; }
@@ -1183,106 +1183,61 @@ export function printHtmlViaIframe(htmlContent: string): Promise<boolean> {
     }
 
     try {
-      // 1. Clean up any previous print elements
-      const oldContainer = document.getElementById('pizzora-thermal-print-container');
-      if (oldContainer) {
-        try { oldContainer.remove(); } catch {}
-      }
-      const oldStyle = document.getElementById('pizzora-thermal-print-style');
-      if (oldStyle) {
-        try { oldStyle.remove(); } catch {}
+      const oldFrame = document.getElementById('pizzora-thermal-print-frame');
+      if (oldFrame) {
+        try { oldFrame.remove(); } catch {}
       }
 
-      // 2. Parse HTML and extract inner styles + body
-      const parser = new DOMParser();
-      const parsedDoc = parser.parseFromString(htmlContent, 'text/html');
-      const innerStyles = Array.from(parsedDoc.querySelectorAll('style'))
-        .map(s => s.innerHTML)
-        .join('\n');
-      const innerBody = parsedDoc.body.innerHTML;
+      const iframe = document.createElement('iframe');
+      iframe.id = 'pizzora-thermal-print-frame';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.visibility = 'hidden';
 
-      // 3. Inject print isolation styles
-      // During screen: hidden completely
-      // During print: only #pizzora-thermal-print-container is visible
-      const printStyleEl = document.createElement('style');
-      printStyleEl.id = 'pizzora-thermal-print-style';
-      printStyleEl.innerHTML = `
-        ${innerStyles}
-        @media screen {
-          #pizzora-thermal-print-container {
-            display: none !important;
-            visibility: hidden !important;
-          }
-        }
-        @media print {
-          @page {
-            margin: 0 !important;
-          }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #fff !important;
-            width: 100% !important;
-          }
-          body > *:not(#pizzora-thermal-print-container) {
-            display: none !important;
-            visibility: hidden !important;
-          }
-          #pizzora-thermal-print-container {
-            display: block !important;
-            visibility: visible !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          #pizzora-thermal-print-container .receipt-instance,
-          #pizzora-thermal-print-container .kot-instance {
-            display: block !important;
-            visibility: visible !important;
-          }
-        }
-      `;
-      document.head.appendChild(printStyleEl);
-      document.head.appendChild(printStyleEl);
+      document.body.appendChild(iframe);
 
-      // 4. Inject receipt content container into document body
-      const containerEl = document.createElement('div');
-      containerEl.id = 'pizzora-thermal-print-container';
-      containerEl.innerHTML = innerBody;
-      document.body.appendChild(containerEl);
+      const iframeWindow = iframe.contentWindow;
+      const iframeDoc = iframeWindow?.document || iframe.contentDocument;
 
-      // 5. Cleanup helper
-      let cleaned = false;
-      const cleanup = () => {
-        if (cleaned) return;
-        cleaned = true;
+      if (!iframeDoc || !iframeWindow) {
+        resolve(false);
+        return;
+      }
+
+      iframeDoc.open();
+      iframeDoc.write(htmlContent);
+      iframeDoc.close();
+
+      let hasPrinted = false;
+      const executePrint = () => {
+        if (hasPrinted) return;
+        hasPrinted = true;
         try {
-          printStyleEl.remove();
-          containerEl.remove();
-        } catch {}
+          iframeWindow.focus();
+          iframeWindow.print();
+          resolve(true);
+        } catch (printErr) {
+          console.error('[Browser Print] Iframe print failed:', printErr);
+          resolve(false);
+        } finally {
+          setTimeout(() => {
+            try { iframe.remove(); } catch {}
+          }, 15000);
+        }
       };
 
-      window.addEventListener('afterprint', cleanup, { once: true });
-      setTimeout(cleanup, 25000); // Safety fallback
-
-      // 6. Trigger top-level window.print()
-      // Calling window.print() directly on the top window allows Chrome's
-      // --kiosk-printing to SILENTLY BYPASS the preview dialog!
-      setTimeout(() => {
-        try {
-          window.focus();
-          window.print();
-          resolve(true);
-        } catch (err) {
-          console.error('[Browser Print] Top-level print failed:', err);
-          cleanup();
-          resolve(false);
-        }
-      }, 50);
+      if (iframeDoc.readyState === 'complete') {
+        setTimeout(executePrint, 200);
+      } else {
+        iframe.onload = () => setTimeout(executePrint, 150);
+        setTimeout(executePrint, 500);
+      }
     } catch (e) {
-      console.error('[Browser Print] Error setting up print content:', e);
+      console.error('[Browser Print] Error setting up print iframe:', e);
       resolve(false);
     }
   });
