@@ -615,7 +615,7 @@ class QZTrayService {
   async openCashDrawer(settings?: PrinterSettings): Promise<{ success: boolean; error?: string }> {
     const s = settings || loadPrinterSettings();
 
-    // If QZ mode is explicitly configured and online, send ESC/POS kick pulse
+    // 1. If QZ mode is explicitly configured and online, send ESC/POS kick pulse directly
     if (s.printMode === 'qz' && this.status === 'online' && s.printerName) {
       try {
         const qz = this.qz as any;
@@ -628,11 +628,17 @@ class QZTrayService {
       }
     }
 
-    // In Direct Browser Print mode:
-    // Thermal printers (Rongta RP335, Epson, etc.) have the cash drawer connected via RJ11.
-    // When enabled in Windows Printer Properties (Device Settings -> Cash Drawer -> Open before/after print),
-    // the driver kicks the drawer automatically whenever a receipt prints.
-    return { success: true };
+    // 2. In Direct Browser Print mode:
+    // Thermal printers (Rongta RP326/RP335/RP80) trigger the cash drawer via the RJ11 DK port
+    // when configured in Windows Printer Properties -> Device Settings -> Cash Drawer -> Open Before Printing.
+    // Triggering a micro 1mm print job fires the driver's configured kick pulse.
+    try {
+      const microPulseHtml = `<!DOCTYPE html><html><head><style>@page{size:80mm 1mm;margin:0;}html,body{margin:0;padding:0;height:0;overflow:hidden;}</style></head><body></body></html>`;
+      const ok = await printHtmlViaIframe(microPulseHtml);
+      return ok ? { success: true } : { success: false, error: 'Could not send drawer kick signal' };
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Drawer trigger failed' };
+    }
   }
 
   // ─── Test Print ──────────────────────────────────────────────────────────────

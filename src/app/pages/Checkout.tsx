@@ -410,15 +410,15 @@ export function Checkout() {
                         style={{
                           background: geoState === 'located'
                             ? 'rgba(22,163,74,0.05)'
-                            : step1Error && geoState !== 'located'
+                            : step1Error
                             ? 'rgba(249,0,43,0.06)'
                             : 'white',
                           border: geoState === 'located'
                             ? '2px solid rgba(22,163,74,0.35)'
-                            : step1Error && geoState !== 'located'
+                            : step1Error
                             ? '2px solid #F9002B'
                             : '2px dashed rgba(37,99,235,0.35)',
-                          boxShadow: step1Error && geoState !== 'located' ? '0 0 0 4px rgba(249,0,43,0.12)' : 'none',
+                          boxShadow: step1Error ? '0 0 0 4px rgba(249,0,43,0.12)' : 'none',
                         }}
                       >
                         {geoState === 'located' ? (
@@ -451,7 +451,6 @@ export function Checkout() {
                             <button
                               type="button"
                               onClick={detectLocation}
-                              disabled={geoState === 'locating'}
                               className="text-xs font-bold text-emerald-700 hover:text-emerald-800 underline self-start sm:self-center flex items-center gap-1 cursor-pointer transition-colors"
                             >
                               <LocateFixed size={13} />

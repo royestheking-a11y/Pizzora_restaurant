@@ -471,6 +471,29 @@ export function PrinterSettings() {
               <Toggle on={settings[key] as boolean} onChange={v => handleChange(key, v)} />
             </div>
           ))}
+
+          {/* Quick Cash Drawer Setup Guide */}
+          <div style={{ marginTop: '10px', padding: '14px', borderRadius: '12px', background: 'rgba(22,163,74,0.06)', border: '1.5px solid rgba(22,163,74,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <Info size={18} color="#16A34A" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '12px', color: '#374151', lineHeight: 1.5 }}>
+                <strong style={{ color: '#16A34A', display: 'block', marginBottom: '4px' }}>
+                  Cash Drawer (RJ11) Setup Checklist:
+                </strong>
+                <ol style={{ paddingLeft: '18px', margin: '4px 0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <li>
+                    <strong>Windows Driver Setting (Required):</strong> Open Windows <em>Control Panel &rarr; Devices and Printers &rarr; Right-click RONGTA 80mm &rarr; Printer Properties &rarr; Device Settings tab</em>. Change <strong>Cash Drawer #1</strong> from <em>Do Not Open</em> to <strong>Open Before Printing</strong>.
+                  </li>
+                  <li>
+                    <strong>RJ11 Cable:</strong> Check that the drawer's phone cable is plugged into the <strong>DK (Drawer Kick)</strong> port on the back of the printer.
+                  </li>
+                  <li>
+                    <strong>Key Position:</strong> Ensure the drawer key on the front is in the <strong>vertical (neutral/electronic)</strong> position, not locked.
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
