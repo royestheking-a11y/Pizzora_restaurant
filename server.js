@@ -270,11 +270,12 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
     // Only load today's orders + any still-active orders (not yet Delivered/Cancelled).
     // This keeps the response small no matter how many total orders exist.
     // Older orders are available on-demand via GET /api/orders/history (paginated).
-    const todayStart = new Date();
-    // Use Bangladesh timezone (UTC+6) for "today"
-    todayStart.setUTCHours(-6, 0, 0, 0); // midnight in Asia/Dhaka
-
-    const todayStartStr = todayStart.toISOString();
+    // Calculate start of current month in Dhaka timezone (UTC+6)
+    const dhakaOffset = 6 * 60 * 60 * 1000;
+    const dhakaStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    const [year, month] = dhakaStr.split('-').map(Number);
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1)).getTime() - dhakaOffset;
+    const startOfMonthIso = new Date(startOfMonth).toISOString();
 
     // Run ALL queries in parallel — sequential awaits were causing Render/Cloudflare
     // to time out the HTTP/2 stream before the response could be sent.
@@ -283,12 +284,28 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
       tableOrders, wasteRecords, employees, payrollRecords,
       expenses, cashRegister, inventory, stockMovements, users
     ] = await Promise.all([
-      Order.find().sort({ createdAt: -1 }).limit(100), // Reduced to 100 for fast loading. Analytics handles the rest.
+      // Load all current month's orders + any still-active orders (guarantees Month, Week, Today match)
+      Order.find({
+        $or: [
+          { createdAt: { $gte: startOfMonthIso } },
+          { status: { $nin: ['Delivered', 'Cancelled'] } }
+        ]
+      }).sort({ createdAt: -1 }).limit(400).then(async monthOrders => {
+        if (monthOrders.length < 100) {
+          return Order.find().sort({ createdAt: -1 }).limit(100);
+        }
+        return monthOrders;
+      }),
       Reservation.find().sort({ createdAt: -1 }).limit(100),
       Message.find().sort({ createdAt: -1 }).limit(100),
       CateringRequest.find().sort({ createdAt: -1 }).limit(100),
       RestaurantTable.find().sort({ tableNumber: 1 }),
-      TableOrder.find().sort({ createdAt: -1 }).limit(100),
+      TableOrder.find({
+        $or: [
+          { createdAt: { $gte: startOfMonth } },
+          { status: { $nin: ['Paid', 'Cancelled'] } }
+        ]
+      }).sort({ createdAt: -1 }).limit(200),
       WasteRecord.find().sort({ date: -1 }),
       Employee.find().sort({ name: 1 }),
       PayrollRecord.find().sort({ year: -1, month: -1 }),
