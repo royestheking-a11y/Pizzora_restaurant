@@ -626,7 +626,9 @@ export function ProductOrderAnalytics() {
             <p className="text-xl sm:text-2xl font-black text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
               {totalPeriodUnits}
             </p>
-            <p className="text-[11px] text-gray-500 mt-0.5 truncate">items ordered in {period}</p>
+            <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+              items ordered in {period === 'today' ? 'today' : period === 'yesterday' ? 'yesterday' : period === 'week' ? 'this week' : period === 'month' ? 'this month' : period === 'year' ? 'this year' : 'all-time'}
+            </p>
           </div>
 
           {/* 2. Product Revenue (with Net / Gross Reconciliation) */}
