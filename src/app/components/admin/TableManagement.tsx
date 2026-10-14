@@ -33,19 +33,19 @@ import { optimizeCloudinaryUrl } from '../../utils/image';
 // ─── Status Config ────────────────────────────────────────────────────────────
 const statusConfig: Record<TableStatus, { label: string; bg: string; text: string; border: string; dot: string; icon: typeof CircleDot }> = {
   Available: { label: 'Available', bg: '#F0FDF4', text: '#15803D', border: '#BBF7D0', dot: '#16A34A', icon: CheckCircle },
-  Ordering:  { label: 'Ordering',  bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE', dot: '#2563EB', icon: Utensils },
-  Cooking:   { label: 'Cooking',   bg: '#FFF7ED', text: '#C2410C', border: '#FED7AA', dot: '#EA580C', icon: CookingPot },
-  Ready:     { label: 'Ready',     bg: '#FEF2F2', text: '#B91C1C', border: '#FECACA', dot: '#DC2626', icon: Bell },
-  Served:    { label: 'Served',    bg: '#FAF5FF', text: '#6B21A8', border: '#E9D5FF', dot: '#9333EA', icon: ChefHat },
-  Paid:      { label: 'Bill Paid', bg: '#F3F4F6', text: '#4B5563', border: '#E5E7EB', dot: '#9CA3AF', icon: Receipt },
+  Ordering: { label: 'Ordering', bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE', dot: '#2563EB', icon: Utensils },
+  Cooking: { label: 'Cooking', bg: '#FFF7ED', text: '#C2410C', border: '#FED7AA', dot: '#EA580C', icon: CookingPot },
+  Ready: { label: 'Ready', bg: '#FEF2F2', text: '#B91C1C', border: '#FECACA', dot: '#DC2626', icon: Bell },
+  Served: { label: 'Served', bg: '#FAF5FF', text: '#6B21A8', border: '#E9D5FF', dot: '#9333EA', icon: ChefHat },
+  Paid: { label: 'Bill Paid', bg: '#F3F4F6', text: '#4B5563', border: '#E5E7EB', dot: '#9CA3AF', icon: Receipt },
 };
 
 const areas: TableArea[] = ['Dining', 'VIP', 'Outdoor'];
 
 const areaConfig: Record<TableArea, { color: string; bg: string; borderColor: string; Icon: typeof Utensils; label: string }> = {
-  Dining:  { color: '#F9002B', bg: '#FFF5F5', borderColor: 'rgba(249,0,43,0.12)', Icon: Utensils,  label: 'Dining Area' },
-  VIP:     { color: '#EA580C', bg: '#FFF7ED', borderColor: 'rgba(234,88,12,0.12)', Icon: Crown,     label: 'VIP Lounge' },
-  Outdoor: { color: '#0284C7', bg: '#F0F9FF', borderColor: 'rgba(2,132,199,0.12)',  Icon: Leaf,      label: 'Outdoor Terrace' },
+  Dining: { color: '#F9002B', bg: '#FFF5F5', borderColor: 'rgba(249,0,43,0.12)', Icon: Utensils, label: 'Dining Area' },
+  VIP: { color: '#EA580C', bg: '#FFF7ED', borderColor: 'rgba(234,88,12,0.12)', Icon: Crown, label: 'VIP Lounge' },
+  Outdoor: { color: '#0284C7', bg: '#F0F9FF', borderColor: 'rgba(2,132,199,0.12)', Icon: Leaf, label: 'Outdoor Terrace' },
 };
 
 const orderStatusNext: Partial<Record<TableOrderStatus, TableOrderStatus>> = {
@@ -890,8 +890,8 @@ function TableCard({
         boxShadow: isSelected
           ? '0 16px 36px rgba(249,0,43,0.22)'
           : isOccupied
-          ? '0 8px 24px rgba(249,0,43,0.08)'
-          : '0 4px 16px rgba(0,0,0,0.03)',
+            ? '0 8px 24px rgba(249,0,43,0.08)'
+            : '0 4px 16px rgba(0,0,0,0.03)',
       }}
     >
       {/* Status top accent bar */}
@@ -1049,7 +1049,7 @@ export function TableManagement() {
   const [transferModalTable, setTransferModalTable] = useState<RestaurantTable | null>(null);
   const [paymentModalTable, setPaymentModalTable] = useState<RestaurantTable | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void }>({
-    isOpen: false, title: '', message: '', onConfirm: () => {}
+    isOpen: false, title: '', message: '', onConfirm: () => { }
   });
 
   // Multi-Table Draft Sessions (keeps independent unconfirmed carts per table in memory)
@@ -1781,7 +1781,15 @@ export function TableManagement() {
               </button>
             </div>
 
-
+            <a
+              href="/kitchen"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all hover:bg-amber-100"
+              style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', textDecoration: 'none', fontFamily: 'var(--font-heading)' }}
+            >
+              <ChefHat size={14} /> Kitchen Screen ↗
+            </a>
 
             <button
               onClick={() => setShowAddTableModal(true)}
@@ -2365,9 +2373,9 @@ export function TableManagement() {
                     const isSelected = panelPaymentMethod === pm;
                     const bgActive =
                       pm === 'bKash' ? '#E2136E' :
-                      pm === 'Nagad' ? '#F7941D' :
-                      pm === 'Split' ? '#7C3AED' :
-                      pm === 'Card' ? '#0284C7' : '#F9002B';
+                        pm === 'Nagad' ? '#F7941D' :
+                          pm === 'Split' ? '#7C3AED' :
+                            pm === 'Card' ? '#0284C7' : '#F9002B';
 
                     return (
                       <button
@@ -2445,17 +2453,17 @@ export function TableManagement() {
                     style={{
                       backgroundColor:
                         panelPaymentMethod === 'bKash' ? '#FDF2F8' :
-                        panelPaymentMethod === 'Nagad' ? '#FFF7ED' : '#F0F9FF',
+                          panelPaymentMethod === 'Nagad' ? '#FFF7ED' : '#F0F9FF',
                       borderColor:
                         panelPaymentMethod === 'bKash' ? '#FBCFE8' :
-                        panelPaymentMethod === 'Nagad' ? '#FFEDD5' : '#BAE6FD',
+                          panelPaymentMethod === 'Nagad' ? '#FFEDD5' : '#BAE6FD',
                     }}
                   >
                     <div className="flex items-center justify-between font-bold"
                       style={{
                         color:
                           panelPaymentMethod === 'bKash' ? '#BE185D' :
-                          panelPaymentMethod === 'Nagad' ? '#C2410C' : '#0369A1',
+                            panelPaymentMethod === 'Nagad' ? '#C2410C' : '#0369A1',
                       }}
                     >
                       <div className="flex items-center gap-1.5">
@@ -2477,8 +2485,8 @@ export function TableManagement() {
                         onChange={e => setPanelTrxRef(e.target.value)}
                         placeholder={
                           panelPaymentMethod === 'bKash' ? 'bKash TrxID / Mobile No (Optional)' :
-                          panelPaymentMethod === 'Nagad' ? 'Nagad TrxID / Mobile No (Optional)' :
-                          'Card Last 4 / Auth Ref (Optional)'
+                            panelPaymentMethod === 'Nagad' ? 'Nagad TrxID / Mobile No (Optional)' :
+                              'Card Last 4 / Auth Ref (Optional)'
                         }
                         className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold bg-white outline-none focus:ring-2 focus:ring-red-400"
                       />
@@ -2569,8 +2577,18 @@ export function TableManagement() {
                 )}
               </div>
 
-              {/* Direct Table POS Settle Action */}
-              <div className="pt-2">
+              {/* POS Action Buttons */}
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  onClick={handleSendToKitchen}
+                  disabled={currentDraft.items.length === 0}
+                  className="py-3.5 rounded-2xl text-xs font-bold text-white transition-all hover:shadow-md disabled:opacity-40 flex items-center justify-center gap-1.5 active:scale-95"
+                  style={{ background: 'linear-gradient(135deg, #EA580C, #C2410C)', fontFamily: 'var(--font-heading)' }}
+                >
+                  <CookingPot size={15} />
+                  Send to Kitchen (KOT)
+                </button>
+
                 <button
                   onClick={() => handlePanelSettleAndComplete(true)}
                   disabled={combinedTicketItems.length === 0 || isPanelProcessing || (panelPaymentMethod === 'Split' && panelSplitRemaining > 0)}
@@ -2588,8 +2606,8 @@ export function TableManagement() {
                   {isPanelProcessing
                     ? 'Processing & Printing...'
                     : panelPaymentMethod === 'Split' && panelSplitRemaining > 0
-                    ? `Due ৳${panelSplitRemaining.toFixed(2)} — Complete Split`
-                    : `Settle (${panelPaymentMethod}) & Print Receipt`}
+                      ? `Due ৳${panelSplitRemaining.toFixed(2)} — Complete Split`
+                      : `Settle (${panelPaymentMethod}) & Print Receipt`}
                 </button>
               </div>
 

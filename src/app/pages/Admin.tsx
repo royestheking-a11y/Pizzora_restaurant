@@ -1706,7 +1706,7 @@ export function Admin() {
 
           {/* ══ ORDERS & PRODUCT SALES ANALYTICS ═════════════════ */}
           {(activeTab === 'orders' || activeTab === 'product-analytics') && (
-            <div className="space-y-5">
+            <div className="space-y-5 w-full max-w-full min-w-0 overflow-hidden">
               {/* Top Sub-navigation Switcher */}
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-gray-100 border border-gray-200 shadow-sm">
