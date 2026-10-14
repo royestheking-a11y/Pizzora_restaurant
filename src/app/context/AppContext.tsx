@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { MenuItem, menuItems as defaultMenuItems, galleryImages as defaultGalleryImages, GalleryImage, Chef, chefs as defaultChefs } from '../data/restaurantData';
+export type { MenuItem, GalleryImage, Chef };
 
 // ─── Existing Types ────────────────────────────────────────────────────────────
 
@@ -102,6 +103,10 @@ export interface RestaurantTable {
   status: TableStatus;
   currentOrderId?: string;
   occupiedSince?: number;
+  customerName?: string;
+  customerPhone?: string;
+  guestCount?: number;
+  serverName?: string;
 }
 
 export type TableOrderStatus = 'Pending' | 'Confirmed' | 'Cooking' | 'Ready' | 'Served' | 'Paid';
@@ -126,6 +131,12 @@ export interface TableOrder {
   status: TableOrderStatus;
   createdAt: number;
   customerNote: string;
+  customerName?: string;
+  customerPhone?: string;
+  guestCount?: number;
+  invoiceNumber?: string;
+  paymentMethod?: string;
+  splitPayments?: SplitPaymentItem[];
 }
 
 export interface WasteRecord {
@@ -361,9 +372,10 @@ type Action =
   | { type: 'ADD_TABLE'; payload: RestaurantTable }
   | { type: 'UPDATE_TABLE'; payload: RestaurantTable }
   | { type: 'DELETE_TABLE'; payload: string }
-  | { type: 'SET_TABLE_STATUS'; payload: { id: string; status: TableStatus; currentOrderId?: string; occupiedSince?: number } }
+  | { type: 'SET_TABLE_STATUS'; payload: { id: string; status: TableStatus; currentOrderId?: string; occupiedSince?: number; customerName?: string; customerPhone?: string; guestCount?: number } }
   // Table order actions
   | { type: 'PLACE_TABLE_ORDER'; payload: TableOrder }
+  | { type: 'UPDATE_TABLE_ORDER'; payload: TableOrder }
   | { type: 'UPDATE_TABLE_ORDER_STATUS'; payload: { id: string; status: TableOrderStatus } }
   | { type: 'DELETE_TABLE_ORDER'; payload: string }
   | { type: 'SYNC_ORDER_STATUSES'; payload: { id: string; status: OrderStatus }[] }
@@ -732,6 +744,9 @@ function reducer(state: AppState, action: Action): AppState {
               status: action.payload.status,
               currentOrderId: action.payload.currentOrderId,
               occupiedSince: action.payload.occupiedSince,
+              customerName: action.payload.customerName !== undefined ? action.payload.customerName : t.customerName,
+              customerPhone: action.payload.customerPhone !== undefined ? action.payload.customerPhone : t.customerPhone,
+              guestCount: action.payload.guestCount !== undefined ? action.payload.guestCount : t.guestCount,
             }
             : t
         ),
@@ -741,6 +756,16 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'PLACE_TABLE_ORDER':
       return { ...state, tableOrders: [action.payload, ...state.tableOrders] };
+
+    case 'UPDATE_TABLE_ORDER': {
+      const exists = state.tableOrders.some(o => o.id === action.payload.id);
+      return {
+        ...state,
+        tableOrders: exists
+          ? state.tableOrders.map(o => o.id === action.payload.id ? action.payload : o)
+          : [action.payload, ...state.tableOrders],
+      };
+    }
 
     case 'UPDATE_TABLE_ORDER_STATUS':
       return {
@@ -862,8 +887,10 @@ interface AppContextType {
   cartCount: number;
   showNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
   placeTableOrder: (order: TableOrder) => void;
+  updateTableOrder: (order: TableOrder) => void;
   updateTableOrderStatus: (id: string, status: TableOrderStatus) => void;
-  setTableStatus: (id: string, status: TableStatus, orderId?: string) => void;
+  setTableStatus: (id: string, status: TableStatus, orderId?: string, customerName?: string, customerPhone?: string, guestCount?: number) => void;
+  clearAndFreeTable: (id: string) => void;
   addWasteRecord: (record: WasteRecord) => void;
   deleteWasteRecord: (id: string) => void;
   addEmployee: (emp: Employee) => void;
@@ -1182,8 +1209,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const setTableStatus = (id: string, status: TableStatus, orderId?: string) => {
-    dispatch({ type: 'SET_TABLE_STATUS', payload: { id, status, currentOrderId: orderId } });
+  const updateTableOrder = (order: TableOrder) => {
+    dispatch({ type: 'UPDATE_TABLE_ORDER', payload: order });
+  };
+
+  const setTableStatus = (
+    id: string,
+    status: TableStatus,
+    orderId?: string,
+    customerName?: string,
+    customerPhone?: string,
+    guestCount?: number
+  ) => {
+    dispatch({
+      type: 'SET_TABLE_STATUS',
+      payload: {
+        id,
+        status,
+        currentOrderId: orderId,
+        customerName,
+        customerPhone,
+        guestCount,
+      },
+    });
+  };
+
+  const clearAndFreeTable = (id: string) => {
+    dispatch({
+      type: 'SET_TABLE_STATUS',
+      payload: {
+        id,
+        status: 'Available',
+        currentOrderId: undefined,
+        occupiedSince: undefined,
+        customerName: '',
+        customerPhone: '',
+        guestCount: undefined,
+      },
+    });
   };
 
   const addWasteRecord = (record: WasteRecord) => {
@@ -1240,8 +1303,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cartCount,
         showNotification,
         placeTableOrder,
+        updateTableOrder,
         updateTableOrderStatus,
         setTableStatus,
+        clearAndFreeTable,
         addWasteRecord,
         deleteWasteRecord,
         addEmployee,

@@ -56,19 +56,48 @@ export function CashRegisterManagement() {
     });
     
     sessionOrders.forEach(o => {
-      const amount = o.total;
-      breakdown.total += amount;
-      const method = (o.paymentMethod || '').toLowerCase();
-      if (method === 'cash' || method === 'cash on delivery') breakdown.cash += amount;
-      else if (method === 'bkash') breakdown.bkash += amount;
-      else if (method === 'nagad') breakdown.nagad += amount;
-      else if (method === 'card') breakdown.card += amount;
-      else breakdown.other += amount;
+      breakdown.total += o.total;
+      if (o.paymentMethod === 'Split' && o.splitPayments && o.splitPayments.length > 0) {
+        o.splitPayments.forEach((p: any) => {
+          const m = (p.method || '').toLowerCase();
+          if (m === 'cash') breakdown.cash += p.amount;
+          else if (m === 'bkash') breakdown.bkash += p.amount;
+          else if (m === 'nagad') breakdown.nagad += p.amount;
+          else if (m === 'card') breakdown.card += p.amount;
+          else breakdown.other += p.amount;
+        });
+      } else {
+        const method = (o.paymentMethod || '').toLowerCase();
+        if (method === 'cash' || method === 'cash on delivery') breakdown.cash += o.total;
+        else if (method === 'bkash') breakdown.bkash += o.total;
+        else if (method === 'nagad') breakdown.nagad += o.total;
+        else if (method === 'card') breakdown.card += o.total;
+        else breakdown.other += o.total;
+      }
     });
 
+    // Count sessionTableOrders that aren't already included in sessionOrders
+    const orderNumbers = new Set(sessionOrders.map(o => o.orderNumber).filter(Boolean));
     sessionTableOrders.forEach(o => {
+      if (o.invoiceNumber && orderNumbers.has(o.invoiceNumber)) return;
       breakdown.total += o.total;
-      breakdown.cash += o.total; // Default Dine-In to Cash since they pay at counter
+      if (o.paymentMethod === 'Split' && o.splitPayments && o.splitPayments.length > 0) {
+        o.splitPayments.forEach((p: any) => {
+          const m = (p.method || '').toLowerCase();
+          if (m === 'cash') breakdown.cash += p.amount;
+          else if (m === 'bkash') breakdown.bkash += p.amount;
+          else if (m === 'nagad') breakdown.nagad += p.amount;
+          else if (m === 'card') breakdown.card += p.amount;
+          else breakdown.other += p.amount;
+        });
+      } else {
+        const method = (o.paymentMethod || '').toLowerCase();
+        if (method === 'cash' || method === 'at table') breakdown.cash += o.total;
+        else if (method === 'bkash') breakdown.bkash += o.total;
+        else if (method === 'nagad') breakdown.nagad += o.total;
+        else if (method === 'card') breakdown.card += o.total;
+        else breakdown.other += o.total;
+      }
     });
     return breakdown;
   };

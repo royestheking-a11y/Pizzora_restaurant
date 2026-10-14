@@ -7,7 +7,7 @@ import {
   LayoutGrid, RefreshCw, Receipt, ArrowLeft, ChevronRight, User,
   Pause, Play, LogOut, Star, WifiOff, CloudOff, CloudUpload, Lock, ExternalLink,
   BadgeCheck, ShieldCheck, KeyRound, EyeOff, Eye, Loader2, Fingerprint, Activity,
-  PrinterCheck, AlertTriangle, Settings, Split
+  PrinterCheck, AlertTriangle, Settings, Split, TableProperties
 } from 'lucide-react';
 import type { MenuItem } from '../data/restaurantData';
 import { useApp, type SplitPaymentItem } from '../context/AppContext';
@@ -1231,15 +1231,27 @@ export function POS() {
           <div className="h-6 w-px bg-gray-200 hidden sm:block mx-1" />
 
           {orderType === 'Dine In' && (
-            <div className="relative group">
-              <select value={tableNo} onChange={e => setTableNo(e.target.value)}
-                className="appearance-none pr-10 cursor-pointer hover:bg-gray-100 transition-colors"
-                style={{ padding: '8px 36px 8px 16px', borderRadius: '12px', border: '1.5px solid #E5E7EB', fontSize: '14px', fontFamily: 'var(--font-heading)', fontWeight: 800, color: '#111', backgroundColor: '#F9FAFB', outline: 'none' }}>
-                {['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'V01', 'V02', 'O01', 'O02'].map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none transition-transform group-hover:translate-y-[-60%]" style={{ color: '#6B7280' }} />
+            <div className="flex items-center gap-1.5">
+              <div className="relative group">
+                <select value={tableNo} onChange={e => setTableNo(e.target.value)}
+                  className="appearance-none pr-10 cursor-pointer hover:bg-gray-100 transition-colors"
+                  style={{ padding: '8px 36px 8px 16px', borderRadius: '12px', border: '1.5px solid #E5E7EB', fontSize: '14px', fontFamily: 'var(--font-heading)', fontWeight: 800, color: '#111', backgroundColor: '#F9FAFB', outline: 'none' }}>
+                  {(state.tables && state.tables.length > 0 ? state.tables.map(t => t.tableNumber) : ['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'V01', 'V02', 'O01', 'O02']).map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none transition-transform group-hover:translate-y-[-60%]" style={{ color: '#6B7280' }} />
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/admin/tables')}
+                className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all hover:bg-red-50 text-red-600 border border-red-200"
+                style={{ fontFamily: 'var(--font-heading)' }}
+                title="Open Table Floor Management"
+              >
+                <TableProperties size={14} />
+                Floor POS
+              </button>
             </div>
           )}
 

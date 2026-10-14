@@ -110,6 +110,9 @@ const RestaurantTableSchema = new mongoose.Schema({
   status: String,
   currentOrderId: String,
   occupiedSince: Number,
+  customerName: String,
+  customerPhone: String,
+  guestCount: Number,
 }, { strict: true });
 
 const TableOrderSchema = new mongoose.Schema({
@@ -123,6 +126,12 @@ const TableOrderSchema = new mongoose.Schema({
   status: String,
   createdAt: Number,
   customerNote: String,
+  customerName: String,
+  customerPhone: String,
+  guestCount: Number,
+  invoiceNumber: String,
+  paymentMethod: String,
+  splitPayments: Array,
 }, { strict: true });
 
 TableOrderSchema.index({ tableId: 1, status: 1 });

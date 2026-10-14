@@ -483,7 +483,7 @@ io.use((socket, next) => {
 });
 
 const publicActions = [
-  'PLACE_ORDER', 'PLACE_TABLE_ORDER', 'ADD_RESERVATION', 'ADD_MESSAGE',
+  'PLACE_ORDER', 'PLACE_TABLE_ORDER', 'UPDATE_TABLE_ORDER', 'UPDATE_TABLE_ORDER_STATUS', 'ADD_RESERVATION', 'ADD_MESSAGE',
   'ADD_CATERING', 'ADD_REVIEW', 'HELPFUL_REVIEW', 'SET_TABLE_STATUS'
 ];
 
@@ -532,6 +532,7 @@ async function processDbAction(action) {
 
     // Table Orders
     case 'PLACE_TABLE_ORDER': await TableOrder.create(action.payload); break;
+    case 'UPDATE_TABLE_ORDER': await TableOrder.findOneAndUpdate({ id: action.payload.id }, { $set: action.payload }, { upsert: true, new: true }); break;
     case 'UPDATE_TABLE_ORDER_STATUS': await TableOrder.findOneAndUpdate({ id: action.payload.id }, { status: action.payload.status }); break;
     case 'DELETE_ORDER': await Order.findOneAndDelete({ id: action.payload }); break;
     case 'DELETE_TABLE_ORDER': await TableOrder.findOneAndDelete({ id: action.payload }); break;
@@ -544,9 +545,14 @@ async function processDbAction(action) {
       await RestaurantTable.findOneAndUpdate(
         { id: action.payload.id },
         {
-          status: action.payload.status,
-          currentOrderId: action.payload.currentOrderId,
-          occupiedSince: action.payload.occupiedSince
+          $set: {
+            status: action.payload.status,
+            currentOrderId: action.payload.currentOrderId,
+            occupiedSince: action.payload.occupiedSince,
+            customerName: action.payload.customerName,
+            customerPhone: action.payload.customerPhone,
+            guestCount: action.payload.guestCount,
+          }
         }
       );
       break;

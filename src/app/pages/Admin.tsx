@@ -902,15 +902,18 @@ export function Admin() {
         paymentMethod: o.paymentMethod,
         orderNumber: o.orderNumber
       })),
-      ...(state.tableOrders || []).map(o => ({
-        ...o,
-        isTableOrder: true,
-        timestamp: o.createdAt,
-        displayTitle: `Table ${o.tableNumber}`,
-        displayPhone: 'Dine-In',
-        paymentMethod: 'At Table',
-        orderNumber: o.id.split('-')[1] || o.id.slice(-6)
-      }))
+      ...(state.tableOrders || [])
+        .filter(to => !state.orders.some(o => o.orderNumber === to.invoiceNumber || o.id === to.id))
+        .map(o => ({
+          ...o,
+          isTableOrder: true,
+          timestamp: typeof o.createdAt === 'number' ? o.createdAt : new Date(o.createdAt).getTime(),
+          displayTitle: o.customerName ? `Table ${o.tableNumber} (${o.customerName})` : `Table ${o.tableNumber}`,
+          displayPhone: o.customerPhone || 'Dine-In',
+          paymentMethod: o.paymentMethod || 'At Table',
+          splitPayments: o.splitPayments,
+          orderNumber: o.invoiceNumber || o.id.split('-')[1] || o.id.slice(-6)
+        }))
     ];
     return unified.sort((a, b) => b.timestamp - a.timestamp);
   }, [state.orders, state.tableOrders]);
@@ -2690,19 +2693,37 @@ export function Admin() {
             <div>
               <label style={labelStyle}>Payment Method</label>
               {viewOrderDetails.splitPayments && viewOrderDetails.splitPayments.length > 0 ? (
-                <div className="mt-1 p-2.5 rounded-lg bg-purple-50 border border-purple-200">
-                  <div className="text-xs font-bold text-purple-800 mb-1">Split Payment Breakdown:</div>
-                  <div className="space-y-1">
-                    {viewOrderDetails.splitPayments.map((sp: any, i: number) => (
-                      <div key={i} className="flex justify-between text-xs text-gray-700">
-                        <span className="font-semibold">• {sp.method}:</span>
-                        <span className="font-bold">৳{Number(sp.amount).toLocaleString()}</span>
-                      </div>
-                    ))}
+                <div className="mt-1 p-3 rounded-2xl bg-purple-50/80 border border-purple-200 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-purple-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                    <span>Divide / Split Payment:</span>
+                    <span className="text-purple-700">Total: ৳{viewOrderDetails.total?.toFixed(2)}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {viewOrderDetails.splitPayments.map((sp: any, i: number) => {
+                      const color =
+                        sp.method === 'bKash' ? '#E2136E' :
+                        sp.method === 'Nagad' ? '#F7941D' :
+                        sp.method === 'Card' ? '#0284C7' : '#16A34A';
+                      const bg =
+                        sp.method === 'bKash' ? '#FDF2F8' :
+                        sp.method === 'Nagad' ? '#FFF7ED' :
+                        sp.method === 'Card' ? '#F0F9FF' : '#F0FDF4';
+
+                      return (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between p-2 rounded-xl border text-xs font-bold"
+                          style={{ backgroundColor: bg, borderColor: `${color}33` }}
+                        >
+                          <span style={{ color, fontFamily: 'var(--font-heading)' }}>{sp.method}</span>
+                          <span className="text-gray-900 font-extrabold">৳{Number(sp.amount).toFixed(2)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
-                <p style={{ fontSize: '14px', color: '#4B5563' }}>{viewOrderDetails.paymentMethod}</p>
+                <p style={{ fontSize: '14px', color: '#4B5563', fontWeight: 600 }}>{viewOrderDetails.paymentMethod}</p>
               )}
             </div>
 
