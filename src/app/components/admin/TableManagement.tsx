@@ -1407,6 +1407,8 @@ export function TableManagement() {
     const customerPhone = currentDraft.customerPhone.trim();
     const guestCount = currentDraft.guestCount;
 
+    const newItemsToPrint = currentDraft.items;
+
     if (activeOrder) {
       // Append new items to existing order
       const mergedItems: TableOrderItem[] = [...activeOrder.items];
@@ -1428,11 +1430,23 @@ export function TableManagement() {
         customerName,
         customerPhone,
         guestCount,
-        status: activeOrder.status === 'Pending' ? 'Confirmed' : activeOrder.status,
+        status: 'Cooking',
       };
 
       dispatch({ type: 'UPDATE_TABLE_ORDER', payload: updatedOrder });
-      showNotification(`Added ${currentDraft.items.length} new item(s) to Table ${currentTable.tableNumber}'s active ticket!`, 'success');
+      dispatch({
+        type: 'SET_TABLE_STATUS',
+        payload: {
+          id: currentTable.id,
+          status: 'Cooking',
+          currentOrderId: updatedOrder.id,
+          occupiedSince: currentTable.occupiedSince || Date.now(),
+          customerName,
+          customerPhone,
+          guestCount,
+        }
+      });
+      showNotification(`Added ${currentDraft.items.length} new item(s) to Table ${currentTable.tableNumber}'s active ticket and sent to kitchen!`, 'success');
     } else {
       // Create new Table Order
       const newOrder: TableOrder = {
@@ -1467,8 +1481,11 @@ export function TableManagement() {
       showNotification(`Order placed for Table ${currentTable.tableNumber} and sent to kitchen!`, 'success');
     }
 
-    // Try auto-print KOT if printer ready
-    try {
+    // Clear local draft items immediately for instantaneous UI feedback
+    updateCurrentDraft(draft => ({ ...draft, items: [] }));
+
+    // Non-blocking auto-print KOT if printer configured
+    if (newItemsToPrint.length > 0) {
       const kotInvoice: InvoiceData = {
         invoiceNumber: `KOT-${currentTable.tableNumber}`,
         orderId: `KOT-${Date.now()}`,
@@ -1477,7 +1494,7 @@ export function TableManagement() {
         customerName,
         cashierName: sessionStorage.getItem('pizzora_admin_name') || 'Captain',
         dateTime: new Date().toLocaleTimeString(),
-        items: currentDraft.items.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, note: i.note })),
+        items: newItemsToPrint.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, note: i.note })),
         subtotal: ticketSubtotal,
         discount: discountAmount,
         total: ticketTotal,
@@ -1485,13 +1502,10 @@ export function TableManagement() {
         amountPaid: 0,
         change: 0,
       };
-      await printerService.printKOT(kotInvoice);
-    } catch (e) {
-      console.warn('Auto KOT print skipped', e);
+      printerService.printKOT(kotInvoice).catch(e => {
+        console.warn('Auto KOT print notice:', e);
+      });
     }
-
-    // Clear local draft items since they are now committed to the active table order
-    updateCurrentDraft(draft => ({ ...draft, items: [] }));
   };
 
   // Transfer Table handler
@@ -2578,21 +2592,24 @@ export function TableManagement() {
               </div>
 
               {/* POS Action Buttons */}
-              <div className="grid grid-cols-2 gap-2 pt-2">
+              <div className="space-y-2 pt-2">
                 <button
                   onClick={handleSendToKitchen}
                   disabled={currentDraft.items.length === 0}
-                  className="py-3.5 rounded-2xl text-xs font-bold text-white transition-all hover:shadow-md disabled:opacity-40 flex items-center justify-center gap-1.5 active:scale-95"
+                  className="w-full py-3 rounded-2xl text-xs sm:text-sm font-bold text-white transition-all hover:shadow-md disabled:opacity-40 flex items-center justify-center gap-2 active:scale-95"
                   style={{ background: 'linear-gradient(135deg, #EA580C, #C2410C)', fontFamily: 'var(--font-heading)' }}
                 >
-                  <CookingPot size={15} />
-                  Send to Kitchen (KOT)
+                  <CookingPot size={16} className="flex-shrink-0" />
+                  <span>
+                    Send to Kitchen (KOT)
+                    {currentDraft.items.length > 0 && ` (${currentDraft.items.reduce((s, i) => s + i.quantity, 0)} new items)`}
+                  </span>
                 </button>
 
                 <button
                   onClick={() => handlePanelSettleAndComplete(true)}
                   disabled={combinedTicketItems.length === 0 || isPanelProcessing || (panelPaymentMethod === 'Split' && panelSplitRemaining > 0)}
-                  className="w-full py-4 rounded-2xl text-sm font-black text-white transition-all hover:shadow-xl disabled:opacity-40 flex items-center justify-center gap-2 active:scale-95"
+                  className="w-full py-3.5 rounded-2xl text-sm font-black text-white transition-all hover:shadow-xl disabled:opacity-40 flex items-center justify-center gap-2 active:scale-95"
                   style={{
                     background:
                       panelPaymentMethod === 'Split'
@@ -2602,12 +2619,14 @@ export function TableManagement() {
                     boxShadow: '0 6px 18px rgba(22,163,74,0.22)',
                   }}
                 >
-                  <Receipt size={17} />
-                  {isPanelProcessing
-                    ? 'Processing & Printing...'
-                    : panelPaymentMethod === 'Split' && panelSplitRemaining > 0
-                      ? `Due ৳${panelSplitRemaining.toFixed(2)} — Complete Split`
-                      : `Settle (${panelPaymentMethod}) & Print Receipt`}
+                  <Receipt size={18} className="flex-shrink-0" />
+                  <span className="whitespace-nowrap">
+                    {isPanelProcessing
+                      ? 'Processing & Printing...'
+                      : panelPaymentMethod === 'Split' && panelSplitRemaining > 0
+                        ? `Due ৳${panelSplitRemaining.toFixed(2)} — Complete Split`
+                        : `Settle (${panelPaymentMethod}) & Print Receipt`}
+                  </span>
                 </button>
               </div>
 
