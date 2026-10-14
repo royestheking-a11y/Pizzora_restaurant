@@ -7,7 +7,7 @@ import {
   Receipt, StickyNote, TableProperties, Wifi, ArrowRight, Zap,
   Search, CreditCard, Smartphone, Banknote,
   Tag, Percent, CheckCircle2, AlertTriangle, PrinterCheck, Split,
-  MoveRight, Sparkles, Phone, User, Flame, LayoutGrid, ArrowLeft
+  MoveRight, Sparkles, Phone, User, Flame, LayoutGrid, ArrowLeft, MousePointerClick
 } from 'lucide-react';
 import {
   useApp,
@@ -871,25 +871,37 @@ function TableCard({
 
   return (
     <div
-      className="relative rounded-3xl transition-all text-left w-full group overflow-hidden bg-white flex flex-col justify-between"
+      onClick={onOpenPOS}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpenPOS();
+        }
+      }}
+      className="relative rounded-3xl transition-all duration-200 text-left w-full group overflow-hidden bg-white flex flex-col justify-between cursor-pointer hover:-translate-y-1.5 hover:shadow-2xl active:scale-[0.985] focus:outline-none focus:ring-2 focus:ring-red-500 select-none"
       style={{
-        border: `2px solid ${isSelected ? '#F9002B' : isOccupied ? 'rgba(249,0,43,0.3)' : '#E5E7EB'}`,
+        border: `2px solid ${isSelected ? '#F9002B' : isOccupied ? 'rgba(249,0,43,0.35)' : '#E5E7EB'}`,
         boxShadow: isSelected
-          ? '0 16px 36px rgba(249,0,43,0.18)'
+          ? '0 16px 36px rgba(249,0,43,0.22)'
           : isOccupied
-          ? '0 8px 24px rgba(249,0,43,0.06)'
-          : '0 4px 16px rgba(0,0,0,0.02)',
+          ? '0 8px 24px rgba(249,0,43,0.08)'
+          : '0 4px 16px rgba(0,0,0,0.03)',
       }}
     >
       {/* Status top accent bar */}
-      <div className="h-2 w-full transition-all group-hover:h-2.5" style={{ backgroundColor: cfg.dot }} />
+      <div className="h-2.5 w-full transition-all group-hover:h-3.5" style={{ backgroundColor: cfg.dot }} />
 
       <div className="p-5 flex-1 flex flex-col justify-between">
         {/* Top: Table Number and Status */}
         <div className="flex justify-between items-start mb-3">
           <div>
             <div className="flex items-center gap-2">
-              <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '22px', color: '#111', letterSpacing: '-0.5px' }}>
+              <h3
+                style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '22px', color: '#111', letterSpacing: '-0.5px' }}
+                className="group-hover:text-red-600 transition-colors"
+              >
                 Table {table.tableNumber}
               </h3>
               <span className="px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ backgroundColor: `${areaConfig[table.area].color}15`, color: areaConfig[table.area].color }}>
@@ -902,17 +914,22 @@ function TableCard({
             </p>
           </div>
 
-          <div className="flex items-center gap-1 px-3 py-1.5 rounded-full shadow-sm text-xs" style={{ backgroundColor: cfg.bg, border: `1px solid ${cfg.border}` }}>
-            <StatusIcon size={12} style={{ color: cfg.dot }} />
-            <span style={{ fontSize: '11px', fontWeight: 800, color: cfg.text, fontFamily: 'var(--font-heading)', textTransform: 'uppercase' }}>
-              {cfg.label}
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-1 px-3 py-1.5 rounded-full shadow-sm text-xs" style={{ backgroundColor: cfg.bg, border: `1px solid ${cfg.border}` }}>
+              <StatusIcon size={12} style={{ color: cfg.dot }} />
+              <span style={{ fontSize: '11px', fontWeight: 800, color: cfg.text, fontFamily: 'var(--font-heading)', textTransform: 'uppercase' }}>
+                {cfg.label}
+              </span>
+            </div>
+            <span className="text-[10px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              Open POS ➜
             </span>
           </div>
         </div>
 
         {/* Middle: Customer / Active Order summary */}
         {isOccupied ? (
-          <div className="my-3 p-3 rounded-2xl bg-gray-50/80 border border-gray-100 space-y-2">
+          <div className="my-3 p-3 rounded-2xl bg-gray-50/80 border border-gray-100 group-hover:bg-red-50/30 group-hover:border-red-100 transition-colors space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-gray-700 truncate max-w-[140px]">
                 👤 {table.customerName || 'Dine-In Customer'}
@@ -935,18 +952,22 @@ function TableCard({
             </div>
           </div>
         ) : (
-          <div className="my-4 py-5 text-center rounded-2xl border border-dashed border-gray-200 bg-emerald-50/20">
-            <CheckCircle2 size={22} className="text-emerald-500 mx-auto mb-1 opacity-70" />
+          <div className="my-4 py-5 text-center rounded-2xl border border-dashed border-gray-200 bg-emerald-50/20 group-hover:bg-emerald-50/60 group-hover:border-emerald-300 transition-colors">
+            <CheckCircle2 size={22} className="text-emerald-500 mx-auto mb-1 opacity-70 group-hover:scale-110 transition-transform" />
             <p className="text-xs text-emerald-800 font-bold" style={{ fontFamily: 'var(--font-heading)' }}>Table Ready</p>
-            <p className="text-[10px] text-gray-400">Available to seat new guests</p>
+            <p className="text-[10px] text-gray-400 group-hover:text-emerald-700 transition-colors">Click anywhere to seat guests & open POS</p>
           </div>
         )}
 
         {/* Bottom Actions */}
         <div className="flex gap-2 pt-2 border-t border-gray-100">
           <button
-            onClick={onOpenPOS}
-            className="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold text-white transition-all hover:shadow-md flex items-center justify-center gap-1.5 active:scale-95"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenPOS();
+            }}
+            className="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold text-white transition-all shadow-sm group-hover:shadow-md flex items-center justify-center gap-1.5 active:scale-95"
             style={{
               background: isOccupied
                 ? 'linear-gradient(135deg, #F9002B, #C8001F)'
@@ -958,8 +979,12 @@ function TableCard({
             {isOccupied ? 'Manage Table POS' : 'Seat & Open POS'}
           </button>
           <button
-            onClick={onQuickView}
-            className="py-2.5 px-3 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onQuickView();
+            }}
+            className="py-2.5 px-3 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center hover:text-black"
             title="Quick Details"
           >
             <Eye size={14} />
@@ -1736,7 +1761,7 @@ export function TableManagement() {
       {viewMode === 'floor' && (
         <div className="space-y-8 animate-fade-in">
           {/* Filter Bar */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center justify-between gap-3 flex-wrap bg-white p-3.5 rounded-2xl border border-gray-200 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold text-gray-500 uppercase mr-1">Area:</span>
               {['All', ...areas].map(a => (
@@ -1775,6 +1800,11 @@ export function TableManagement() {
                   {st}
                 </button>
               ))}
+            </div>
+
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-xs text-red-600 font-bold border border-red-100">
+              <MousePointerClick size={14} className="text-red-500 animate-pulse" />
+              <span>Click any table to open Table POS Terminal</span>
             </div>
           </div>
 
