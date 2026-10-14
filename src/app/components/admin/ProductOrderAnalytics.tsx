@@ -592,8 +592,6 @@ export function ProductOrderAnalytics() {
             { id: 'yesterday', label: 'Yesterday', icon: Calendar },
             { id: 'week', label: 'This Week', icon: TrendingUp },
             { id: 'month', label: 'This Month', icon: Calendar },
-            { id: 'year', label: 'This Year', icon: Award },
-            { id: 'all', label: 'All Time History', icon: Sparkles },
           ].map(t => {
             const isActive = period === t.id;
             return (
@@ -627,7 +625,7 @@ export function ProductOrderAnalytics() {
               {totalPeriodUnits}
             </p>
             <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-              items ordered in {period === 'today' ? 'today' : period === 'yesterday' ? 'yesterday' : period === 'week' ? 'this week' : period === 'month' ? 'this month' : period === 'year' ? 'this year' : 'all-time'}
+              items ordered in {period === 'today' ? 'today' : period === 'yesterday' ? 'yesterday' : period === 'week' ? 'this week' : 'this month'}
             </p>
           </div>
 
@@ -899,16 +897,16 @@ export function ProductOrderAnalytics() {
                       <strong className="text-gray-800 truncate block">{p.countToday}</strong>
                     </div>
                     <div className="p-1 rounded-lg bg-gray-50 text-[9px] min-w-0 overflow-hidden">
+                      <span className="text-gray-400 block text-[8px] truncate">Yday</span>
+                      <strong className="text-gray-800 truncate block">{p.countYesterday}</strong>
+                    </div>
+                    <div className="p-1 rounded-lg bg-gray-50 text-[9px] min-w-0 overflow-hidden">
                       <span className="text-gray-400 block text-[8px] truncate">Week</span>
                       <strong className="text-gray-800 truncate block">{p.countWeek}</strong>
                     </div>
                     <div className="p-1 rounded-lg bg-gray-50 text-[9px] min-w-0 overflow-hidden">
                       <span className="text-gray-400 block text-[8px] truncate">Month</span>
                       <strong className="text-gray-800 truncate block">{p.countMonth}</strong>
-                    </div>
-                    <div className="p-1 rounded-lg bg-gray-50 text-[9px] min-w-0 overflow-hidden">
-                      <span className="text-gray-400 block text-[8px] truncate">Year</span>
-                      <strong className="text-gray-800 truncate block">{p.countYear}</strong>
                     </div>
                   </div>
                 </div>
@@ -1077,6 +1075,14 @@ export function ProductOrderAnalytics() {
                   <p className="text-[10px] text-gray-500">৳{(selectedProduct.countToday * selectedProduct.price).toLocaleString()}</p>
                 </div>
 
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-100">
+                  <span className="text-[10px] font-bold text-amber-600 uppercase">Yesterday</span>
+                  <p className="text-lg font-black text-amber-700" style={{ fontFamily: 'var(--font-heading)' }}>
+                    {selectedProduct.countYesterday} <span className="text-xs font-normal">sold</span>
+                  </p>
+                  <p className="text-[10px] text-gray-500">৳{(selectedProduct.countYesterday * selectedProduct.price).toLocaleString()}</p>
+                </div>
+
                 <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100">
                   <span className="text-[10px] font-bold text-blue-600 uppercase">This Week</span>
                   <p className="text-lg font-black text-blue-700" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -1091,30 +1097,6 @@ export function ProductOrderAnalytics() {
                     {selectedProduct.countMonth} <span className="text-xs font-normal">sold</span>
                   </p>
                   <p className="text-[10px] text-gray-500">৳{(selectedProduct.countMonth * selectedProduct.price).toLocaleString()}</p>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-100">
-                  <span className="text-[10px] font-bold text-amber-600 uppercase">This Year</span>
-                  <p className="text-lg font-black text-amber-700" style={{ fontFamily: 'var(--font-heading)' }}>
-                    {selectedProduct.countYear} <span className="text-xs font-normal">sold</span>
-                  </p>
-                  <p className="text-[10px] text-gray-500">৳{(selectedProduct.countYear * selectedProduct.price).toLocaleString()}</p>
-                </div>
-              </div>
-
-              {/* All-time Summary Banner */}
-              <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-between text-xs">
-                <div>
-                  <span className="text-gray-500 font-bold">All-Time Cumulative Units:</span>
-                  <p className="text-sm font-black text-gray-900 mt-0.5" style={{ fontFamily: 'var(--font-heading)' }}>
-                    {selectedProduct.countAllTime} items sold
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="text-gray-500 font-bold">All-Time Total Revenue:</span>
-                  <p className="text-sm font-black text-red-600 mt-0.5" style={{ fontFamily: 'var(--font-heading)' }}>
-                    ৳{(selectedProduct.countAllTime * selectedProduct.price).toLocaleString()}
-                  </p>
                 </div>
               </div>
 
