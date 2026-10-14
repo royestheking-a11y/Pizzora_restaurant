@@ -146,6 +146,23 @@ if (process.env.MONGO_URI) {
       } catch (err) {
         console.error('[Migration] Failed to backfill CashRegisterEntry dates:', err);
       }
+
+      // ── Clean up legacy demo tables (T06, V01, V02, O01, O02) ──
+      // The restaurant has only 5 active tables (T01 - T05).
+      try {
+        const demoTableIds = ['T06', 'V01', 'V02', 'O01', 'O02'];
+        const activeOrders = await TableOrder.find({ tableId: { $in: demoTableIds }, status: { $nin: ['Paid', 'Served'] } });
+        const busyIds = new Set(activeOrders.map(o => o.tableId));
+        const idsToDelete = demoTableIds.filter(id => !busyIds.has(id));
+        if (idsToDelete.length > 0) {
+          const res = await RestaurantTable.deleteMany({ id: { $in: idsToDelete } });
+          if (res.deletedCount > 0) {
+            console.log(`[Migration] Cleaned up ${res.deletedCount} unused demo tables (T06, V01, V02, O01, O02) to maintain 5 tables.`);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to cleanup demo tables:', err);
+      }
       
     })
     .catch(err => console.error('MongoDB connection error:', err));
@@ -484,7 +501,8 @@ io.use((socket, next) => {
 
 const publicActions = [
   'PLACE_ORDER', 'PLACE_TABLE_ORDER', 'UPDATE_TABLE_ORDER', 'UPDATE_TABLE_ORDER_STATUS', 'ADD_RESERVATION', 'ADD_MESSAGE',
-  'ADD_CATERING', 'ADD_REVIEW', 'HELPFUL_REVIEW', 'SET_TABLE_STATUS'
+  'ADD_CATERING', 'ADD_REVIEW', 'HELPFUL_REVIEW', 'SET_TABLE_STATUS',
+  'ADD_TABLE', 'UPDATE_TABLE', 'DELETE_TABLE'
 ];
 
 function checkPermanentError(err) {
@@ -539,7 +557,7 @@ async function processDbAction(action) {
 
     // Tables
     case 'ADD_TABLE': await RestaurantTable.create(action.payload); break;
-    case 'UPDATE_TABLE': await RestaurantTable.findOneAndUpdate({ id: action.payload.id }, action.payload); break;
+    case 'UPDATE_TABLE': await RestaurantTable.findOneAndUpdate({ id: action.payload.id }, { $set: action.payload }, { new: true }); break;
     case 'DELETE_TABLE': await RestaurantTable.findOneAndDelete({ id: action.payload }); break;
     case 'SET_TABLE_STATUS':
       await RestaurantTable.findOneAndUpdate(

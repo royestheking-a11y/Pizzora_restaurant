@@ -1236,7 +1236,7 @@ export function POS() {
                 <select value={tableNo} onChange={e => setTableNo(e.target.value)}
                   className="appearance-none pr-10 cursor-pointer hover:bg-gray-100 transition-colors"
                   style={{ padding: '8px 36px 8px 16px', borderRadius: '12px', border: '1.5px solid #E5E7EB', fontSize: '14px', fontFamily: 'var(--font-heading)', fontWeight: 800, color: '#111', backgroundColor: '#F9FAFB', outline: 'none' }}>
-                  {(state.tables && state.tables.length > 0 ? state.tables.map(t => t.tableNumber) : ['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'V01', 'V02', 'O01', 'O02']).map(t => (
+                  {(state.tables && state.tables.length > 0 ? state.tables.map(t => t.tableNumber) : ['T01', 'T02', 'T03', 'T04', 'T05']).map(t => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>

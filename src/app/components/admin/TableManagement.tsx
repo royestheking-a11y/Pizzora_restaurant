@@ -7,7 +7,7 @@ import {
   Receipt, StickyNote, TableProperties, Wifi, ArrowRight, Zap,
   Search, CreditCard, Smartphone, Banknote,
   Tag, Percent, CheckCircle2, AlertTriangle, PrinterCheck, Split,
-  MoveRight, Sparkles, Phone, User, Flame, LayoutGrid, ArrowLeft, MousePointerClick
+  MoveRight, Sparkles, Phone, User, Flame, LayoutGrid, ArrowLeft, MousePointerClick, Edit2
 } from 'lucide-react';
 import {
   useApp,
@@ -855,11 +855,15 @@ function TableCard({
   isSelected,
   onOpenPOS,
   onQuickView,
+  onEdit,
+  onDelete,
 }: {
   table: RestaurantTable;
   isSelected: boolean;
   onOpenPOS: () => void;
   onQuickView: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   const cfg = statusConfig[table.status];
   const StatusIcon = cfg.icon;
@@ -960,7 +964,7 @@ function TableCard({
         )}
 
         {/* Bottom Actions */}
-        <div className="flex gap-2 pt-2 border-t border-gray-100">
+        <div className="flex items-center gap-1.5 pt-2 border-t border-gray-100">
           <button
             type="button"
             onClick={(e) => {
@@ -976,7 +980,7 @@ function TableCard({
             }}
           >
             <Utensils size={13} />
-            {isOccupied ? 'Manage Table POS' : 'Seat & Open POS'}
+            {isOccupied ? 'Manage POS' : 'Seat & POS'}
           </button>
           <button
             type="button"
@@ -984,10 +988,32 @@ function TableCard({
               e.stopPropagation();
               onQuickView();
             }}
-            className="py-2.5 px-3 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center hover:text-black"
-            title="Quick Details"
+            className="w-9 h-9 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center hover:text-black flex-shrink-0"
+            title="Quick Details & QR"
           >
             <Eye size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            className="w-9 h-9 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-all flex items-center justify-center flex-shrink-0"
+            title="Edit Table (Name, Capacity, Zone)"
+          >
+            <Edit2 size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="w-9 h-9 rounded-xl text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-all flex items-center justify-center flex-shrink-0"
+            title="Delete Table"
+          >
+            <Trash2 size={14} />
           </button>
         </div>
       </div>
@@ -1579,6 +1605,92 @@ export function TableManagement() {
     setTableForm({ tableNumber: '', seats: '4', area: 'Dining' });
   };
 
+  // Edit Table handler
+  const [editingTable, setEditingTable] = useState<RestaurantTable | null>(null);
+  const [editForm, setEditForm] = useState<{ tableNumber: string; seats: string; area: TableArea }>({
+    tableNumber: '', seats: '4', area: 'Dining',
+  });
+
+  const handleOpenEditTable = (table: RestaurantTable) => {
+    setEditingTable(table);
+    setEditForm({
+      tableNumber: table.tableNumber,
+      seats: String(table.seats),
+      area: table.area,
+    });
+  };
+
+  const handleSaveEditTable = () => {
+    if (!editingTable) return;
+    if (!editForm.tableNumber.trim() || !editForm.seats) {
+      showNotification('Table number and seats are required.', 'error');
+      return;
+    }
+    const duplicate = tables.find(
+      t => t.id !== editingTable.id && t.tableNumber.toUpperCase() === editForm.tableNumber.trim().toUpperCase()
+    );
+    if (duplicate) {
+      showNotification(`Another table with number "${editForm.tableNumber.trim().toUpperCase()}" already exists.`, 'error');
+      return;
+    }
+    const updated: RestaurantTable = {
+      ...editingTable,
+      tableNumber: editForm.tableNumber.trim().toUpperCase(),
+      seats: Number(editForm.seats),
+      area: editForm.area,
+    };
+    dispatch({ type: 'UPDATE_TABLE', payload: updated });
+    showNotification(`Table ${updated.tableNumber} updated successfully!`, 'success');
+    setEditingTable(null);
+  };
+
+  // Delete Table handler
+  const handleDeleteTable = (table: RestaurantTable) => {
+    const activeOrd = tableOrders.find(o => o.tableId === table.id && !['Paid'].includes(o.status));
+    if (activeOrd) {
+      showNotification(`Cannot delete Table ${table.tableNumber} because it has an active order (৳${activeOrd.total}). Please settle or cancel the order first.`, 'error');
+      return;
+    }
+
+    setDeleteConfirm({
+      isOpen: true,
+      title: `Delete Table ${table.tableNumber}?`,
+      message: `Are you sure you want to delete Table ${table.tableNumber} (${table.area} area, ${table.seats} seats)? This table will be permanently removed from your restaurant floor.`,
+      onConfirm: () => {
+        dispatch({ type: 'DELETE_TABLE', payload: table.id });
+        showNotification(`Table ${table.tableNumber} deleted.`, 'success');
+        setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+        if (selectedTableId === table.id) {
+          const remaining = tables.filter(t => t.id !== table.id);
+          if (remaining.length > 0) setSelectedTableId(remaining[0].id);
+        }
+      }
+    });
+  };
+
+  // 1-click prune to 5 tables
+  const handlePruneToFiveTables = () => {
+    const extraTables = tables.filter(t => !['T01', 'T02', 'T03', 'T04', 'T05'].includes(t.tableNumber));
+    if (extraTables.length === 0) {
+      showNotification('You already have only the 5 main dining tables (T01 - T05).', 'info');
+      return;
+    }
+
+    setDeleteConfirm({
+      isOpen: true,
+      title: `Keep Only 5 Active Tables?`,
+      message: `You currently have ${tables.length} tables. Do you want to remove the ${extraTables.length} extra demo tables (${extraTables.map(t => t.tableNumber).join(', ')}) and keep only your 5 active dining tables (T01 - T05)?`,
+      onConfirm: () => {
+        extraTables.forEach(t => {
+          dispatch({ type: 'DELETE_TABLE', payload: t.id });
+        });
+        showNotification(`Removed ${extraTables.length} demo tables. 5 tables remain.`, 'success');
+        setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+        setSelectedTableId('T01');
+      }
+    });
+  };
+
   // Filtered menu
   const filteredMenuItems = useMemo(() => {
     let list = menuItems;
@@ -1759,7 +1871,35 @@ export function TableManagement() {
           MODE 1: FLOOR LAYOUT GRID VIEW
       ──────────────────────────────────────────────────────────────────────── */}
       {viewMode === 'floor' && (
-        <div className="space-y-8 animate-fade-in">
+        <div className="space-y-6 animate-fade-in">
+          {/* Notice banner when more than 5 tables exist */}
+          {tables.length > 5 && (
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-amber-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                    {tables.length} Tables in System (Active Restaurant Floor has 5 Tables)
+                  </p>
+                  <p className="text-[11px] text-amber-700">
+                    Your restaurant has 5 physical tables (T01 - T05). Clean up demo tables in one click.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handlePruneToFiveTables}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition-all shadow-sm flex items-center gap-1.5 self-start sm:self-auto flex-shrink-0"
+                style={{ fontFamily: 'var(--font-heading)' }}
+              >
+                <Trash2 size={13} />
+                Keep Only 5 Tables (T01 - T05)
+              </button>
+            </div>
+          )}
+
           {/* Filter Bar */}
           <div className="flex items-center justify-between gap-3 flex-wrap bg-white p-3.5 rounded-2xl border border-gray-200 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
@@ -1853,6 +1993,8 @@ export function TableManagement() {
                           setSelectedTableId(table.id);
                           setQrModalTable(table);
                         }}
+                        onEdit={() => handleOpenEditTable(table)}
+                        onDelete={() => handleDeleteTable(table)}
                       />
                     ))
                   )}
@@ -2010,6 +2152,20 @@ export function TableManagement() {
                     title="Reset Table"
                   >
                     <RefreshCw size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleOpenEditTable(currentTable)}
+                    className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+                    title="Edit Table Details"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTable(currentTable)}
+                    className="w-8 h-8 rounded-xl bg-white/10 hover:bg-red-500/40 text-white flex items-center justify-center"
+                    title="Delete Table"
+                  >
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
@@ -2505,6 +2661,16 @@ export function TableManagement() {
           setForm={setTableForm}
           onSave={handleAddTable}
           onClose={() => setShowAddTableModal(false)}
+        />
+      )}
+
+      {editingTable && (
+        <TableModal
+          title={`Edit Table ${editingTable.tableNumber}`}
+          form={editForm}
+          setForm={setEditForm}
+          onSave={handleSaveEditTable}
+          onClose={() => setEditingTable(null)}
         />
       )}
 

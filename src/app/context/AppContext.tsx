@@ -458,19 +458,13 @@ const defaultEmployees: Employee[] = [
   { id: 'emp5', name: 'Emon', role: 'Waiter', basicSalary: 8000, joinDate: new Date().toISOString(), shift: 'Evening' },
 ];
 
-// ─── Default Tables (10 tables) ───────────────────────────────────────────────
-
+// ─── Default Tables (5 tables) ────────────────────────────────────────────────
 const defaultTables: RestaurantTable[] = [
   { id: 'T01', tableNumber: 'T01', seats: 4, area: 'Dining', status: 'Available' },
   { id: 'T02', tableNumber: 'T02', seats: 4, area: 'Dining', status: 'Available' },
-  { id: 'T03', tableNumber: 'T03', seats: 6, area: 'Dining', status: 'Available' },
+  { id: 'T03', tableNumber: 'T03', seats: 4, area: 'Dining', status: 'Available' },
   { id: 'T04', tableNumber: 'T04', seats: 4, area: 'Dining', status: 'Available' },
-  { id: 'T05', tableNumber: 'T05', seats: 2, area: 'Dining', status: 'Available' },
-  { id: 'T06', tableNumber: 'T06', seats: 4, area: 'Dining', status: 'Available' },
-  { id: 'V01', tableNumber: 'V01', seats: 8, area: 'VIP', status: 'Available' },
-  { id: 'V02', tableNumber: 'V02', seats: 6, area: 'VIP', status: 'Available' },
-  { id: 'O01', tableNumber: 'O01', seats: 4, area: 'Outdoor', status: 'Available' },
-  { id: 'O02', tableNumber: 'O02', seats: 4, area: 'Outdoor', status: 'Available' },
+  { id: 'T05', tableNumber: 'T05', seats: 4, area: 'Dining', status: 'Available' },
 ];
 
 
