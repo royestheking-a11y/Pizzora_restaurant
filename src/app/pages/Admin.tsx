@@ -7,7 +7,7 @@ import {
   Clock, ChevronDown, ChevronUp, Menu as MenuIcon, PlaySquare, Layers,
   RefreshCw, Send, CheckCircle2, XCircle, LayoutGrid, CreditCard,
   TrendingUp, Wallet, Smartphone, Banknote, Trash, BarChart2, Tag, ChefHat,
-  ShieldCheck, Lock, User, KeyRound, Fingerprint, Activity, BadgeCheck, EyeOff, Loader2, Search, Download
+  ShieldCheck, Lock, User, KeyRound, Fingerprint, Activity, BadgeCheck, EyeOff, Loader2, Search, Download, BarChart3
 } from 'lucide-react';
 import { useApp, OrderStatus, TableOrderStatus, CarouselSlide } from '../context/AppContext';
 import { generatePremiumPDF } from '../utils/pdfGenerator';
@@ -26,6 +26,7 @@ import { PrinterSettings } from '../components/admin/PrinterSettings';
 import { ReprintSystem } from '../components/admin/ReprintSystem';
 import { RoleManagement } from '../components/admin/RoleManagement';
 import { DeliverySettingsPanel } from '../components/admin/DeliverySettingsPanel';
+import { ProductOrderAnalytics } from '../components/admin/ProductOrderAnalytics';
 import { Printer, RotateCcw, Truck } from 'lucide-react';
 import { AdminStatSkeleton, AdminListSkeleton, TableRowSkeleton, POSCardSkeleton, ChartSkeleton } from '../components/Skeletons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -33,7 +34,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 // Mock auth - replaced by real auth
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AdminTab = 'dashboard' | 'sales' | 'orders' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles' | 'delivery-settings';
+type AdminTab = 'dashboard' | 'sales' | 'orders' | 'product-analytics' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles' | 'delivery-settings';
 
 // ─── Input Style Helper ────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
@@ -783,6 +784,7 @@ export function Admin() {
   };
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewOrderDetails, setViewOrderDetails] = useState<any>(null);
+  const [orderViewSubTab, setOrderViewSubTab] = useState<'list' | 'product-analytics'>('list');
 
   // Menu Modals
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -1011,6 +1013,7 @@ export function Admin() {
     { id: 'dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'sales',        icon: TrendingUp,      label: 'Sales Report' },
     { id: 'orders',       icon: ShoppingBag,     label: 'Orders',           badge: pendingOrders },
+    { id: 'product-analytics', icon: BarChart3,  label: 'Product Sales Analytics' },
     { id: 'reservations', icon: Calendar,        label: 'Reservations',     badge: pendingReservations },
     { id: 'tables',       icon: LayoutGrid,      label: 'Table Management', badge: pendingTableOrders },
     { id: 'payments',     icon: CreditCard,      label: 'Payments' },
@@ -1701,9 +1704,52 @@ export function Admin() {
             </div>
           )}
 
-          {/* ══ ORDERS ═════════════════════════════════════ */}
-          {activeTab === 'orders' && (
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+          {/* ══ ORDERS & PRODUCT SALES ANALYTICS ═════════════════ */}
+          {(activeTab === 'orders' || activeTab === 'product-analytics') && (
+            <div className="space-y-5">
+              {/* Top Sub-navigation Switcher */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-gray-100 border border-gray-200 shadow-sm">
+                  <button
+                    onClick={() => {
+                      if (activeTab === 'product-analytics') setActiveTab('orders');
+                      setOrderViewSubTab('list');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                    style={{
+                      backgroundColor: (activeTab === 'orders' && orderViewSubTab === 'list') ? '#fff' : 'transparent',
+                      color: (activeTab === 'orders' && orderViewSubTab === 'list') ? '#F9002B' : '#4B5563',
+                      boxShadow: (activeTab === 'orders' && orderViewSubTab === 'list') ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                      fontFamily: 'var(--font-heading)',
+                    }}
+                  >
+                    <ShoppingBag size={14} />
+                    <span>All Orders & Receipts ({allUnifiedOrders.length})</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (activeTab === 'orders') setOrderViewSubTab('product-analytics');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                    style={{
+                      backgroundColor: (activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? '#F9002B' : 'transparent',
+                      color: (activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? '#fff' : '#4B5563',
+                      boxShadow: (activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? '0 2px 10px rgba(249,0,43,0.3)' : 'none',
+                      fontFamily: 'var(--font-heading)',
+                    }}
+                  >
+                    <BarChart3 size={14} />
+                    <span>Product Sales & Order Analytics</span>
+                    <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-white/20 text-white font-extrabold">NEW</span>
+                  </button>
+                </div>
+              </div>
+
+              {(activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? (
+                <ProductOrderAnalytics />
+              ) : (
+                <div className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -1841,6 +1887,8 @@ export function Admin() {
                 </div>
               )}
             </div>
+            )}
+          </div>
           )}
 
           {/* ══ RESERVATIONS ═══════════════════════════════ */}

@@ -1781,15 +1781,7 @@ export function TableManagement() {
               </button>
             </div>
 
-            <a
-              href="/kitchen"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all hover:bg-amber-100"
-              style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', textDecoration: 'none', fontFamily: 'var(--font-heading)' }}
-            >
-              <ChefHat size={14} /> Kitchen Screen ↗
-            </a>
+
 
             <button
               onClick={() => setShowAddTableModal(true)}
@@ -2577,36 +2569,27 @@ export function TableManagement() {
                 )}
               </div>
 
-              {/* POS Action Buttons */}
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <button
-                  onClick={handleSendToKitchen}
-                  disabled={currentDraft.items.length === 0}
-                  className="py-3.5 rounded-2xl text-xs font-bold text-white transition-all hover:shadow-md disabled:opacity-40 flex items-center justify-center gap-1.5 active:scale-95"
-                  style={{ background: 'linear-gradient(135deg, #EA580C, #C2410C)', fontFamily: 'var(--font-heading)' }}
-                >
-                  <CookingPot size={15} />
-                  Send to Kitchen (KOT)
-                </button>
-
+              {/* Direct Table POS Settle Action */}
+              <div className="pt-2">
                 <button
                   onClick={() => handlePanelSettleAndComplete(true)}
                   disabled={combinedTicketItems.length === 0 || isPanelProcessing || (panelPaymentMethod === 'Split' && panelSplitRemaining > 0)}
-                  className="py-3.5 rounded-2xl text-xs font-bold text-white transition-all hover:shadow-xl disabled:opacity-40 flex items-center justify-center gap-1.5 active:scale-95"
+                  className="w-full py-4 rounded-2xl text-sm font-black text-white transition-all hover:shadow-xl disabled:opacity-40 flex items-center justify-center gap-2 active:scale-95"
                   style={{
                     background:
                       panelPaymentMethod === 'Split'
                         ? 'linear-gradient(135deg, #7C3AED, #6D28D9)'
                         : 'linear-gradient(135deg, #16A34A, #15803D)',
                     fontFamily: 'var(--font-heading)',
+                    boxShadow: '0 6px 18px rgba(22,163,74,0.22)',
                   }}
                 >
-                  <Receipt size={15} />
+                  <Receipt size={17} />
                   {isPanelProcessing
-                    ? 'Processing...'
+                    ? 'Processing & Printing...'
                     : panelPaymentMethod === 'Split' && panelSplitRemaining > 0
-                    ? `Due ৳${panelSplitRemaining.toFixed(2)}`
-                    : `Settle (${panelPaymentMethod}) & Print`}
+                    ? `Due ৳${panelSplitRemaining.toFixed(2)} — Complete Split`
+                    : `Settle (${panelPaymentMethod}) & Print Receipt`}
                 </button>
               </div>
 
