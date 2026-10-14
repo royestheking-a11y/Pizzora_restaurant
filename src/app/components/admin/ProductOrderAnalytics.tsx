@@ -118,8 +118,8 @@ export function ProductOrderAnalytics() {
     // Online & POS Direct Orders
     (state.orders || []).forEach(o => {
       // Status filter
-      if (o.status === 'Cancelled' || o.status === 'Rejected') return;
-      if (orderScope === 'completed' && o.status !== 'Delivered' && o.status !== 'Paid') return;
+      if (o.status === 'Cancelled') return;
+      if (orderScope === 'completed' && o.status !== 'Delivered' && (o.status as string) !== 'Paid') return;
 
       const ts = new Date(o.createdAt).getTime();
       const num = o.orderNumber || o.id.slice(-6);
@@ -167,7 +167,7 @@ export function ProductOrderAnalytics() {
 
     // Table Dine-In Orders
     dedupedTableOrders.forEach(to => {
-      if (to.status === 'Cancelled') return;
+      if ((to.status as string) === 'Cancelled') return;
       if (orderScope === 'completed' && to.status !== 'Paid') return;
 
       const ts = typeof to.createdAt === 'number' ? to.createdAt : new Date(to.createdAt).getTime();
