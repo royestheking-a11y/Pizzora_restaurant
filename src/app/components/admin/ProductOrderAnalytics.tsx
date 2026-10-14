@@ -583,7 +583,10 @@ export function ProductOrderAnalytics() {
         </div>
 
         {/* ── Time Period Segmented Switcher ──────────────────────────────── */}
-        <div className="flex items-center gap-1.5 mt-4 p-1 rounded-xl bg-gray-100/90 border border-gray-200 overflow-x-auto scrollbar-none min-w-0">
+        <div
+          className="flex items-center gap-1.5 mt-4 p-1 rounded-xl bg-gray-100/90 border border-gray-200 overflow-x-auto hide-scrollbar w-full min-w-0"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           {[
             { id: 'today', label: 'Today', icon: Clock },
             { id: 'yesterday', label: 'Yesterday', icon: Calendar },
@@ -597,7 +600,7 @@ export function ProductOrderAnalytics() {
               <button
                 key={t.id}
                 onClick={() => setPeriod(t.id as TimePeriod)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex-shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex-shrink-0"
                 style={{
                   backgroundColor: isActive ? '#fff' : 'transparent',
                   color: isActive ? '#F9002B' : '#4B5563',
@@ -781,7 +784,10 @@ export function ProductOrderAnalytics() {
         </div>
 
         {/* Category Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-1 scrollbar-none min-w-0">
+        <div
+          className="flex items-center gap-1.5 overflow-x-auto pt-1 hide-scrollbar w-full min-w-0"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           {categories.map(cat => {
             const isActive = selectedCategory.toLowerCase() === cat.toLowerCase();
             const catCount = cat === 'All'
@@ -824,7 +830,7 @@ export function ProductOrderAnalytics() {
         </div>
       ) : viewMode === 'grid' ? (
         /* ── Grid View ─────────────────────────────────────────────────────── */
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3.5 w-full min-w-0 max-w-full">
           {filteredProducts.map((p, idx) => {
             const isTop3 = idx < 3 && p.totalQuantity > 0;
             const rankBadgeColor = idx === 0 ? '#EAB308' : idx === 1 ? '#94A3B8' : '#D97706';
@@ -833,7 +839,7 @@ export function ProductOrderAnalytics() {
               <div
                 key={p.id || p.name}
                 onClick={() => setSelectedProduct(p)}
-                className="group relative bg-white rounded-2xl p-3 border border-gray-200 hover:border-red-400 transition-all hover:shadow-lg cursor-pointer flex flex-col justify-between"
+                className="group relative bg-white rounded-2xl p-3 border border-gray-200 hover:border-red-400 transition-all hover:shadow-lg cursor-pointer flex flex-col justify-between w-full min-w-0 overflow-hidden"
               >
                 {/* Rank Badge */}
                 {isTop3 && (
@@ -847,8 +853,8 @@ export function ProductOrderAnalytics() {
                 )}
 
                 {/* Top Section */}
-                <div>
-                  <div className="w-full h-28 sm:h-32 rounded-xl overflow-hidden bg-gray-100 relative mb-2.5">
+                <div className="min-w-0">
+                  <div className="w-full h-28 sm:h-32 rounded-xl overflow-hidden bg-gray-100 relative mb-2.5 min-w-0">
                     <img
                       src={optimizeCloudinaryUrl(p.image, 300)}
                       alt={p.name}
@@ -862,51 +868,51 @@ export function ProductOrderAnalytics() {
                     </span>
                   </div>
 
-                  <h4 className="font-bold text-xs sm:text-sm text-gray-900 group-hover:text-red-600 transition-colors line-clamp-1" title={p.name}>
+                  <h4 className="font-bold text-xs sm:text-sm text-gray-900 group-hover:text-red-600 transition-colors truncate min-w-0" title={p.name}>
                     {p.name}
                   </h4>
 
                   {/* Primary Order Metrics */}
-                  <div className="grid grid-cols-2 gap-1.5 mt-2 p-2 rounded-xl bg-gray-50 border border-gray-100">
-                    <div>
-                      <span className="text-[9px] text-gray-400 font-bold uppercase block">Ordered</span>
-                      <span className="text-sm sm:text-base font-black text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                  <div className="grid grid-cols-2 gap-1.5 mt-2 p-2 rounded-xl bg-gray-50 border border-gray-100 min-w-0">
+                    <div className="min-w-0">
+                      <span className="text-[9px] text-gray-400 font-bold uppercase block truncate">Ordered</span>
+                      <span className="text-sm sm:text-base font-black text-gray-900 block truncate" style={{ fontFamily: 'var(--font-heading)' }}>
                         {p.totalQuantity} <span className="text-[10px] font-medium text-gray-400">qty</span>
                       </span>
                     </div>
-                    <div>
-                      <span className="text-[9px] text-gray-400 font-bold uppercase block">
+                    <div className="min-w-0">
+                      <span className="text-[9px] text-gray-400 font-bold uppercase block truncate">
                         {revenueMode === 'net' ? 'Net Sales' : 'Gross Sales'}
                       </span>
-                      <span className="text-sm sm:text-base font-black text-red-600" style={{ fontFamily: 'var(--font-heading)' }}>
+                      <span className="text-sm sm:text-base font-black text-red-600 block truncate" style={{ fontFamily: 'var(--font-heading)' }}>
                         ৳{p.totalRevenue.toLocaleString()}
                       </span>
                     </div>
                   </div>
 
                   {/* Multi-Period Quick Sparkline / Chips */}
-                  <div className="grid grid-cols-4 gap-1 mt-2 text-center">
-                    <div className="p-1 rounded-lg bg-gray-50 text-[9px]">
-                      <span className="text-gray-400 block text-[8px]">Today</span>
-                      <strong className="text-gray-800">{p.countToday}</strong>
+                  <div className="grid grid-cols-4 gap-1 mt-2 text-center min-w-0">
+                    <div className="p-1 rounded-lg bg-gray-50 text-[9px] min-w-0 overflow-hidden">
+                      <span className="text-gray-400 block text-[8px] truncate">Today</span>
+                      <strong className="text-gray-800 truncate block">{p.countToday}</strong>
                     </div>
-                    <div className="p-1 rounded-lg bg-gray-50 text-[9px]">
-                      <span className="text-gray-400 block text-[8px]">Week</span>
-                      <strong className="text-gray-800">{p.countWeek}</strong>
+                    <div className="p-1 rounded-lg bg-gray-50 text-[9px] min-w-0 overflow-hidden">
+                      <span className="text-gray-400 block text-[8px] truncate">Week</span>
+                      <strong className="text-gray-800 truncate block">{p.countWeek}</strong>
                     </div>
-                    <div className="p-1 rounded-lg bg-gray-50 text-[9px]">
-                      <span className="text-gray-400 block text-[8px]">Month</span>
-                      <strong className="text-gray-800">{p.countMonth}</strong>
+                    <div className="p-1 rounded-lg bg-gray-50 text-[9px] min-w-0 overflow-hidden">
+                      <span className="text-gray-400 block text-[8px] truncate">Month</span>
+                      <strong className="text-gray-800 truncate block">{p.countMonth}</strong>
                     </div>
-                    <div className="p-1 rounded-lg bg-gray-50 text-[9px]">
-                      <span className="text-gray-400 block text-[8px]">Year</span>
-                      <strong className="text-gray-800">{p.countYear}</strong>
+                    <div className="p-1 rounded-lg bg-gray-50 text-[9px] min-w-0 overflow-hidden">
+                      <span className="text-gray-400 block text-[8px] truncate">Year</span>
+                      <strong className="text-gray-800 truncate block">{p.countYear}</strong>
                     </div>
                   </div>
                 </div>
 
                 {/* Bottom Bar: Volume Share Progress Bar */}
-                <div className="mt-3 pt-2 border-t border-gray-100">
+                <div className="mt-3 pt-2 border-t border-gray-100 min-w-0">
                   <div className="flex items-center justify-between text-[10px] mb-1">
                     <span className="text-gray-500 font-medium">Order Share:</span>
                     <strong className="text-gray-900 font-bold">{p.unitsShare.toFixed(1)}%</strong>

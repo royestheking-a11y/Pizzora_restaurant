@@ -1444,7 +1444,7 @@ export function Admin() {
       </div>
 
       {/* ── Main Content ─────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-h-screen w-full md:ml-[260px]">
+      <div className="flex-1 flex flex-col min-h-screen min-w-0 w-full md:w-[calc(100vw-260px)] md:max-w-[calc(100vw-260px)] md:ml-[260px] overflow-x-hidden">
 
         {/* Top Bar */}
         <div
@@ -1488,7 +1488,7 @@ export function Admin() {
         </div>
 
         {/* Page Content */}
-        <div className="flex-1 p-4 md:p-6 overflow-auto">
+        <div className="flex-1 p-4 md:p-6 overflow-y-auto overflow-x-hidden min-w-0 max-w-full">
 
           {/* ══ DASHBOARD ══════════════════════════════════ */}
           {activeTab === 'dashboard' && (
