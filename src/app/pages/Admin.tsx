@@ -762,7 +762,7 @@ function LiveTopStats({ orders, expenses }: { orders: any[], expenses: any[] }) 
 // ─── Main Admin Component ──────────────────────────────────────────────────
 export function Admin() {
   const navigate = useNavigate();
-  const { state, dispatch, showNotification } = useApp();
+  const { state, dispatch, showNotification, refreshAnalytics } = useApp();
 
   const menuCategories = React.useMemo(() => {
     const defaultCats = ['Pizza','Fried Corner','Wings','Meatbox','Burger','Sub','Shawarma','Momo','Combo','Chawomen','Seafood','Pasta','Rich Bowl','Curry','Sizzling','Platter','Ramen','Naan','Cold Coffee','Hot Coffee','Lassi','Dessert','Biryani','Couple','Soup','Wonton','Salad','Soft Drink','Water','Juice'];
@@ -782,6 +782,12 @@ export function Admin() {
   const setActiveTab = (newTab: AdminTab) => {
     navigate(`/admin/${newTab}`);
   };
+
+  useEffect(() => {
+    if (activeTab === 'sales' || activeTab === 'product-analytics') {
+      refreshAnalytics?.();
+    }
+  }, [activeTab, refreshAnalytics]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewOrderDetails, setViewOrderDetails] = useState<any>(null);
   const [orderViewSubTab, setOrderViewSubTab] = useState<'list' | 'product-analytics'>('list');

@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { MenuItem, menuItems as defaultMenuItems, galleryImages as defaultGalleryImages, GalleryImage, Chef, chefs as defaultChefs } from '../data/restaurantData';
 export type { MenuItem, GalleryImage, Chef };
@@ -893,6 +893,7 @@ interface AppContextType {
   addPayrollRecord: (record: PayrollRecord) => void;
   updateDeliverySettings: (settings: DeliverySettings) => void;
   calcDeliveryFee: (distanceKm: number) => number;
+  refreshAnalytics: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -1088,27 +1089,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               dispatchLocal({ type: 'LOAD_FROM_STORAGE', payload: fullData });
 
               // Fetch analytics
-              fetch(`${SOCKET_URL}/api/analytics`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              })
-                .then(res => res.json())
-                .then(analyticsData => {
-                  if (analyticsData.success) {
-                    dispatchLocal({ type: 'SET_ANALYTICS', payload: {
-                      totalRevenue: analyticsData.totalRevenue,
-                      totalCustomers: analyticsData.totalCustomers,
-                      todayRevenue: analyticsData.todayRevenue,
-                      weeklyRevenue: analyticsData.weeklyRevenue,
-                      monthlyRevenue: analyticsData.monthlyRevenue,
-                      yearlyRevenue: analyticsData.yearlyRevenue,
-                      dailyChart: analyticsData.dailyChart,
-                      weeklyChart: analyticsData.weeklyChart,
-                      monthlyChart: analyticsData.monthlyChart,
-                      yearlyChart: analyticsData.yearlyChart,
-                    }});
-                  }
-                })
-                .catch(err => console.error("Failed to load analytics", err));
+              refreshAnalytics();
             });
         } else {
           localStorage.setItem('pizzora_state_cache', JSON.stringify(publicData));
@@ -1176,6 +1157,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateQuantity = (id: string, quantity: number) => {
     dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } });
   };
+
+  const refreshAnalytics = useCallback(async () => {
+    const token = sessionStorage.getItem('pizzora_token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${SOCKET_URL}/api/analytics`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const analyticsData = await res.json();
+      if (analyticsData.success) {
+        dispatchLocal({
+          type: 'SET_ANALYTICS',
+          payload: {
+            totalRevenue: analyticsData.totalRevenue,
+            totalCustomers: analyticsData.totalCustomers,
+            todayRevenue: analyticsData.todayRevenue,
+            weeklyRevenue: analyticsData.weeklyRevenue,
+            monthlyRevenue: analyticsData.monthlyRevenue,
+            yearlyRevenue: analyticsData.yearlyRevenue,
+            dailyChart: analyticsData.dailyChart,
+            weeklyChart: analyticsData.weeklyChart,
+            monthlyChart: analyticsData.monthlyChart,
+            yearlyChart: analyticsData.yearlyChart,
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Failed to refresh analytics", err);
+    }
+  }, []);
 
   const clearCart = () => dispatch({ type: 'CLEAR_CART' });
 
@@ -1309,6 +1320,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addPayrollRecord,
         updateDeliverySettings,
         calcDeliveryFee: calcDeliveryFeeCtx,
+        refreshAnalytics,
       }}
     >
       {children}

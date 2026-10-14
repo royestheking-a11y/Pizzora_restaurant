@@ -40,6 +40,7 @@ export function ProductAnalytics() {
     // Tally Table Orders
     state.tableOrders.forEach(order => {
       if (order.status !== 'Pending') {
+        if (state.orders.some(o => o.orderNumber === order.invoiceNumber || o.id === order.id)) return;
         order.items.forEach(c => {
           // Find matching menu item to get cost, if possible
           const menuItem = state.menuItems.find(m => m.id === c.itemId || m.name === c.name);

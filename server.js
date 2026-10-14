@@ -315,12 +315,45 @@ app.get('/api/analytics', authenticateJWT, async (req, res) => {
   try {
     const start = Date.now();
     // Only fetch minimal fields needed for analytics to save memory
-    const orders = await Order.find({ status: { $in: ['Delivered', 'Paid'] } }, 'createdAt total').lean();
-    const tableOrders = await TableOrder.find({ status: 'Paid' }, 'createdAt total').lean();
+    const orders = await Order.find(
+      { status: { $in: ['Delivered', 'Paid'] } },
+      'createdAt total orderNumber id'
+    ).lean();
+    const tableOrders = await TableOrder.find(
+      { status: 'Paid' },
+      'createdAt total invoiceNumber id'
+    ).lean();
     
+    // Deduplicate table orders that already exist as completed orders in Order collection
+    const existingOrderIdentifiers = new Set();
+    orders.forEach(o => {
+      if (o.orderNumber) existingOrderIdentifiers.add(String(o.orderNumber).trim().toUpperCase());
+      if (o.id) existingOrderIdentifiers.add(String(o.id).trim().toUpperCase());
+    });
+
+    const dedupedTableOrders = tableOrders.filter(to => {
+      const inv = to.invoiceNumber ? String(to.invoiceNumber).trim().toUpperCase() : '';
+      const tid = to.id ? String(to.id).trim().toUpperCase() : '';
+      if (inv && existingOrderIdentifiers.has(inv)) return false;
+      if (tid && existingOrderIdentifiers.has(tid)) return false;
+      return true;
+    });
+
     const allOrders = [
-      ...orders.map(o => ({ timestamp: new Date(o.createdAt).getTime(), total: o.total })),
-      ...tableOrders.map(o => ({ timestamp: new Date(o.createdAt).getTime(), total: o.total }))
+      ...orders.map(o => {
+        const ts = new Date(o.createdAt).getTime();
+        return {
+          timestamp: isNaN(ts) ? 0 : ts,
+          total: typeof o.total === 'number' && !isNaN(o.total) ? o.total : 0
+        };
+      }),
+      ...dedupedTableOrders.map(to => {
+        const ts = typeof to.createdAt === 'number' ? to.createdAt : new Date(to.createdAt).getTime();
+        return {
+          timestamp: isNaN(ts) ? 0 : ts,
+          total: typeof to.total === 'number' && !isNaN(to.total) ? to.total : 0
+        };
+      })
     ];
     
     const dhakaOffset = 6 * 60 * 60 * 1000;
