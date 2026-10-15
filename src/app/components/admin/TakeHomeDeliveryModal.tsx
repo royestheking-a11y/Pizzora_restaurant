@@ -37,7 +37,7 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
   const [address, setAddress] = useState('');
   const [area, setArea] = useState('Zindabazar');
   const [fee, setFee] = useState<number>(40);
-  const [paymentMethod, setPaymentMethod] = useState<'Cash on Delivery' | 'bKash' | 'Nagad' | 'Card'>('Cash on Delivery');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash on Delivery' | 'bKash' | 'Nagad' | 'Card' | 'Staff Tab' | 'Complimentary'>('Cash on Delivery');
   const [riderNote, setRiderNote] = useState('');
   const [selectedItems, setSelectedItems] = useState<{ item: MenuItem; quantity: number; note?: string }[]>([]);
   const [menuSearch, setMenuSearch] = useState('');
@@ -140,10 +140,21 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
         })),
         subtotal: subtotal,
         deliveryFee: Number(fee || 0),
-        discount: 0,
-        total: grandTotal,
+        discount: paymentMethod === 'Complimentary' ? grandTotal : 0,
+        total: paymentMethod === 'Complimentary' ? 0 : grandTotal,
         status: initialStatus,
         paymentMethod: paymentMethod,
+        compDetails: paymentMethod === 'Complimentary' ? {
+          guestName: customerName.trim() || 'Complimentary Delivery',
+          reason: 'Owner / Partner Guest',
+          authorizedBy: 'Manager',
+        } : undefined,
+        staffTabDetails: paymentMethod === 'Staff Tab' ? {
+          staffId: 'staff',
+          staffName: customerName.trim() || 'Staff Take Home',
+          isSettled: false,
+          notes: 'Take Home Parcel',
+        } : undefined,
         createdAt: new Date().toISOString(),
         estimatedTime: '30-45 mins',
         isOnlineOrder: true,
@@ -322,6 +333,8 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
                     <option value="bKash">bKash</option>
                     <option value="Nagad">Nagad</option>
                     <option value="Card">Card</option>
+                    <option value="Staff Tab">Staff Tab (Pay Later / Due)</option>
+                    <option value="Complimentary">Complimentary / Free Delivery</option>
                   </select>
                 </div>
               </div>

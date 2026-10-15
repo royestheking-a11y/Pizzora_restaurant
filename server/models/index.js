@@ -41,13 +41,32 @@ const OrderSchema = new mongoose.Schema({
   status: String,
   paymentMethod: String,
   splitPayments: Array,
+  compDetails: {
+    guestName: String,
+    reason: String,
+    authorizedBy: String,
+    notes: String,
+  },
+  staffTabDetails: {
+    staffId: String,
+    staffName: String,
+    isSettled: { type: Boolean, default: false },
+    settledAt: String,
+    settledMethod: String,
+    settledBy: String,
+    notes: String,
+  },
   customerName: String,
   phone: String,
   address: String,
   createdAt: String,
   estimatedTime: String,
   orderNumber: String,
-}, { strict: true });
+  orderType: String,
+  notes: String,
+  source: String,
+  deliveryFee: Number,
+}, { strict: false });
 
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ status: 1 });
@@ -134,7 +153,22 @@ const TableOrderSchema = new mongoose.Schema({
   invoiceNumber: String,
   paymentMethod: String,
   splitPayments: Array,
-}, { strict: true });
+  compDetails: {
+    guestName: String,
+    reason: String,
+    authorizedBy: String,
+    notes: String,
+  },
+  staffTabDetails: {
+    staffId: String,
+    staffName: String,
+    isSettled: { type: Boolean, default: false },
+    settledAt: String,
+    settledMethod: String,
+    settledBy: String,
+    notes: String,
+  },
+}, { strict: false });
 
 TableOrderSchema.index({ tableId: 1, status: 1 });
 

@@ -8,7 +8,7 @@ import {
   Search, CreditCard, Smartphone, Banknote,
   Tag, Percent, CheckCircle2, AlertTriangle, PrinterCheck, Split,
   MoveRight, Sparkles, Phone, User, Flame, LayoutGrid, ArrowLeft, MousePointerClick, Edit2,
-  UserCheck, Truck
+  UserCheck, Truck, Gift
 } from 'lucide-react';
 import { TakeHomeDeliveryModal } from './TakeHomeDeliveryModal';
 import {
@@ -60,7 +60,7 @@ const orderStatusIcon: Partial<Record<TableOrderStatus, typeof CheckCircle>> = {
   Pending: Zap, Confirmed: CookingPot, Cooking: Bell, Ready: ChefHat, Served: Receipt,
 };
 
-type PaymentMethod = 'Cash' | 'Card' | 'bKash' | 'Nagad' | 'Split';
+type PaymentMethod = 'Cash' | 'Card' | 'bKash' | 'Nagad' | 'Split' | 'Complimentary' | 'Staff Tab';
 type DiscountType = 'flat' | 'percent';
 
 interface TableDraftSession {
@@ -420,8 +420,6 @@ function TablePaymentModal({
     return Math.min(subtotal, val);
   }, [subtotal, discountVal, discountType]);
 
-  const total = Math.max(0, subtotal - discountAmount);
-
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
   const [cashTendered, setCashTendered] = useState<string>('');
   const [splitAmounts, setSplitAmounts] = useState<{ Cash: string; bKash: string; Nagad: string; Card: string }>({
@@ -430,6 +428,18 @@ function TablePaymentModal({
   const [invoiceNumber, setInvoiceNumber] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [printFeedback, setPrintFeedback] = useState<string | null>(null);
+
+  // Complimentary and Staff Tab States for Modal
+  const [compGuestName, setCompGuestName] = useState(customerName || '');
+  const [compReason, setCompReason] = useState('Owner / Partner VIP');
+  const [compAuthorizedBy, setCompAuthorizedBy] = useState('Manager');
+  const [compNotes, setCompNotes] = useState('');
+
+  const [staffEmployeeId, setStaffEmployeeId] = useState('');
+  const [staffEmployeeName, setStaffEmployeeName] = useState(customerName || '');
+  const [staffNotes, setStaffNotes] = useState('');
+
+  const total = paymentMethod === 'Complimentary' ? 0 : Math.max(0, subtotal - discountAmount);
 
   useEffect(() => {
     generateInvoiceNumber().then(setInvoiceNumber).catch(() => {
@@ -508,11 +518,23 @@ function TablePaymentModal({
         };
       }),
       subtotal,
-      discount: discountAmount,
-      total,
+      discount: paymentMethod === 'Complimentary' ? subtotal : discountAmount,
+      total: paymentMethod === 'Complimentary' ? 0 : total,
       status: 'Delivered' as const,
       paymentMethod,
       splitPayments: activeSplitPayments.length > 0 ? activeSplitPayments : undefined,
+      compDetails: paymentMethod === 'Complimentary' ? {
+        guestName: compGuestName.trim() || finalCustomerName,
+        reason: compReason,
+        authorizedBy: compAuthorizedBy || cashierName,
+        notes: compNotes || `Table ${table.tableNumber} Complimentary`,
+      } : undefined,
+      staffTabDetails: paymentMethod === 'Staff Tab' ? {
+        staffId: staffEmployeeId || 'staff',
+        staffName: staffEmployeeName || finalCustomerName,
+        isSettled: false,
+        notes: staffNotes || `Table ${table.tableNumber} Dining`,
+      } : undefined,
       customerName: finalCustomerName,
       phone: customerPhone || '',
       address: `Dine In — Table ${table.tableNumber} (${table.area})`,
@@ -690,42 +712,247 @@ function TablePaymentModal({
                 <span className="font-bold">-৳{discountAmount.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between text-lg font-black pt-2 border-t border-red-200 text-red-600" style={{ fontFamily: 'var(--font-heading)' }}>
-              <span>Total Payable:</span>
-              <span>৳{total.toFixed(2)}</span>
+            <div className="flex justify-between items-baseline pt-2 border-t border-red-200">
+              <span className="font-black text-gray-900 text-sm">Total Payable:</span>
+              {paymentMethod === 'Complimentary' ? (
+                <div className="text-right">
+                  <span className="text-emerald-600 line-through text-xs font-semibold block">৳{subtotal.toFixed(2)}</span>
+                  <span className="text-emerald-700 text-lg font-black" style={{ fontFamily: 'var(--font-heading)' }}>
+                    ৳0.00 <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full ml-1 uppercase">100% Free Comp</span>
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xl font-black text-red-600" style={{ fontFamily: 'var(--font-heading)' }}>
+                  ৳{total.toFixed(2)}
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Payment Method Selector */}
-          <div>
-            <label style={labelStyle}>Select Payment Method</label>
-            <div className="grid grid-cols-5 gap-2 mt-1">
+          {/* Payment Method Selector (2-Tier Layout) */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <label style={labelStyle} className="mb-0">Select Payment Method</label>
+              <span className="text-[11px] font-bold text-gray-500">
+                Selected: <strong className={paymentMethod === 'Complimentary' ? 'text-emerald-700' : paymentMethod === 'Staff Tab' ? 'text-amber-700' : 'text-gray-900'}>{paymentMethod}</strong>
+              </span>
+            </div>
+
+            {/* Row 1: Regular Customer Payment Channels */}
+            <div className="grid grid-cols-5 gap-1.5">
               {(['Cash', 'Card', 'bKash', 'Nagad', 'Split'] as PaymentMethod[]).map(pm => {
                 const isSelected = paymentMethod === pm;
+                const activeColor =
+                  pm === 'bKash' ? '#E2136E' :
+                  pm === 'Nagad' ? '#F7941D' :
+                  pm === 'Split' ? '#7C3AED' :
+                  pm === 'Card' ? '#0284C7' : '#F9002B';
+
                 return (
                   <button
                     key={pm}
                     type="button"
                     onClick={() => setPaymentMethod(pm)}
-                    className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl text-xs font-bold transition-all"
+                    className="flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-bold transition-all text-center"
                     style={{
-                      backgroundColor: isSelected ? '#F9002B' : '#F3F4F6',
+                      backgroundColor: isSelected ? activeColor : '#F3F4F6',
                       color: isSelected ? '#fff' : '#4B5563',
-                      border: `1.5px solid ${isSelected ? '#F9002B' : '#E5E7EB'}`,
+                      border: `1.5px solid ${isSelected ? activeColor : '#E5E7EB'}`,
                       fontFamily: 'var(--font-heading)'
                     }}
                   >
-                    {pm === 'Cash' && <Banknote size={15} className="mb-1" />}
-                    {pm === 'Card' && <CreditCard size={15} className="mb-1" />}
-                    {pm === 'bKash' && <Smartphone size={15} className="mb-1" />}
-                    {pm === 'Nagad' && <Smartphone size={15} className="mb-1" />}
-                    {pm === 'Split' && <Split size={15} className="mb-1" />}
+                    {pm === 'Cash' && <Banknote size={14} className="mb-0.5" />}
+                    {pm === 'Card' && <CreditCard size={14} className="mb-0.5" />}
+                    {pm === 'bKash' && <Smartphone size={14} className="mb-0.5" />}
+                    {pm === 'Nagad' && <Smartphone size={14} className="mb-0.5" />}
+                    {pm === 'Split' && <Split size={14} className="mb-0.5" />}
                     <span>{pm}</span>
                   </button>
                 );
               })}
             </div>
+
+            {/* Row 2: Special In-House Dining (Free Guest & Staff Tab) */}
+            <div className="pt-1">
+              <div className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1" style={{ fontFamily: 'var(--font-heading)' }}>
+                <Sparkles size={11} className="text-amber-500" /> Special In-House Dining Channels:
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {/* Free Guest (Comp) */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('Complimentary')}
+                  className={`p-2.5 rounded-xl border text-left transition-all active:scale-[0.98] ${
+                    paymentMethod === 'Complimentary'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                      : 'bg-emerald-50/70 hover:bg-emerald-100/70 border-emerald-200 text-emerald-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-black text-xs" style={{ fontFamily: 'var(--font-heading)' }}>
+                    <Gift size={14} className={paymentMethod === 'Complimentary' ? 'text-white' : 'text-emerald-600'} />
+                    <span>Free Guest (Comp)</span>
+                  </div>
+                  <span className={`text-[10px] block mt-0.5 ${paymentMethod === 'Complimentary' ? 'text-emerald-100' : 'text-emerald-700'}`}>
+                    100% Free · ৳0 Bill
+                  </span>
+                </button>
+
+                {/* Staff Tab (Pay Later) */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('Staff Tab')}
+                  className={`p-2.5 rounded-xl border text-left transition-all active:scale-[0.98] ${
+                    paymentMethod === 'Staff Tab'
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/20'
+                      : 'bg-amber-50/70 hover:bg-amber-100/70 border-amber-200 text-amber-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-black text-xs" style={{ fontFamily: 'var(--font-heading)' }}>
+                    <UserCheck size={14} className={paymentMethod === 'Staff Tab' ? 'text-white' : 'text-amber-600'} />
+                    <span>Staff Tab (Pay Later)</span>
+                  </div>
+                  <span className={`text-[10px] block mt-0.5 ${paymentMethod === 'Staff Tab' ? 'text-amber-100' : 'text-amber-700'}`}>
+                    Employee Due Ledger
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
+
+          {/* Complimentary (Free Guest) Interactive Form in Modal */}
+          {paymentMethod === 'Complimentary' && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs space-y-2.5 animate-fade-in">
+              <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
+                <div className="flex items-center gap-1.5 text-emerald-950 font-black" style={{ fontFamily: 'var(--font-heading)' }}>
+                  <Gift size={15} className="text-emerald-600" />
+                  <span>100% Free Guest Meal (Comp)</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
+                  ৳0 Bill
+                </span>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-emerald-900 uppercase tracking-wide block mb-1">
+                  Guest / VIP Name
+                </label>
+                <input
+                  type="text"
+                  value={compGuestName}
+                  onChange={e => setCompGuestName(e.target.value)}
+                  placeholder={customerName || 'e.g. VIP Guest / Mr. Karim'}
+                  className="w-full px-3 py-1.5 rounded-xl border border-emerald-300 text-xs font-semibold bg-white outline-none focus:ring-2 focus:ring-emerald-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-emerald-900 uppercase tracking-wide block mb-1">
+                    Comp Reason
+                  </label>
+                  <select
+                    value={compReason}
+                    onChange={e => setCompReason(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-emerald-300 text-xs font-bold bg-white text-gray-800 outline-none"
+                  >
+                    <option value="Owner / Partner VIP">Owner VIP</option>
+                    <option value="Tasting & PR / Reviewer">Tasting / PR</option>
+                    <option value="Food Quality Recovery">Food Quality Recovery</option>
+                    <option value="Staff Family & Friends">Staff Family / Friends</option>
+                    <option value="Management Courtesy">Management Courtesy</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-emerald-900 uppercase tracking-wide block mb-1">
+                    Authorized By
+                  </label>
+                  <input
+                    type="text"
+                    value={compAuthorizedBy}
+                    onChange={e => setCompAuthorizedBy(e.target.value)}
+                    placeholder="e.g. Owner / Manager"
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-emerald-300 text-xs font-semibold bg-white outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="p-2 rounded-xl bg-emerald-100/80 text-[11px] text-emerald-900 font-medium">
+                ✓ Kitchen inventory will be deducted automatically. Counter cash drawer expects ৳0.
+              </div>
+            </div>
+          )}
+
+          {/* Staff Tab Interactive Form in Modal */}
+          {paymentMethod === 'Staff Tab' && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs space-y-2.5 animate-fade-in">
+              <div className="flex items-center justify-between pb-2 border-b border-amber-200">
+                <div className="flex items-center gap-1.5 text-amber-950 font-black" style={{ fontFamily: 'var(--font-heading)' }}>
+                  <UserCheck size={15} className="text-amber-600" />
+                  <span>Staff Dining Tab (Pay Later)</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black uppercase">
+                  Due: ৳{subtotal.toFixed(2)}
+                </span>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-amber-900 uppercase tracking-wide block mb-1">
+                  Select Staff Member *
+                </label>
+                <select
+                  value={staffEmployeeId}
+                  onChange={e => {
+                    const empId = e.target.value;
+                    setStaffEmployeeId(empId);
+                    const emp = state.employees.find(x => x.id === empId);
+                    if (emp) setStaffEmployeeName(emp.name);
+                  }}
+                  className="w-full px-2.5 py-2 rounded-xl border border-amber-300 text-xs font-bold bg-white text-gray-800 outline-none"
+                >
+                  <option value="">-- Choose Employee --</option>
+                  {state.employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.role || emp.shift || 'Staff'})
+                    </option>
+                  ))}
+                  <option value="custom">+ Other / Manual Name</option>
+                </select>
+              </div>
+
+              {(!staffEmployeeId || staffEmployeeId === 'custom') && (
+                <div>
+                  <label className="text-[10px] font-bold text-amber-900 uppercase tracking-wide block mb-1">
+                    Staff Name
+                  </label>
+                  <input
+                    type="text"
+                    value={staffEmployeeName}
+                    onChange={e => setStaffEmployeeName(e.target.value)}
+                    placeholder="e.g. Waiter Sumon / Chef Robi"
+                    className="w-full px-3 py-1.5 rounded-xl border border-amber-300 text-xs font-semibold bg-white outline-none"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="text-[10px] font-bold text-amber-900 uppercase tracking-wide block mb-1">
+                  Shift / Settlement Note
+                </label>
+                <input
+                  type="text"
+                  value={staffNotes}
+                  onChange={e => setStaffNotes(e.target.value)}
+                  placeholder="e.g. Lunch shift, deduct from month-end salary"
+                  className="w-full px-3 py-1.5 rounded-xl border border-amber-300 text-xs font-semibold bg-white outline-none"
+                />
+              </div>
+
+              <div className="p-2 rounded-xl bg-amber-100/80 text-[11px] text-amber-900 font-medium">
+                ✓ Meal will be logged into Staff Due Ledger. Counter cash drawer will NOT expect cash today.
+              </div>
+            </div>
+          )}
 
           {/* Cash Tendered Input */}
           {paymentMethod === 'Cash' && (
@@ -857,10 +1084,24 @@ function TablePaymentModal({
             onClick={() => handleProcessPayment(true)}
             disabled={isProcessing}
             className="flex-[2] py-3.5 rounded-xl font-bold text-xs text-white shadow-lg transition-all hover:scale-[1.01] flex items-center justify-center gap-2"
-            style={{ background: 'linear-gradient(135deg, #16A34A, #15803D)', fontFamily: 'var(--font-heading)' }}
+            style={{
+              background:
+                paymentMethod === 'Complimentary'
+                  ? 'linear-gradient(135deg, #059669, #047857)'
+                  : paymentMethod === 'Staff Tab'
+                    ? 'linear-gradient(135deg, #D97706, #B45309)'
+                    : 'linear-gradient(135deg, #16A34A, #15803D)',
+              fontFamily: 'var(--font-heading)'
+            }}
           >
             <Printer size={16} />
-            {isProcessing ? 'Processing...' : 'Print Receipt & Clear Table'}
+            {isProcessing
+              ? 'Processing...'
+              : paymentMethod === 'Complimentary'
+                ? '★ Settle as Free Guest (Comp ৳0.00)'
+                : paymentMethod === 'Staff Tab'
+                  ? `📋 Record Staff Tab (Pay Later ৳${total.toFixed(2)})`
+                  : 'Print Receipt & Clear Table'}
           </button>
         </div>
       </div>
@@ -1116,6 +1357,16 @@ export function TableManagement() {
   });
   const [isPanelProcessing, setIsPanelProcessing] = useState<boolean>(false);
 
+  // Complimentary (Free Guest) & Staff Tab States for Right Panel
+  const [panelCompGuestName, setPanelCompGuestName] = useState<string>('');
+  const [panelCompReason, setPanelCompReason] = useState<string>('Owner / Partner VIP');
+  const [panelCompAuthorizedBy, setPanelCompAuthorizedBy] = useState<string>('Manager');
+  const [panelCompNotes, setPanelCompNotes] = useState<string>('');
+
+  const [panelStaffEmployeeId, setPanelStaffEmployeeId] = useState<string>('');
+  const [panelStaffEmployeeName, setPanelStaffEmployeeName] = useState<string>('');
+  const [panelStaffNotes, setPanelStaffNotes] = useState<string>('');
+
   const currentTable = useMemo(() => {
     return tables.find(t => t.id === selectedTableId) || tables[0] || null;
   }, [tables, selectedTableId]);
@@ -1221,7 +1472,7 @@ export function TableManagement() {
     return Math.min(ticketSubtotal, val);
   }, [ticketSubtotal, currentDraft.discountVal, currentDraft.discountType]);
 
-  const ticketTotal = Math.max(0, ticketSubtotal - discountAmount);
+  const ticketTotal = panelPaymentMethod === 'Complimentary' ? 0 : Math.max(0, ticketSubtotal - discountAmount);
 
   // Panel Payment Calculations (Cash tendered, Change, Due, Split remainder)
   const panelChange = useMemo(() => {
@@ -1313,11 +1564,23 @@ export function TableManagement() {
           };
         }),
         subtotal: ticketSubtotal,
-        discount: discountAmount,
-        total: ticketTotal,
+        discount: panelPaymentMethod === 'Complimentary' ? ticketSubtotal : discountAmount,
+        total: panelPaymentMethod === 'Complimentary' ? 0 : ticketTotal,
         status: 'Delivered' as const,
         paymentMethod: panelPaymentMethod,
         splitPayments: activeSplitPayments.length > 0 ? activeSplitPayments : undefined,
+        compDetails: panelPaymentMethod === 'Complimentary' ? {
+          guestName: panelCompGuestName.trim() || finalCustomerName,
+          reason: panelCompReason,
+          authorizedBy: panelCompAuthorizedBy || cashierName,
+          notes: panelCompNotes || `Table ${currentTable.tableNumber} Complimentary`,
+        } : undefined,
+        staffTabDetails: panelPaymentMethod === 'Staff Tab' ? {
+          staffId: panelStaffEmployeeId || 'staff',
+          staffName: panelStaffEmployeeName || finalCustomerName,
+          isSettled: false,
+          notes: panelStaffNotes || `Table ${currentTable.tableNumber} Dining`,
+        } : undefined,
         customerName: finalCustomerName,
         phone: finalCustomerPhone,
         address: `Dine In — Table ${currentTable.tableNumber} (${currentTable.area})${panelTrxRef.trim() ? ` [Ref: ${panelTrxRef.trim()}]` : ''}`,
@@ -2422,38 +2685,48 @@ export function TableManagement() {
                 )}
                 <div className="flex justify-between items-baseline pt-2 border-t border-gray-200">
                   <span className="font-black text-gray-900 text-sm">Grand Total:</span>
-                  <span className="text-2xl font-black text-red-600" style={{ fontFamily: 'var(--font-heading)' }}>
-                    ৳{ticketTotal.toFixed(2)}
-                  </span>
+                  {panelPaymentMethod === 'Complimentary' ? (
+                    <div className="text-right">
+                      <span className="text-emerald-600 line-through text-xs font-semibold block">৳{ticketSubtotal.toFixed(2)}</span>
+                      <span className="text-emerald-700 text-xl font-black" style={{ fontFamily: 'var(--font-heading)' }}>
+                        ৳0.00 <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full ml-1 uppercase">100% Free Comp</span>
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-2xl font-black text-red-600" style={{ fontFamily: 'var(--font-heading)' }}>
+                      ৳{ticketTotal.toFixed(2)}
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Payment Method Selector (same as POS terminal) */}
-              <div className="space-y-2 pt-2 border-t border-gray-200">
+              {/* Payment Method Selector (2-Tier Layout) */}
+              <div className="space-y-2.5 pt-2 border-t border-gray-200">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5" style={{ fontFamily: 'var(--font-heading)' }}>
                     <CreditCard size={13} className="text-red-600" /> Payment Method:
                   </span>
                   <span className="text-[11px] font-bold text-gray-500">
-                    Selected: <strong className="text-gray-900">{panelPaymentMethod}</strong>
+                    Selected: <strong className={panelPaymentMethod === 'Complimentary' ? 'text-emerald-700' : panelPaymentMethod === 'Staff Tab' ? 'text-amber-700' : 'text-gray-900'}>{panelPaymentMethod}</strong>
                   </span>
                 </div>
 
+                {/* Row 1: Regular Customer Payment Channels */}
                 <div className="grid grid-cols-5 gap-1.5">
                   {(['Cash', 'Card', 'bKash', 'Nagad', 'Split'] as PaymentMethod[]).map(pm => {
                     const isSelected = panelPaymentMethod === pm;
                     const bgActive =
                       pm === 'bKash' ? '#E2136E' :
-                        pm === 'Nagad' ? '#F7941D' :
-                          pm === 'Split' ? '#7C3AED' :
-                            pm === 'Card' ? '#0284C7' : '#F9002B';
+                      pm === 'Nagad' ? '#F7941D' :
+                      pm === 'Split' ? '#7C3AED' :
+                      pm === 'Card' ? '#0284C7' : '#F9002B';
 
                     return (
                       <button
                         key={pm}
                         type="button"
                         onClick={() => setPanelPaymentMethod(pm)}
-                        className="py-2.5 px-1 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 active:scale-95 shadow-sm"
+                        className="py-2.5 px-1 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 active:scale-95 shadow-2xs text-center"
                         style={{
                           backgroundColor: isSelected ? bgActive : '#FFFFFF',
                           color: isSelected ? '#FFFFFF' : '#4B5563',
@@ -2462,16 +2735,197 @@ export function TableManagement() {
                           boxShadow: isSelected ? `0 4px 12px ${bgActive}33` : 'none',
                         }}
                       >
-                        {pm === 'Cash' && <Banknote size={15} />}
-                        {pm === 'Card' && <CreditCard size={15} />}
-                        {pm === 'bKash' && <Smartphone size={15} />}
-                        {pm === 'Nagad' && <Smartphone size={15} />}
-                        {pm === 'Split' && <Split size={15} />}
+                        {pm === 'Cash' && <Banknote size={14} />}
+                        {pm === 'Card' && <CreditCard size={14} />}
+                        {pm === 'bKash' && <Smartphone size={14} />}
+                        {pm === 'Nagad' && <Smartphone size={14} />}
+                        {pm === 'Split' && <Split size={14} />}
                         <span className="leading-none text-[11px]">{pm}</span>
                       </button>
                     );
                   })}
                 </div>
+
+                {/* Row 2: Special In-House Dining Channels (Free Guest & Staff Tab) */}
+                <div className="pt-1">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1" style={{ fontFamily: 'var(--font-heading)' }}>
+                    <Sparkles size={11} className="text-amber-500" /> Special In-House Dining Channels:
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Free Guest (Comp) */}
+                    <button
+                      type="button"
+                      onClick={() => setPanelPaymentMethod('Complimentary')}
+                      className={`p-2.5 rounded-xl border text-left transition-all active:scale-[0.98] ${
+                        panelPaymentMethod === 'Complimentary'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                          : 'bg-emerald-50/70 hover:bg-emerald-100/70 border-emerald-200 text-emerald-900'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-black text-xs" style={{ fontFamily: 'var(--font-heading)' }}>
+                        <Gift size={14} className={panelPaymentMethod === 'Complimentary' ? 'text-white' : 'text-emerald-600'} />
+                        <span>Free Guest (Comp)</span>
+                      </div>
+                      <span className={`text-[10px] block mt-0.5 ${panelPaymentMethod === 'Complimentary' ? 'text-emerald-100' : 'text-emerald-700'}`}>
+                        100% Free · ৳0 Bill
+                      </span>
+                    </button>
+
+                    {/* Staff Tab (Pay Later) */}
+                    <button
+                      type="button"
+                      onClick={() => setPanelPaymentMethod('Staff Tab')}
+                      className={`p-2.5 rounded-xl border text-left transition-all active:scale-[0.98] ${
+                        panelPaymentMethod === 'Staff Tab'
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/20'
+                          : 'bg-amber-50/70 hover:bg-amber-100/70 border-amber-200 text-amber-900'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-black text-xs" style={{ fontFamily: 'var(--font-heading)' }}>
+                        <UserCheck size={14} className={panelPaymentMethod === 'Staff Tab' ? 'text-white' : 'text-amber-600'} />
+                        <span>Staff Tab (Pay Later)</span>
+                      </div>
+                      <span className={`text-[10px] block mt-0.5 ${panelPaymentMethod === 'Staff Tab' ? 'text-amber-100' : 'text-amber-700'}`}>
+                        Employee Due Ledger
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Complimentary (Free Guest) Interactive Panel */}
+                {panelPaymentMethod === 'Complimentary' && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs space-y-2.5 animate-fade-in">
+                    <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
+                      <div className="flex items-center gap-1.5 text-emerald-950 font-black" style={{ fontFamily: 'var(--font-heading)' }}>
+                        <Gift size={15} className="text-emerald-600" />
+                        <span>100% Free Guest Meal (Comp)</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
+                        ৳0 Bill
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-emerald-900 uppercase tracking-wide block mb-1">
+                        Guest / VIP Name
+                      </label>
+                      <input
+                        type="text"
+                        value={panelCompGuestName}
+                        onChange={e => setPanelCompGuestName(e.target.value)}
+                        placeholder={currentDraft.customerName || 'e.g. VIP Guest / Mr. Karim'}
+                        className="w-full px-3 py-1.5 rounded-xl border border-emerald-300 text-xs font-semibold bg-white outline-none focus:ring-2 focus:ring-emerald-400"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-bold text-emerald-900 uppercase tracking-wide block mb-1">
+                          Comp Reason
+                        </label>
+                        <select
+                          value={panelCompReason}
+                          onChange={e => setPanelCompReason(e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-xl border border-emerald-300 text-xs font-bold bg-white text-gray-800 outline-none"
+                        >
+                          <option value="Owner / Partner VIP">Owner VIP</option>
+                          <option value="Tasting & PR / Reviewer">Tasting / PR</option>
+                          <option value="Food Quality Recovery">Food Quality Recovery</option>
+                          <option value="Staff Family & Friends">Staff Family / Friends</option>
+                          <option value="Management Courtesy">Management Courtesy</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-emerald-900 uppercase tracking-wide block mb-1">
+                          Authorized By
+                        </label>
+                        <input
+                          type="text"
+                          value={panelCompAuthorizedBy}
+                          onChange={e => setPanelCompAuthorizedBy(e.target.value)}
+                          placeholder="e.g. Owner / Manager"
+                          className="w-full px-2.5 py-1.5 rounded-xl border border-emerald-300 text-xs font-semibold bg-white outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-emerald-100/80 text-[11px] text-emerald-900 font-medium">
+                      ✓ Kitchen inventory will be deducted automatically. Counter cash drawer expects ৳0.
+                    </div>
+                  </div>
+                )}
+
+                {/* Staff Tab Interactive Panel */}
+                {panelPaymentMethod === 'Staff Tab' && (
+                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs space-y-2.5 animate-fade-in">
+                    <div className="flex items-center justify-between pb-2 border-b border-amber-200">
+                      <div className="flex items-center gap-1.5 text-amber-950 font-black" style={{ fontFamily: 'var(--font-heading)' }}>
+                        <UserCheck size={15} className="text-amber-600" />
+                        <span>Staff Dining Tab (Pay Later)</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black uppercase">
+                        Due: ৳{ticketTotal.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-amber-900 uppercase tracking-wide block mb-1">
+                        Select Staff Member *
+                      </label>
+                      <select
+                        value={panelStaffEmployeeId}
+                        onChange={e => {
+                          const empId = e.target.value;
+                          setPanelStaffEmployeeId(empId);
+                          const emp = state.employees.find(x => x.id === empId);
+                          if (emp) setPanelStaffEmployeeName(emp.name);
+                        }}
+                        className="w-full px-2.5 py-2 rounded-xl border border-amber-300 text-xs font-bold bg-white text-gray-800 outline-none"
+                      >
+                        <option value="">-- Choose Employee --</option>
+                        {state.employees.map(emp => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.name} ({emp.role || emp.shift || 'Staff'})
+                          </option>
+                        ))}
+                        <option value="custom">+ Other / Manual Name</option>
+                      </select>
+                    </div>
+
+                    {(!panelStaffEmployeeId || panelStaffEmployeeId === 'custom') && (
+                      <div>
+                        <label className="text-[10px] font-bold text-amber-900 uppercase tracking-wide block mb-1">
+                          Staff Name
+                        </label>
+                        <input
+                          type="text"
+                          value={panelStaffEmployeeName}
+                          onChange={e => setPanelStaffEmployeeName(e.target.value)}
+                          placeholder="e.g. Waiter Sumon / Chef Robi"
+                          className="w-full px-3 py-1.5 rounded-xl border border-amber-300 text-xs font-semibold bg-white outline-none"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-[10px] font-bold text-amber-900 uppercase tracking-wide block mb-1">
+                        Shift / Settlement Note
+                      </label>
+                      <input
+                        type="text"
+                        value={panelStaffNotes}
+                        onChange={e => setPanelStaffNotes(e.target.value)}
+                        placeholder="e.g. Lunch meal, deduct from month-end salary"
+                        className="w-full px-3 py-1.5 rounded-xl border border-amber-300 text-xs font-semibold bg-white outline-none"
+                      />
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-amber-100/80 text-[11px] text-amber-900 font-medium">
+                      ✓ Meal will be logged into Staff Due Ledger. Counter cash drawer will NOT expect cash today.
+                    </div>
+                  </div>
+                )}
 
                 {/* Cash Tendered Input & Change Calc */}
                 {panelPaymentMethod === 'Cash' && (
@@ -2669,20 +3123,32 @@ export function TableManagement() {
                   className="w-full py-3.5 rounded-2xl text-sm font-black text-white transition-all hover:shadow-xl disabled:opacity-40 flex items-center justify-center gap-2 active:scale-95"
                   style={{
                     background:
-                      panelPaymentMethod === 'Split'
-                        ? 'linear-gradient(135deg, #7C3AED, #6D28D9)'
-                        : 'linear-gradient(135deg, #16A34A, #15803D)',
+                      panelPaymentMethod === 'Complimentary'
+                        ? 'linear-gradient(135deg, #059669, #047857)'
+                        : panelPaymentMethod === 'Staff Tab'
+                          ? 'linear-gradient(135deg, #D97706, #B45309)'
+                          : panelPaymentMethod === 'Split'
+                            ? 'linear-gradient(135deg, #7C3AED, #6D28D9)'
+                            : 'linear-gradient(135deg, #16A34A, #15803D)',
                     fontFamily: 'var(--font-heading)',
-                    boxShadow: '0 6px 18px rgba(22,163,74,0.22)',
+                    boxShadow: panelPaymentMethod === 'Complimentary'
+                      ? '0 6px 18px rgba(5,150,105,0.25)'
+                      : panelPaymentMethod === 'Staff Tab'
+                        ? '0 6px 18px rgba(217,119,6,0.25)'
+                        : '0 6px 18px rgba(22,163,74,0.22)',
                   }}
                 >
                   <Receipt size={18} className="flex-shrink-0" />
                   <span className="whitespace-nowrap">
                     {isPanelProcessing
                       ? 'Processing & Printing...'
-                      : panelPaymentMethod === 'Split' && panelSplitRemaining > 0
-                        ? `Due ৳${panelSplitRemaining.toFixed(2)} — Complete Split`
-                        : `Settle (${panelPaymentMethod}) & Print Receipt`}
+                      : panelPaymentMethod === 'Complimentary'
+                        ? '★ Settle as Free Guest (Comp ৳0.00)'
+                        : panelPaymentMethod === 'Staff Tab'
+                          ? `📋 Record Staff Tab (Pay Later ৳${ticketTotal.toFixed(2)})`
+                          : panelPaymentMethod === 'Split' && panelSplitRemaining > 0
+                            ? `Due ৳${panelSplitRemaining.toFixed(2)} — Complete Split`
+                            : `Settle (${panelPaymentMethod}) & Print Receipt`}
                   </span>
                 </button>
               </div>

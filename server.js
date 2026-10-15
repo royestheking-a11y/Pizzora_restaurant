@@ -799,8 +799,28 @@ async function processDbAction(action) {
           await deductInventoryForOrder(o, false);
         }
       }
+    case 'UPDATE_ORDER':
+      await Order.findOneAndUpdate({ id: action.payload.id }, { $set: action.payload }, { new: true });
       break;
     case 'UPDATE_ORDER_STATUS': await Order.findOneAndUpdate({ id: action.payload.id }, { status: action.payload.status }); break;
+    case 'SETTLE_STAFF_TAB': {
+      const { orderId, settledMethod, settledBy, notes } = action.payload;
+      const now = new Date().toISOString();
+      await Order.findOneAndUpdate(
+        { id: orderId },
+        {
+          $set: {
+            'staffTabDetails.isSettled': true,
+            'staffTabDetails.settledAt': now,
+            'staffTabDetails.settledMethod': settledMethod,
+            'staffTabDetails.settledBy': settledBy || 'Admin',
+            'staffTabDetails.notes': notes || ''
+          }
+        },
+        { new: true }
+      );
+      break;
+    }
 
     // Table Orders
     case 'PLACE_TABLE_ORDER':

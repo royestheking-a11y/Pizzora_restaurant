@@ -5,10 +5,11 @@ import {
   Calendar, ArrowRight, DollarSign, Smartphone, CreditCard, ChevronLeft,
   ChevronRight, Filter, Download, Printer, Eye, X, RefreshCw, Sparkles,
   AlertTriangle, ShieldCheck, PieChart, FileText, Search, ArrowUpRight,
-  HelpCircle, Receipt
+  HelpCircle, Receipt, Gift, Users
 } from 'lucide-react';
 import { TableRowSkeleton } from '../Skeletons';
 import { generatePremiumPDF } from '../../utils/pdfGenerator';
+import { StaffTabAndCompModal } from './StaffTabAndCompModal';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -54,6 +55,21 @@ export function CashRegisterManagement() {
   const [cost, setCost] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [viewingSession, setViewingSession] = useState<CashRegisterEntry | null>(null);
+  const [showStaffCompModal, setShowStaffCompModal] = useState(false);
+
+  // Live Staff Tab Pending Dues (Global Unsettled)
+  const pendingStaffTabDue = useMemo(() => {
+    return state.orders.reduce((sum, o) => {
+      if (o.paymentMethod === 'Staff Tab' && !o.staffTabDetails?.isSettled) {
+        return sum + (o.total || 0);
+      }
+      return sum;
+    }, 0);
+  }, [state.orders]);
+
+  const pendingStaffTabCount = useMemo(() => {
+    return state.orders.filter(o => o.paymentMethod === 'Staff Tab' && !o.staffTabDetails?.isSettled).length;
+  }, [state.orders]);
 
   // Month & Date Filtering States
   const currentDhakaMonth = useMemo(() => {
@@ -138,7 +154,17 @@ export function CashRegisterManagement() {
 
   // Compute Sales Breakdown for Active Session
   const computeSalesBreakdown = () => {
-    const breakdown = { cash: 0, bkash: 0, nagad: 0, card: 0, other: 0, total: 0 };
+    const breakdown = {
+      cash: 0,
+      bkash: 0,
+      nagad: 0,
+      card: 0,
+      other: 0,
+      total: 0,
+      staffTabDue: 0,
+      staffTabCashCollected: 0,
+      complimentary: 0
+    };
     if (!activeSession) return breakdown;
 
     const sessionDate = (activeSession.date && /^\d{4}-\d{2}-\d{2}$/.test(activeSession.date))
@@ -158,6 +184,15 @@ export function CashRegisterManagement() {
     });
 
     sessionOrders.forEach(o => {
+      if (o.paymentMethod === 'Complimentary') {
+        breakdown.complimentary += (o.subtotal || o.total || 0);
+        return;
+      }
+      if (o.paymentMethod === 'Staff Tab') {
+        breakdown.staffTabDue += o.total;
+        return;
+      }
+
       breakdown.total += o.total;
       if (o.paymentMethod === 'Split' && o.splitPayments && o.splitPayments.length > 0) {
         o.splitPayments.forEach((p: any) => {
@@ -181,6 +216,16 @@ export function CashRegisterManagement() {
     const orderNumbers = new Set(sessionOrders.map(o => o.orderNumber).filter(Boolean));
     sessionTableOrders.forEach(o => {
       if (o.invoiceNumber && orderNumbers.has(o.invoiceNumber)) return;
+
+      if (o.paymentMethod === 'Complimentary') {
+        breakdown.complimentary += (o.subtotal || o.total || 0);
+        return;
+      }
+      if (o.paymentMethod === 'Staff Tab') {
+        breakdown.staffTabDue += o.total;
+        return;
+      }
+
       breakdown.total += o.total;
       if (o.paymentMethod === 'Split' && o.splitPayments && o.splitPayments.length > 0) {
         o.splitPayments.forEach((p: any) => {
@@ -201,11 +246,23 @@ export function CashRegisterManagement() {
       }
     });
 
+    // Check past staff tabs settled in physical Cash during today's shift
+    state.orders.forEach(o => {
+      if (o.paymentMethod === 'Staff Tab' && o.staffTabDetails?.isSettled && o.staffTabDetails?.settledMethod === 'Cash') {
+        if (o.staffTabDetails.settledAt) {
+          const st = new Date(o.staffTabDetails.settledAt).getTime();
+          if (st >= dayStart && st <= dayEnd) {
+            breakdown.staffTabCashCollected += (o.total || 0);
+          }
+        }
+      }
+    });
+
     return breakdown;
   };
 
   const currentSales = computeSalesBreakdown();
-  const currentCashSales = currentSales.cash;
+  const currentCashSales = currentSales.cash + currentSales.staffTabCashCollected;
   const expectedDrawerCash = activeSession ? activeSession.openingBalance + currentCashSales : 0;
 
   const dhakaStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
@@ -269,8 +326,8 @@ export function CashRegisterManagement() {
         : (s.salesBreakdown?.total ?? (s.salesBreakdown ? (s.salesBreakdown.cash + s.salesBreakdown.bkash + s.salesBreakdown.nagad + s.salesBreakdown.card + s.salesBreakdown.other) : s.totalCashSales));
 
       const cash = s.status === 'Open'
-        ? currentSales.cash
-        : (s.salesBreakdown ? s.salesBreakdown.cash : s.totalCashSales);
+        ? currentCashSales
+        : (s.salesBreakdown ? (s.salesBreakdown.cash + (s.salesBreakdown.staffTabCashCollected || 0)) : s.totalCashSales);
 
       totalSales += sales;
       totalCashSales += cash;
@@ -308,7 +365,7 @@ export function CashRegisterManagement() {
       balancedCount,
       mismatchCount
     };
-  }, [filteredSessions, currentSales]);
+  }, [filteredSessions, currentSales, currentCashSales]);
 
   // Master All-Time Grand Totals (Unfiltered Benchmark)
   const allTimeStats = useMemo(() => {
@@ -321,8 +378,8 @@ export function CashRegisterManagement() {
         : (s.salesBreakdown?.total ?? (s.salesBreakdown ? (s.salesBreakdown.cash + s.salesBreakdown.bkash + s.salesBreakdown.nagad + s.salesBreakdown.card + s.salesBreakdown.other) : s.totalCashSales));
 
       const cash = s.status === 'Open'
-        ? currentSales.cash
-        : (s.salesBreakdown ? s.salesBreakdown.cash : s.totalCashSales);
+        ? currentCashSales
+        : (s.salesBreakdown ? (s.salesBreakdown.cash + (s.salesBreakdown.staffTabCashCollected || 0)) : s.totalCashSales);
 
       totalSales += sales;
       totalCash += cash;
@@ -570,6 +627,22 @@ export function CashRegisterManagement() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowStaffCompModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black text-amber-950 bg-gradient-to-r from-amber-100 to-amber-200 hover:from-amber-200 hover:to-amber-300 border border-amber-300 shadow-2xs transition-all active:scale-[0.98]"
+            style={{ fontFamily: 'var(--font-heading)' }}
+            title="Open Staff Tab Ledger and Free Guest Meals Hub"
+          >
+            <Users size={15} className="text-amber-800" />
+            <span>Staff Tab & Guest Comp Hub</span>
+            {pendingStaffTabDue > 0 && (
+              <span className="ml-1 px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black animate-pulse">
+                ৳{pendingStaffTabDue.toLocaleString()} Due ({pendingStaffTabCount})
+              </span>
+            )}
+          </button>
+
           <button
             onClick={handleExportPDF}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-2xs transition-colors"
@@ -941,6 +1014,14 @@ export function CashRegisterManagement() {
                     </span>
                     <span className="font-black">+ ৳{currentSales.cash.toLocaleString()}</span>
                   </div>
+                  {currentSales.staffTabCashCollected > 0 && (
+                    <div className="flex justify-between text-amber-800 bg-amber-100/70 px-2 py-1 rounded-lg border border-amber-200">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <Users size={13} className="text-amber-700" /> Staff Dues Collected (Cash):
+                      </span>
+                      <span className="font-black">+ ৳{currentSales.staffTabCashCollected.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-pink-700">
                     <span className="font-semibold flex items-center gap-1.5">
                       <Smartphone size={13} /> bKash Digital:
@@ -959,10 +1040,28 @@ export function CashRegisterManagement() {
                     </span>
                     <span className="font-bold">+ ৳{(currentSales.card + currentSales.other).toLocaleString()}</span>
                   </div>
+
+                  {currentSales.staffTabDue > 0 && (
+                    <div className="flex justify-between text-amber-900 text-[11px] bg-amber-50 px-2 py-1 rounded-lg border border-amber-200/60">
+                      <span className="font-medium flex items-center gap-1">
+                        <Clock size={11} className="text-amber-600" /> Unpaid Staff Tabs (Today):
+                      </span>
+                      <span className="font-bold">৳{currentSales.staffTabDue.toLocaleString()} (Due)</span>
+                    </div>
+                  )}
+
+                  {currentSales.complimentary > 0 && (
+                    <div className="flex justify-between text-emerald-900 text-[11px] bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200/60">
+                      <span className="font-medium flex items-center gap-1">
+                        <Gift size={11} className="text-emerald-600" /> Free Guest Meals (Comp):
+                      </span>
+                      <span className="font-bold">৳{currentSales.complimentary.toLocaleString()} (৳0 billed)</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-between text-gray-900 border-t border-gray-200/80 pt-2 font-bold">
-                  <span>Total Sales (All Channels):</span>
+                  <span>Total Sales (Billed Channels):</span>
                   <span className="text-emerald-600 font-black">৳{currentSales.total.toLocaleString()}</span>
                 </div>
 
@@ -978,6 +1077,7 @@ export function CashRegisterManagement() {
                           </span>
                           <span className="text-[10px] text-emerald-700 font-medium">
                             Opening ৳{activeSession.openingBalance.toLocaleString()} + Cash Sales ৳{currentSales.cash.toLocaleString()}
+                            {currentSales.staffTabCashCollected > 0 ? ` + Staff Cash ৳${currentSales.staffTabCashCollected.toLocaleString()}` : ''}
                           </span>
                         </div>
                         <span className="text-xl font-black text-emerald-700" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -1487,6 +1587,12 @@ export function CashRegisterManagement() {
           </div>
         </div>
       )}
+
+      {/* ── Staff Tab & Guest Comp Management Hub ── */}
+      <StaffTabAndCompModal
+        isOpen={showStaffCompModal}
+        onClose={() => setShowStaffCompModal(false)}
+      />
 
     </div>
   );

@@ -7,7 +7,7 @@ import {
   LayoutGrid, RefreshCw, Receipt, ArrowLeft, ChevronRight, User, Phone,
   Pause, Play, LogOut, Star, WifiOff, CloudOff, CloudUpload, Lock, ExternalLink,
   BadgeCheck, ShieldCheck, KeyRound, EyeOff, Eye, Loader2, Fingerprint, Activity,
-  PrinterCheck, AlertTriangle, Settings, Split, TableProperties
+  PrinterCheck, AlertTriangle, Settings, Split, TableProperties, Gift, UserCheck
 } from 'lucide-react';
 import type { MenuItem } from '../data/restaurantData';
 import { useApp, type SplitPaymentItem } from '../context/AppContext';
@@ -33,7 +33,7 @@ const POS_CATEGORIES = [
 const getPosUser = () => typeof window !== 'undefined' ? sessionStorage.getItem('pizzora_admin_name') || 'Admin' : 'Admin';
 
 type OrderType = 'Dine In' | 'Takeaway' | 'Delivery';
-type PaymentMethod = 'Cash' | 'Card' | 'bKash' | 'Nagad' | 'Split';
+type PaymentMethod = 'Cash' | 'Card' | 'bKash' | 'Nagad' | 'Split' | 'Complimentary' | 'Staff Tab';
 type DiscountType = 'flat' | 'percent';
 
 interface CartItem {
@@ -127,6 +127,17 @@ export function POS() {
   const [discountVal, setDiscountVal] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
   const [cashTendered, setCashTendered] = useState('');
+
+  // Complimentary Meal State
+  const [compGuestName, setCompGuestName] = useState('');
+  const [compReason, setCompReason] = useState<'Owner / Partner Guest' | 'VIP / Influencer' | 'Customer Compensation' | 'Food Tasting / Quality Check' | 'Staff Perk' | 'Other'>('Owner / Partner Guest');
+  const [compAuthorizedBy, setCompAuthorizedBy] = useState('');
+  const [compNotes, setCompNotes] = useState('');
+
+  // Staff Tab State
+  const [staffTabEmployeeId, setStaffTabEmployeeId] = useState('');
+  const [staffTabEmployeeName, setStaffTabEmployeeName] = useState('');
+  const [staffTabNotes, setStaffTabNotes] = useState('');
   const [holdOrders, setHoldOrders] = useState<HoldOrder[]>(() => {
     const saved = localStorage.getItem('pos_holdOrders');
     if (saved) {
@@ -155,6 +166,18 @@ export function POS() {
     total: number;
     method: PaymentMethod;
     splitPayments?: SplitPaymentItem[];
+    compDetails?: {
+      guestName?: string;
+      reason: string;
+      authorizedBy: string;
+      notes?: string;
+    };
+    staffTabDetails?: {
+      staffId: string;
+      staffName: string;
+      isSettled: boolean;
+      notes?: string;
+    };
     change: number;
     orderType: OrderType;
     table: string;
@@ -442,15 +465,29 @@ export function POS() {
     setCart(prev => prev.map(c => c.item.id === id ? { ...c, quantity: Math.max(1, c.quantity + delta) } : c));
   };
   const removeItem = (id: string) => setCart(prev => prev.filter(c => c.item.id !== id));
-  const clearCart = () => { setCart([]); setDiscountVal(''); setCustomerName(''); setDeliveryPhone(''); setDeliveryAddress(''); setActiveHoldMetadata(null); };
+  const clearCart = () => {
+    setCart([]);
+    setDiscountVal('');
+    setCustomerName('');
+    setDeliveryPhone('');
+    setDeliveryAddress('');
+    setActiveHoldMetadata(null);
+    setCompGuestName('');
+    setCompNotes('');
+    setStaffTabNotes('');
+    setStaffTabEmployeeId('');
+    setStaffTabEmployeeName('');
+  };
 
   // ── Totals ────────────────────────────────────────────────────────────────
   const subtotal = cart.reduce((s, c) => s + c.item.price * c.quantity, 0);
-  const discountAmt = discountVal
-    ? discountType === 'flat' ? Math.min(Number(discountVal), subtotal) : subtotal * (Number(discountVal) / 100)
-    : 0;
+  const discountAmt = paymentMethod === 'Complimentary'
+    ? subtotal
+    : discountVal
+      ? discountType === 'flat' ? Math.min(Number(discountVal), subtotal) : subtotal * (Number(discountVal) / 100)
+      : 0;
   const afterDiscount = subtotal - discountAmt;
-  const total = afterDiscount;
+  const total = paymentMethod === 'Complimentary' ? 0 : afterDiscount;
   const change = cashTendered ? Math.max(0, Number(cashTendered) - total) : 0;
   const due = cashTendered ? Math.max(0, total - Number(cashTendered)) : 0;
 
@@ -517,13 +554,39 @@ export function POS() {
     ] : [];
 
     const invoiceTime = new Date().toLocaleString();
+    const finalCustomer = paymentMethod === 'Complimentary'
+      ? (compGuestName.trim() || customerName.trim() || 'VIP / Free Guest')
+      : paymentMethod === 'Staff Tab'
+        ? (staffTabEmployeeName.trim() || customerName.trim() || 'Staff Member')
+        : customerName;
+
     setLastInvoice({
-      id: currentId, invoiceNumber: currentInvoice, items: cart, sub: subtotal, vat: 0, disc: discountAmt, total,
+      id: currentId,
+      invoiceNumber: currentInvoice,
+      items: cart,
+      sub: subtotal,
+      vat: 0,
+      disc: discountAmt,
+      total,
       method: paymentMethod, 
       splitPayments: activeSplitPayments.length > 0 ? activeSplitPayments : undefined,
+      compDetails: paymentMethod === 'Complimentary' ? {
+        guestName: compGuestName.trim() || finalCustomer,
+        reason: compReason,
+        authorizedBy: compAuthorizedBy.trim() || getPosUser(),
+        notes: compNotes.trim() || undefined,
+      } : undefined,
+      staffTabDetails: paymentMethod === 'Staff Tab' ? {
+        staffId: staffTabEmployeeId || 'staff',
+        staffName: staffTabEmployeeName.trim() || finalCustomer,
+        isSettled: false,
+        notes: staffTabNotes.trim() || undefined,
+      } : undefined,
       change: paymentMethod === 'Cash' ? change : 0, 
-      orderType, table: tableNo,
-      customer: customerName, time: invoiceTime,
+      orderType,
+      table: tableNo,
+      customer: finalCustomer,
+      time: invoiceTime,
       phone: deliveryPhone,
       address: deliveryAddress,
     });
@@ -553,6 +616,9 @@ export function POS() {
       status: (isDelivery ? 'Confirmed' : 'Delivered') as any,
       paymentMethod: lastInvoice.method,
       splitPayments: lastInvoice.splitPayments,
+      compDetails: lastInvoice.compDetails,
+      staffTabDetails: lastInvoice.staffTabDetails,
+      notes: lastInvoice.compDetails?.notes || lastInvoice.staffTabDetails?.notes || undefined,
       customerName: lastInvoice.customer || (lastInvoice.orderType === 'Dine In' ? `Table ${lastInvoice.table}` : isDelivery ? 'Delivery Guest' : 'POS Customer'),
       phone: lastInvoice.phone || '',
       address: isDelivery ? (lastInvoice.address || 'Home Delivery') : (lastInvoice.orderType === 'Dine In' ? `Table ${lastInvoice.table}` : lastInvoice.orderType),
@@ -1019,6 +1085,24 @@ export function POS() {
                     <span style={{ fontWeight: 600 }}>৳{p.amount.toFixed(2)}</span>
                   </div>
                 ))}
+              </div>
+            ) : lastInvoice.method === 'Complimentary' ? (
+              <div style={{ margin: '8px 0', padding: '8px 10px', backgroundColor: '#ECFDF5', border: '1px dashed #059669', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#047857', letterSpacing: '0.5px' }}>★ COMPLIMENTARY (100% FREE GUEST) ★</div>
+                <div style={{ fontSize: '12px', color: '#065F46', marginTop: '2px' }}>Guest: <strong>{lastInvoice.customer}</strong></div>
+                {lastInvoice.compDetails?.reason && (
+                  <div style={{ fontSize: '11px', color: '#047857' }}>Reason: {lastInvoice.compDetails.reason}</div>
+                )}
+                {lastInvoice.compDetails?.authorizedBy && (
+                  <div style={{ fontSize: '11px', color: '#047857' }}>Authorized By: {lastInvoice.compDetails.authorizedBy}</div>
+                )}
+              </div>
+            ) : lastInvoice.method === 'Staff Tab' ? (
+              <div style={{ margin: '8px 0', padding: '8px 10px', backgroundColor: '#FFFBEB', border: '1px dashed #D97706', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#B45309', letterSpacing: '0.5px' }}>📋 STAFF TAB (PAY LATER / DUE) 📋</div>
+                <div style={{ fontSize: '12px', color: '#92400E', marginTop: '2px' }}>Staff Member: <strong>{lastInvoice.customer}</strong></div>
+                <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#B45309', marginTop: '2px' }}>Due to Settle: ৳{lastInvoice.total.toFixed(2)}</div>
+                <div style={{ fontSize: '10.5px', color: '#78350F' }}>Recorded to Staff Ledger • Zero Counter Shortage</div>
               </div>
             ) : (
               <div style={{ display: 'flex', justifyContent: 'space-between', margin: '6px 0', fontWeight: 'normal' }}>
@@ -1512,23 +1596,69 @@ export function POS() {
               </div>
 
               {/* Payment method */}
-              <div className="grid grid-cols-5 gap-1">
-                {(['Cash', 'Card', 'bKash', 'Nagad', 'Split'] as PaymentMethod[]).map(m => (
-                  <button key={m} onClick={() => setPaymentMethod(m)}
-                    className="py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1"
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1 block" style={{ fontFamily: 'var(--font-heading)' }}>
+                  Customer Payment Channels
+                </label>
+                <div className="grid grid-cols-5 gap-1">
+                  {(['Cash', 'Card', 'bKash', 'Nagad', 'Split'] as PaymentMethod[]).map(m => (
+                    <button key={m} onClick={() => setPaymentMethod(m)}
+                      className="py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1"
+                      style={{
+                        background: paymentMethod === m
+                          ? m === 'Split'
+                            ? 'linear-gradient(135deg, #7C3AED, #6D28D9)'
+                            : `linear-gradient(135deg,${PZ},${PZD})`
+                          : '#F3F4F6',
+                        color: paymentMethod === m ? '#fff' : '#6B7280',
+                        fontFamily: 'var(--font-heading)',
+                        boxShadow: paymentMethod === m ? '0 2px 6px rgba(0,0,0,0.1)' : 'none'
+                      }}>
+                      {m === 'Split' ? <><Split size={11} /><span>Split</span></> : m}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Internal & Accounting Channels */}
+                <div className="mt-1.5 pt-1.5 border-t border-gray-100 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('Complimentary')}
+                    className="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 border"
                     style={{
-                      background: paymentMethod === m
-                        ? m === 'Split'
-                          ? 'linear-gradient(135deg, #7C3AED, #6D28D9)'
-                          : `linear-gradient(135deg,${PZ},${PZD})`
-                        : '#F3F4F6',
-                      color: paymentMethod === m ? '#fff' : '#6B7280',
-                      fontFamily: 'var(--font-heading)',
-                      boxShadow: paymentMethod === m ? '0 2px 6px rgba(0,0,0,0.1)' : 'none'
-                    }}>
-                    {m === 'Split' ? <><Split size={11} /><span>Split</span></> : m}
+                      background: paymentMethod === 'Complimentary' ? '#ECFDF5' : '#FAFAFA',
+                      color: paymentMethod === 'Complimentary' ? '#047857' : '#4B5563',
+                      borderColor: paymentMethod === 'Complimentary' ? '#10B981' : '#E5E7EB',
+                      boxShadow: paymentMethod === 'Complimentary' ? '0 0 0 1px #10B981' : 'none',
+                      fontFamily: 'var(--font-heading)'
+                    }}
+                  >
+                    <Gift size={12} className={paymentMethod === 'Complimentary' ? 'text-emerald-600' : 'text-gray-400'} />
+                    <span>Free Guest (Comp)</span>
                   </button>
-                ))}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentMethod('Staff Tab');
+                      if (!staffTabEmployeeName && state.employees.length > 0) {
+                        setStaffTabEmployeeId(state.employees[0].id);
+                        setStaffTabEmployeeName(state.employees[0].name);
+                      }
+                    }}
+                    className="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 border"
+                    style={{
+                      background: paymentMethod === 'Staff Tab' ? '#FFFBEB' : '#FAFAFA',
+                      color: paymentMethod === 'Staff Tab' ? '#B45309' : '#4B5563',
+                      borderColor: paymentMethod === 'Staff Tab' ? '#F59E0B' : '#E5E7EB',
+                      boxShadow: paymentMethod === 'Staff Tab' ? '0 0 0 1px #F59E0B' : 'none',
+                      fontFamily: 'var(--font-heading)'
+                    }}
+                  >
+                    <UserCheck size={12} className={paymentMethod === 'Staff Tab' ? 'text-amber-600' : 'text-gray-400'} />
+                    <span>Staff Tab (Pay Later)</span>
+                  </button>
+                </div>
               </div>
 
               {/* Single Cash Tender */}
@@ -1547,6 +1677,132 @@ export function POS() {
                         : <span style={{ color: '#16A34A', fontWeight: 800 }}>Change: ৳{change.toLocaleString()}</span>}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Complimentary Guest Free Meals Panel */}
+              {paymentMethod === 'Complimentary' && (
+                <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 space-y-2 text-xs animate-fade-in">
+                  <div className="flex items-center justify-between pb-1 border-b border-emerald-200/80">
+                    <span className="font-black text-emerald-900 flex items-center gap-1.5" style={{ fontFamily: 'var(--font-heading)' }}>
+                      <Gift size={13} className="text-emerald-600" />
+                      100% Free Guest Meal (Comp)
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-200 text-emerald-900">
+                      Payable: ৳0
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-emerald-950 block mb-0.5">Guest Name / Description</label>
+                      <input
+                        type="text"
+                        value={compGuestName}
+                        onChange={e => setCompGuestName(e.target.value)}
+                        placeholder="e.g. Owner's Friend, VIP Guest, Customer Apology"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-white text-gray-900 text-xs focus:outline-none focus:border-emerald-600"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="text-[10px] font-bold text-emerald-950 block mb-0.5">Reason</label>
+                        <select
+                          value={compReason}
+                          onChange={e => setCompReason(e.target.value as any)}
+                          className="w-full px-2 py-1.5 rounded-lg border border-emerald-200 bg-white text-gray-900 text-xs focus:outline-none focus:border-emerald-600 font-medium"
+                        >
+                          <option value="Owner / Partner Guest">Owner Guest</option>
+                          <option value="VIP / Influencer">VIP / Influencer</option>
+                          <option value="Customer Compensation">Customer Apology</option>
+                          <option value="Food Tasting / Quality Check">Food Tasting</option>
+                          <option value="Staff Perk">Staff Perk</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-emerald-950 block mb-0.5">Authorized By</label>
+                        <input
+                          type="text"
+                          value={compAuthorizedBy}
+                          onChange={e => setCompAuthorizedBy(e.target.value)}
+                          placeholder={getPosUser()}
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-white text-gray-900 text-xs focus:outline-none focus:border-emerald-600"
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-emerald-700 leading-tight">
+                      ✓ Ingredients deducted from inventory • Zero cash counted in drawer.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Staff Tab (Pay Later / Due) Panel */}
+              {paymentMethod === 'Staff Tab' && (
+                <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/60 space-y-2 text-xs animate-fade-in">
+                  <div className="flex items-center justify-between pb-1 border-b border-amber-200/80">
+                    <span className="font-black text-amber-900 flex items-center gap-1.5" style={{ fontFamily: 'var(--font-heading)' }}>
+                      <UserCheck size={13} className="text-amber-700" />
+                      Staff Dining (Pay Later / Due)
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900">
+                      Due: ৳{total.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-amber-950 block mb-0.5">Select Staff Member *</label>
+                      <select
+                        value={staffTabEmployeeId}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setStaffTabEmployeeId(val);
+                          const found = state.employees.find(emp => emp.id === val);
+                          if (found) setStaffTabEmployeeName(found.name);
+                        }}
+                        className="w-full px-2 py-1.5 rounded-lg border border-amber-200 bg-white text-gray-900 text-xs focus:outline-none focus:border-amber-600 font-bold"
+                      >
+                        <option value="">-- Choose Staff or Type Below --</option>
+                        {state.employees.map(emp => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.name} ({emp.role})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {!staffTabEmployeeId && (
+                      <div>
+                        <input
+                          type="text"
+                          value={staffTabEmployeeName}
+                          onChange={e => setStaffTabEmployeeName(e.target.value)}
+                          placeholder="Or type custom staff / contractor name..."
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-amber-200 bg-white text-gray-900 text-xs focus:outline-none focus:border-amber-600"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-[10px] font-bold text-amber-950 block mb-0.5">Meal Note / Shift</label>
+                      <input
+                        type="text"
+                        value={staffTabNotes}
+                        onChange={e => setStaffTabNotes(e.target.value)}
+                        placeholder="e.g. Lunch shift, take-home pizza, pay on Friday"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-amber-200 bg-white text-gray-900 text-xs focus:outline-none focus:border-amber-600"
+                      />
+                    </div>
+
+                    <p className="text-[10px] text-amber-800 leading-tight">
+                      ✓ Drawer won't show shortage today. Due can be settled in Cash or Salary later.
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -1720,15 +1976,23 @@ export function POS() {
                   disabled={paymentMethod === 'Split' && splitTotal < total}
                   className="flex-[2] py-2.5 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
-                    background: paymentMethod === 'Split'
-                      ? 'linear-gradient(135deg, #7C3AED, #6D28D9)'
-                      : `linear-gradient(135deg,${PZ},${PZD})`,
+                    background: paymentMethod === 'Complimentary'
+                      ? 'linear-gradient(135deg, #059669, #047857)'
+                      : paymentMethod === 'Staff Tab'
+                        ? 'linear-gradient(135deg, #D97706, #B45309)'
+                        : paymentMethod === 'Split'
+                          ? 'linear-gradient(135deg, #7C3AED, #6D28D9)'
+                          : `linear-gradient(135deg,${PZ},${PZD})`,
                     fontFamily: 'var(--font-heading)'
                   }}>
                   <Receipt size={14} />
-                  {paymentMethod === 'Split' && splitTotal < total
-                    ? `Due ৳${(total - splitTotal).toLocaleString()}`
-                    : `Pay ৳${total.toLocaleString()}`}
+                  {paymentMethod === 'Complimentary'
+                    ? 'Confirm Free Guest Meal (৳0)'
+                    : paymentMethod === 'Staff Tab'
+                      ? `Record Staff Tab (৳${total.toLocaleString()} Due)`
+                      : paymentMethod === 'Split' && splitTotal < total
+                        ? `Due ৳${(total - splitTotal).toLocaleString()}`
+                        : `Pay ৳${total.toLocaleString()}`}
                 </button>
               </div>
             </div>

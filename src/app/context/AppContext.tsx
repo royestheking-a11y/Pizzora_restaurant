@@ -17,11 +17,28 @@ export interface CartItem {
 }
 
 export type OrderStatus = 'Pending' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
-export type PaymentMethod = 'bKash' | 'Nagad' | 'Cash on Delivery' | 'Cash' | 'Card' | 'Split';
+export type PaymentMethod = 'bKash' | 'Nagad' | 'Cash on Delivery' | 'Cash' | 'Card' | 'Split' | 'Complimentary' | 'Staff Tab';
 
 export interface SplitPaymentItem {
   method: 'Cash' | 'bKash' | 'Nagad' | 'Card';
   amount: number;
+}
+
+export interface CompDetails {
+  guestName?: string;
+  reason: 'Owner / Partner Guest' | 'VIP / Influencer' | 'Customer Compensation' | 'Food Tasting / Quality Check' | 'Staff Perk' | 'Other' | string;
+  authorizedBy: string;
+  notes?: string;
+}
+
+export interface StaffTabDetails {
+  staffId: string;
+  staffName: string;
+  isSettled: boolean;
+  settledAt?: string;
+  settledMethod?: 'Cash' | 'bKash' | 'Nagad' | 'Salary Deduction' | 'Waived';
+  settledBy?: string;
+  notes?: string;
 }
 
 export interface Order {
@@ -33,6 +50,8 @@ export interface Order {
   status: OrderStatus;
   paymentMethod: PaymentMethod;
   splitPayments?: SplitPaymentItem[];
+  compDetails?: CompDetails;
+  staffTabDetails?: StaffTabDetails;
   customerName: string;
   phone: string;
   address: string;
@@ -146,6 +165,8 @@ export interface TableOrder {
   invoiceNumber?: string;
   paymentMethod?: string;
   splitPayments?: SplitPaymentItem[];
+  compDetails?: CompDetails;
+  staffTabDetails?: StaffTabDetails;
 }
 
 export interface WasteRecord {
@@ -207,6 +228,9 @@ export interface CashRegisterEntry {
     card: number;
     other: number;
     total: number;
+    staffTabDue?: number;
+    staffTabCashCollected?: number;
+    complimentary?: number;
   };
   bankDeposit: number;
   shoppingCash: number;
@@ -366,7 +390,9 @@ type Action =
   | { type: 'UPDATE_QUANTITY'; payload: { id: string; quantity: number } }
   | { type: 'CLEAR_CART' }
   | { type: 'PLACE_ORDER'; payload: Order }
+  | { type: 'UPDATE_ORDER'; payload: Order }
   | { type: 'UPDATE_ORDER_STATUS'; payload: { id: string; status: OrderStatus } }
+  | { type: 'SETTLE_STAFF_TAB'; payload: { orderId: string; settledMethod: 'Cash' | 'bKash' | 'Nagad' | 'Salary Deduction' | 'Waived'; settledBy?: string; notes?: string } }
   | { type: 'DELETE_ORDER'; payload: string }
   | { type: 'ADD_RESERVATION'; payload: Reservation }
   | { type: 'UPDATE_RESERVATION'; payload: { id: string; status: ReservationStatus } }
@@ -819,6 +845,12 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
 
+    case 'UPDATE_ORDER':
+      return {
+        ...state,
+        orders: state.orders.map(o => o.id === action.payload.id ? action.payload : o)
+      };
+
     case 'UPDATE_ORDER_STATUS':
       return {
         ...state,
@@ -826,6 +858,27 @@ function reducer(state: AppState, action: Action): AppState {
           o.id === action.payload.id ? { ...o, status: action.payload.status } : o
         ),
       };
+
+    case 'SETTLE_STAFF_TAB': {
+      const now = new Date().toISOString();
+      return {
+        ...state,
+        orders: state.orders.map(o => {
+          if (o.id !== action.payload.orderId) return o;
+          return {
+            ...o,
+            staffTabDetails: {
+              ...(o.staffTabDetails || { staffId: '', staffName: o.customerName || 'Staff', isSettled: false }),
+              isSettled: true,
+              settledAt: now,
+              settledMethod: action.payload.settledMethod,
+              settledBy: action.payload.settledBy || 'Admin',
+              notes: action.payload.notes || o.staffTabDetails?.notes || ''
+            }
+          };
+        })
+      };
+    }
 
     case 'DELETE_ORDER':
       return {
