@@ -42,6 +42,8 @@ export interface Order {
   isOnlineOrder?: boolean;
   source?: 'website' | 'pos' | 'table' | string;
   orderType?: string;
+  deliveryFee?: number;
+  notes?: string;
 }
 
 export type ReservationStatus = 'Pending' | 'Confirmed' | 'Rejected' | 'Cancelled';
