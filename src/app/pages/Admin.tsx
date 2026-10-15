@@ -82,6 +82,10 @@ function StatusBadge({ status }: { status: string }) {
     Pending:           { bg: '#FEF3C7', color: '#92400E' },
     Confirmed:         { bg: '#D1FAE5', color: '#065F46' },
     Preparing:         { bg: '#DBEAFE', color: '#1E40AF' },
+    Cooking:           { bg: '#FFF7ED', color: '#C2410C' },
+    Ready:             { bg: '#FEF2F2', color: '#B91C1C' },
+    Served:            { bg: '#FAF5FF', color: '#6B21A8' },
+    Paid:              { bg: '#F0FDF4', color: '#15803D' },
     'Out for Delivery':{ bg: '#EDE9FE', color: '#5B21B6' },
     Delivered:         { bg: '#D1FAE5', color: '#065F46' },
     Cancelled:         { bg: '#FEE2E2', color: '#991B1B' },
@@ -90,9 +94,10 @@ function StatusBadge({ status }: { status: string }) {
   const s = map[status] || { bg: '#F3F4F6', color: '#374151' };
   return (
     <span
-      className="px-2.5 py-1 rounded-full text-xs font-semibold"
+      className="px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5"
       style={{ backgroundColor: s.bg, color: s.color, fontFamily: 'var(--font-heading)' }}
     >
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }}></span>
       {status}
     </span>
   );
@@ -1053,6 +1058,46 @@ export function Admin() {
   });
   const maxDayRev = Math.max(...weeklyBreakdown.map(d => d.rev), 1);
 
+  // ── Executive Dashboard Helpers ─────────────────────────────────────────
+  const [dashboardChannelFilter, setDashboardChannelFilter] = useState<'all' | 'table' | 'pos' | 'online'>('all');
+
+  const todayOrders = useMemo(() => {
+    return allUnifiedOrders.filter(o => o.timestamp >= startOfDay);
+  }, [allUnifiedOrders, startOfDay]);
+
+  const occupiedTables = useMemo(() => {
+    return (state.tables ?? []).filter(t => t.status !== 'Available');
+  }, [state.tables]);
+
+  const activeCashShift = useMemo(() => {
+    return (state.cashRegisterShifts ?? []).find(s => s.status === 'open');
+  }, [state.cashRegisterShifts]);
+
+  const lowStockItems = useMemo(() => {
+    return (state.inventory ?? []).filter((item: any) => {
+      const stock = item.stock ?? item.currentStock ?? 0;
+      const min = item.minThreshold ?? item.minStock ?? 5;
+      return stock <= min;
+    });
+  }, [state.inventory]);
+
+  const todayExpensesTotal = useMemo(() => {
+    return (state.expenses ?? [])
+      .filter((e: any) => {
+        const time = new Date(e.date || e.createdAt).getTime();
+        return !isNaN(time) && time >= startOfDay;
+      })
+      .reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
+  }, [state.expenses, startOfDay]);
+
+  const filteredDashboardOrders = useMemo(() => {
+    if (dashboardChannelFilter === 'all') return allUnifiedOrders.slice(0, 8);
+    if (dashboardChannelFilter === 'table') return allUnifiedOrders.filter(o => o.isTableOrder || o.tableNumber).slice(0, 8);
+    if (dashboardChannelFilter === 'online') return allUnifiedOrders.filter(o => isWebsiteOnlineOrder(o)).slice(0, 8);
+    if (dashboardChannelFilter === 'pos') return allUnifiedOrders.filter(o => !o.isTableOrder && !isWebsiteOnlineOrder(o)).slice(0, 8);
+    return allUnifiedOrders.slice(0, 8);
+  }, [allUnifiedOrders, dashboardChannelFilter]);
+
   const handleExportPayments = () => {
     const data = allUnifiedOrders.map((o, i) => [
       (i + 1).toString(),
@@ -1557,110 +1602,562 @@ export function Admin() {
 
           {/* ══ DASHBOARD ══════════════════════════════════ */}
           {activeTab === 'dashboard' && (
-            <div>
-              {/* Stats Cards — Row 1 */}
-              <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-                {state.isInitialLoading ? (
-                  Array.from({ length: 4 }).map((_, i) => <AdminStatSkeleton key={i} />)
-                ) : [
-                  { label: 'Total Revenue', value: `৳${(state.analytics?.totalRevenue || totalRevenue).toLocaleString()}`, icon: DollarSign, color: '#16A34A', bg: '#DCFCE7', sub: `${state.analytics?.totalCustomers || allUnifiedOrders.length} all-time orders` },
-                  { label: 'Active Orders', value: pendingOrders, icon: ShoppingBag, color: '#F9002B', bg: '#FEE2E2', sub: `${allUnifiedOrders.length} recent` },
-                  { label: 'Reservations', value: state.reservations.length, icon: Calendar, color: '#2563EB', bg: '#DBEAFE', sub: `${pendingReservations} pending` },
-                  { label: 'Messages', value: state.messages.length, icon: MessageSquare, color: '#7C3AED', bg: '#EDE9FE', sub: `${unreadMessages} unread` },
-                ].map(({ label, value, icon: Icon, color, bg, sub }) => (
-                  <div key={label} className="bg-white p-5 rounded-2xl shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: bg }}>
-                        <Icon size={20} style={{ color }} />
-                      </div>
-                    </div>
-                    <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '26px', color, lineHeight: 1 }}>{value}</p>
-                    <p style={{ fontSize: '12px', color: '#6B7280', fontFamily: 'var(--font-heading)', fontWeight: 600, marginTop: '4px' }}>{label}</p>
-                    <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px' }}>{sub}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Stats Cards — Row 2 */}
-              <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-                {state.isInitialLoading ? (
-                  Array.from({ length: 4 }).map((_, i) => <AdminStatSkeleton key={i} />)
-                ) : [
-                  { label: 'Inventory Items', value: (state.inventory ?? []).length, icon: Package, color: '#EA580C', bg: '#FEF3C7', sub: 'Active stock' },
-                  { label: 'Menu Items', value: state.menuItems.length, icon: UtensilsCrossed, color: '#0891B2', bg: '#CFFAFE', sub: 'Active items' },
-                  { label: 'Gallery Images', value: state.galleryImages.length, icon: Image, color: '#7C3AED', bg: '#EDE9FE', sub: `${state.carouselSlides.length} carousel slides` },
-                  { label: 'Customers', value: (state.analytics?.totalCustomers || allUnifiedOrders.length) + state.reservations.length, icon: Users, color: '#16A34A', bg: '#DCFCE7', sub: 'Total interactions' },
-                ].map(({ label, value, icon: Icon, color, bg, sub }) => (
-                  <div key={label} className="bg-white p-5 rounded-2xl shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: bg }}>
-                        <Icon size={20} style={{ color }} />
-                      </div>
-                    </div>
-                    <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '26px', color, lineHeight: 1 }}>{value}</p>
-                    <p style={{ fontSize: '12px', color: '#6B7280', fontFamily: 'var(--font-heading)', fontWeight: 600, marginTop: '4px' }}>{label}</p>
-                    <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px' }}>{sub}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Recent Activity */}
-              <div className="grid lg:grid-cols-2 gap-5">
-                {/* Recent Orders */}
-                <div className="bg-white rounded-2xl shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                  <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
-                    <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>Recent Orders</h3>
-                    <button onClick={() => setActiveTab('orders')} style={{ fontSize: '12px', color: '#F9002B', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                      View All <ChevronRight size={13} className="inline" />
-                    </button>
+            <div className="space-y-6">
+              {/* 1. Quick Operations Hero Action Bar */}
+              <div
+                className="p-5 rounded-2xl shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                style={{
+                  background: 'linear-gradient(135deg, #111827 0%, #1F2937 100%)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                }}
+              >
+                <div className="flex items-center gap-3.5">
+                  <div
+                    className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(249,0,43,0.15)', border: '1px solid rgba(249,0,43,0.3)' }}
+                  >
+                    <Activity size={22} color="#F9002B" />
                   </div>
                   <div>
-                    {state.isInitialLoading ? (
-                      Array.from({ length: 5 }).map((_, i) => <AdminListSkeleton key={i} />)
-                    ) : (
-                      <>
-                        {allUnifiedOrders.slice(0, 5).map(order => (
-                          <div key={order.id} className="px-5 py-3.5 flex items-center justify-between border-b last:border-0" style={{ borderColor: 'rgba(0,0,0,0.04)' }}>
-                            <div>
-                              <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#F9002B' }}>#{order.orderNumber}</p>
-                              <p style={{ fontSize: '12px', color: '#6B7280' }}>{order.customerName} • {order.items.length} item{order.items.length !== 1 ? 's' : ''}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span style={{ fontWeight: 700, fontSize: '13px', color: '#111', fontFamily: 'var(--font-heading)' }}>৳{order.total}</span>
-                              <StatusBadge status={order.status} />
-                            </div>
-                          </div>
-                        ))}
-                        {allUnifiedOrders.length === 0 && <p className="py-10 text-center" style={{ color: '#9CA3AF', fontSize: '14px' }}>No orders yet</p>}
-                      </>
-                    )}
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h2
+                        className="text-base sm:text-lg font-black text-white tracking-tight"
+                        style={{ fontFamily: 'var(--font-heading)' }}
+                      >
+                        Pizzora Operations Cockpit
+                      </h2>
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                          activeCashShift
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : 'bg-gray-700 text-gray-300 border border-gray-600'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            activeCashShift ? 'bg-emerald-400 animate-pulse' : 'bg-gray-400'
+                          }`}
+                        ></span>
+                        {activeCashShift ? 'Cash Register Open' : 'Register Closed'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Live restaurant pulse · <strong>{occupiedTables.length}</strong> of{' '}
+                      <strong>{state.tables?.length || 5}</strong> tables active ·{' '}
+                      <strong>{pendingOrders}</strong> orders queued
+                    </p>
                   </div>
                 </div>
 
-                {/* Recent Reservations */}
-                <div className="bg-white rounded-2xl shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                  <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
-                    <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>Recent Reservations</h3>
-                    <button onClick={() => setActiveTab('reservations')} style={{ fontSize: '12px', color: '#F9002B', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                      View All <ChevronRight size={13} className="inline" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => window.open('/pos', '_blank')}
+                    className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm hover:shadow-md flex items-center gap-1.5 active:scale-95"
+                    style={{
+                      background: 'linear-gradient(135deg, #F9002B, #C8001F)',
+                      fontFamily: 'var(--font-heading)',
+                    }}
+                  >
+                    <ShoppingBag size={14} /> Open POS Counter
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('tables')}
+                    className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-200 hover:text-white transition-all bg-white/10 hover:bg-white/15 border border-white/10 flex items-center gap-1.5"
+                    style={{ fontFamily: 'var(--font-heading)' }}
+                  >
+                    <LayoutGrid size={14} /> Table Floor ({occupiedTables.length}/{state.tables?.length || 5})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('cash-register')}
+                    className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-200 hover:text-white transition-all bg-white/10 hover:bg-white/15 border border-white/10 flex items-center gap-1.5"
+                    style={{ fontFamily: 'var(--font-heading)' }}
+                  >
+                    <Banknote size={14} /> Cash Register
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('reprint')}
+                    className="px-3 py-2.5 rounded-xl text-xs font-bold text-gray-300 hover:text-white transition-all bg-white/10 hover:bg-white/15 border border-white/10 flex items-center gap-1.5"
+                    title="Universal Reprint System"
+                  >
+                    <RotateCcw size={14} /> Reprint
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. Executive KPI Cards (Row of 4) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {/* Metric 1: Today's Revenue */}
+                <div
+                  onClick={() => setActiveTab('sales')}
+                  className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  style={{ border: '1.5px solid rgba(22, 163, 74, 0.15)' }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <TrendingUp size={22} />
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Today's Revenue
+                    </span>
+                  </div>
+                  <p
+                    className="text-2xl font-black text-emerald-600 leading-none group-hover:scale-[1.02] transition-transform origin-left"
+                    style={{ fontFamily: 'var(--font-heading)' }}
+                  >
+                    ৳{todayRevenue.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-700 font-bold mt-2" style={{ fontFamily: 'var(--font-heading)' }}>
+                    Today's Sales Flow
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                    Lifetime: ৳{(state.analytics?.totalRevenue || totalRevenue).toLocaleString()} ({allUnifiedOrders.length} orders)
+                  </p>
+                </div>
+
+                {/* Metric 2: Active Orders & Queues */}
+                <div
+                  onClick={() => setActiveTab('orders')}
+                  className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  style={{ border: '1.5px solid rgba(249, 0, 43, 0.15)' }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-11 h-11 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                      <ShoppingBag size={22} />
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-red-100 text-red-700">
+                      {pendingOrders} Pending
+                    </span>
+                  </div>
+                  <p
+                    className="text-2xl font-black text-red-600 leading-none group-hover:scale-[1.02] transition-transform origin-left"
+                    style={{ fontFamily: 'var(--font-heading)' }}
+                  >
+                    {pendingOrders}{' '}
+                    <span className="text-sm font-semibold text-gray-500">
+                      / {todayOrders.length} today
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-700 font-bold mt-2" style={{ fontFamily: 'var(--font-heading)' }}>
+                    Active Order Queue
+                  </p>
+                  <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500">
+                    <span className="bg-gray-100 px-1.5 py-0.5 rounded font-semibold text-gray-700">
+                      {pendingTableOrders} Tables
+                    </span>
+                    <span className="bg-gray-100 px-1.5 py-0.5 rounded font-semibold text-gray-700">
+                      {pendingOnlineOrders} Online
+                    </span>
+                  </div>
+                </div>
+
+                {/* Metric 3: Table Floor Occupancy */}
+                <div
+                  onClick={() => setActiveTab('tables')}
+                  className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  style={{ border: '1.5px solid rgba(2, 132, 199, 0.15)' }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-11 h-11 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                      <LayoutGrid size={22} />
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-sky-100 text-sky-700">
+                      {occupiedTables.length}/{state.tables?.length || 5} Busy
+                    </span>
+                  </div>
+                  <p
+                    className="text-2xl font-black text-sky-600 leading-none group-hover:scale-[1.02] transition-transform origin-left"
+                    style={{ fontFamily: 'var(--font-heading)' }}
+                  >
+                    {occupiedTables.length}{' '}
+                    <span className="text-sm font-semibold text-gray-500">
+                      of {state.tables?.length || 5} Tables
+                    </span>
+                  </p>
+                  {/* Progress bar */}
+                  <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
+                    <div
+                      className="h-full bg-sky-500 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(100, Math.round((occupiedTables.length / (state.tables?.length || 5)) * 100))}%`,
+                      }}
+                    ></div>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1.5">
+                    {(state.tables?.length || 5) - occupiedTables.length} tables available for walk-in seating
+                  </p>
+                </div>
+
+                {/* Metric 4: Cash Drawer & Register */}
+                <div
+                  onClick={() => setActiveTab('cash-register')}
+                  className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  style={{ border: '1.5px solid rgba(124, 58, 237, 0.15)' }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                      <Banknote size={22} />
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
+                        activeCashShift ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {activeCashShift ? 'Shift Active' : 'Register Closed'}
+                    </span>
+                  </div>
+                  <p
+                    className="text-2xl font-black text-purple-600 leading-none group-hover:scale-[1.02] transition-transform origin-left"
+                    style={{ fontFamily: 'var(--font-heading)' }}
+                  >
+                    {activeCashShift
+                      ? `৳${Math.round(
+                          activeCashShift.openingCash +
+                            (activeCashShift.cashSales || 0) -
+                            (activeCashShift.cashPayouts || 0)
+                        ).toLocaleString()}`
+                      : 'Closed'}
+                  </p>
+                  <p className="text-xs text-gray-700 font-bold mt-2" style={{ fontFamily: 'var(--font-heading)' }}>
+                    Cash Drawer Balance
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                    Today's Expenses: ৳{Math.round(todayExpensesTotal).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* 3. Conditional Low Stock Alert Banner */}
+              {lowStockItems.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200/80 p-4 rounded-2xl flex items-center justify-between gap-3 text-amber-900 text-xs shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 flex-shrink-0">
+                      <Package size={17} />
+                    </div>
+                    <div>
+                      <span className="font-extrabold text-amber-950" style={{ fontFamily: 'var(--font-heading)' }}>
+                        Low Stock Alert ({lowStockItems.length} items):
+                      </span>{' '}
+                      {lowStockItems.slice(0, 3).map((i: any) => i.name).join(', ')}
+                      {lowStockItems.length > 3 ? ` and ${lowStockItems.length - 3} more items` : ''} are below minimum reorder threshold.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('inventory')}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs whitespace-nowrap transition-colors flex items-center gap-1 shadow-sm"
+                  >
+                    View Inventory <ChevronRight size={13} />
+                  </button>
+                </div>
+              )}
+
+              {/* 4. Main Two-Column Cockpit Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* ── Left Column: Live Orders Feed (7 Cols) ────────────────── */}
+                <div
+                  className="lg:col-span-7 bg-white rounded-2xl shadow-sm overflow-hidden"
+                  style={{ border: '1px solid rgba(0,0,0,0.05)' }}
+                >
+                  <div
+                    className="p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    style={{ borderColor: 'rgba(0,0,0,0.05)' }}
+                  >
+                    <div>
+                      <h3
+                        className="font-bold text-base text-gray-900 flex items-center gap-2"
+                        style={{ fontFamily: 'var(--font-heading)' }}
+                      >
+                        <ShoppingBag size={17} className="text-red-600" />
+                        Live Unified Orders Feed
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Real-time orders across POS, Tables & Website</p>
+                    </div>
+
+                    {/* Channel Filter Pills */}
+                    <div className="flex bg-gray-100 p-1 rounded-xl gap-1 overflow-x-auto">
+                      {[
+                        { key: 'all', label: 'All' },
+                        { key: 'table', label: 'Tables' },
+                        { key: 'pos', label: 'POS' },
+                        { key: 'online', label: 'Online' },
+                      ].map(pill => (
+                        <button
+                          key={pill.key}
+                          onClick={() => setDashboardChannelFilter(pill.key as any)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap"
+                          style={{
+                            backgroundColor: dashboardChannelFilter === pill.key ? '#fff' : 'transparent',
+                            color: dashboardChannelFilter === pill.key ? '#F9002B' : '#6B7280',
+                            boxShadow: dashboardChannelFilter === pill.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                          }}
+                        >
+                          {pill.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Orders List */}
+                  <div className="divide-y divide-gray-100">
+                    {filteredDashboardOrders.length === 0 ? (
+                      <div className="py-12 text-center text-gray-400">
+                        <ShoppingBag size={32} className="mx-auto mb-2 opacity-40" />
+                        <p className="text-xs font-semibold">No orders in this channel filter</p>
+                      </div>
+                    ) : (
+                      filteredDashboardOrders.map(order => {
+                        const isTable = Boolean(order.isTableOrder || order.tableNumber);
+                        const isOnline = isWebsiteOnlineOrder(order);
+                        return (
+                          <div
+                            key={order.id}
+                            className="px-5 py-3.5 hover:bg-gray-50/80 transition-colors flex items-center justify-between gap-3"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span
+                                  className="font-bold text-xs text-red-600"
+                                  style={{ fontFamily: 'var(--font-heading)' }}
+                                >
+                                  #{order.orderNumber}
+                                </span>
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                    isTable
+                                      ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                                      : isOnline
+                                      ? 'bg-blue-50 text-blue-700 border border-blue-200/60'
+                                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                                  }`}
+                                >
+                                  {isTable
+                                    ? `Table ${order.tableNumber || ''} • Dine-In`
+                                    : isOnline
+                                    ? 'Online Delivery'
+                                    : 'POS Counter'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-700 font-medium truncate mt-1">
+                                {order.customerName || 'Walk-in Guest'} •{' '}
+                                <span className="text-gray-500">
+                                  {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
+                                  {order.items?.[0] ? ` (${(order.items[0].item?.name || order.items[0].name || '').slice(0, 20)}...)` : ''}
+                                </span>
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                              <div className="text-right">
+                                <span
+                                  className="font-extrabold text-sm text-gray-900 block"
+                                  style={{ fontFamily: 'var(--font-heading)' }}
+                                >
+                                  ৳{order.total}
+                                </span>
+                                <span className="text-[10.5px] text-gray-400 font-medium">
+                                  {order.paymentMethod || 'Cash'}
+                                </span>
+                              </div>
+                              <StatusBadge status={order.status} />
+                              <button
+                                onClick={() => handlePrintOrder(order)}
+                                className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 transition-colors flex items-center justify-center flex-shrink-0"
+                                title="Print / Reprint Receipt"
+                              >
+                                <Printer size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* View All Footer */}
+                  <div
+                    className="p-3.5 bg-gray-50/70 border-t flex items-center justify-between text-xs"
+                    style={{ borderColor: 'rgba(0,0,0,0.05)' }}
+                  >
+                    <span className="text-gray-500 font-medium">
+                      Showing latest {filteredDashboardOrders.length} of {allUnifiedOrders.length} recorded orders
+                    </span>
+                    <button
+                      onClick={() => setActiveTab('orders')}
+                      className="font-bold text-red-600 hover:text-red-700 flex items-center gap-1 transition-colors"
+                      style={{ fontFamily: 'var(--font-heading)' }}
+                    >
+                      View All Orders in Orders Hub <ChevronRight size={13} />
                     </button>
                   </div>
-                  <div>
-                    {state.isInitialLoading ? (
-                      Array.from({ length: 5 }).map((_, i) => <AdminListSkeleton key={i} />)
+                </div>
+
+                {/* ── Right Column: Floor Map & Executive Glance (5 Cols) ────── */}
+                <div className="lg:col-span-5 space-y-5">
+                  {/* Widget 1: Live Table Floor Map */}
+                  <div
+                    className="bg-white rounded-2xl p-5 shadow-sm"
+                    style={{ border: '1px solid rgba(0,0,0,0.05)' }}
+                  >
+                    <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-gray-100">
+                      <div>
+                        <h3
+                          className="font-bold text-sm text-gray-900 flex items-center gap-2"
+                          style={{ fontFamily: 'var(--font-heading)' }}
+                        >
+                          <LayoutGrid size={16} className="text-sky-600" />
+                          Live Floor Status
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {occupiedTables.length} Active • {(state.tables?.length || 5) - occupiedTables.length} Available
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('tables')}
+                        className="text-xs font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1"
+                        style={{ fontFamily: 'var(--font-heading)' }}
+                      >
+                        Manage Tables <ChevronRight size={13} />
+                      </button>
+                    </div>
+
+                    {/* Mini Table Grid */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {(state.tables && state.tables.length > 0 ? state.tables : [
+                        { id: '1', tableNumber: '1', seats: 4, area: 'Dining', status: 'Cooking' },
+                        { id: '2', tableNumber: '2', seats: 6, area: 'Dining', status: 'Available' },
+                        { id: '3', tableNumber: '3', seats: 6, area: 'Dining', status: 'Cooking' },
+                        { id: '4', tableNumber: '4', seats: 4, area: 'Dining', status: 'Available' },
+                        { id: '5', tableNumber: '5', seats: 2, area: 'Outdoor', status: 'Available' },
+                      ]).map((tbl: any) => {
+                        const isAvailable = tbl.status === 'Available';
+                        const isCooking = tbl.status === 'Cooking' || tbl.status === 'Ordering';
+                        return (
+                          <div
+                            key={tbl.id || tbl.tableNumber}
+                            onClick={() => setActiveTab('tables')}
+                            className="p-3 rounded-xl border transition-all cursor-pointer hover:shadow-md"
+                            style={{
+                              backgroundColor: isAvailable ? '#F0FDF4' : isCooking ? '#FFF7ED' : '#FAF5FF',
+                              borderColor: isAvailable ? '#BBF7D0' : isCooking ? '#FED7AA' : '#E9D5FF',
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span
+                                className="font-extrabold text-xs text-gray-900"
+                                style={{ fontFamily: 'var(--font-heading)' }}
+                              >
+                                Table {tbl.tableNumber}
+                              </span>
+                              <span
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                                style={{
+                                  backgroundColor: isAvailable ? '#DCFCE7' : isCooking ? '#FFEDD5' : '#F3E8FF',
+                                  color: isAvailable ? '#15803D' : isCooking ? '#C2410C' : '#7E22CE',
+                                }}
+                              >
+                                {tbl.status}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
+                              <Users size={11} /> {tbl.seats} Seats • {tbl.area}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Widget 2: Daily Net Performance */}
+                  <div
+                    className="bg-white rounded-2xl p-5 shadow-sm"
+                    style={{ border: '1px solid rgba(0,0,0,0.05)' }}
+                  >
+                    <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
+                      <h3
+                        className="font-bold text-sm text-gray-900 flex items-center gap-2"
+                        style={{ fontFamily: 'var(--font-heading)' }}
+                      >
+                        <Wallet size={16} className="text-purple-600" />
+                        Today's Cash Flow Glance
+                      </h3>
+                      <button
+                        onClick={() => setActiveTab('expense')}
+                        className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                        style={{ fontFamily: 'var(--font-heading)' }}
+                      >
+                        Expenses <ChevronRight size={13} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <span className="text-[10.5px] text-gray-500 font-bold block">Gross Revenue</span>
+                        <span className="font-extrabold text-sm text-emerald-700">৳{Math.round(todayRevenue).toLocaleString()}</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-red-50 border border-red-100">
+                        <span className="text-[10.5px] text-gray-500 font-bold block">Expenses</span>
+                        <span className="font-extrabold text-sm text-red-600">৳{Math.round(todayExpensesTotal).toLocaleString()}</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-100">
+                        <span className="text-[10.5px] text-gray-500 font-bold block">Net Cashflow</span>
+                        <span className="font-extrabold text-sm text-purple-700">৳{Math.round(todayRevenue - todayExpensesTotal).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Widget 3: Compact Reservations & Customer Inquiries Hub (No wasted 50% blank space!) */}
+                  <div
+                    className="bg-white rounded-2xl p-5 shadow-sm"
+                    style={{ border: '1px solid rgba(0,0,0,0.05)' }}
+                  >
+                    <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={16} className="text-blue-600" />
+                        <h3 className="font-bold text-sm text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                          Reservations & Messages
+                        </h3>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('reservations')}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                        style={{ fontFamily: 'var(--font-heading)' }}
+                      >
+                        View Hub <ChevronRight size={13} />
+                      </button>
+                    </div>
+
+                    {state.reservations.length === 0 ? (
+                      <div className="py-4 text-center rounded-xl bg-gray-50/70 border border-dashed border-gray-200">
+                        <p className="text-xs text-gray-500 font-medium">
+                          No pending table reservations currently.
+                        </p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          {state.messages.length} customer message{state.messages.length !== 1 ? 's' : ''} received
+                        </p>
+                        <button
+                          onClick={() => setActiveTab('reservations')}
+                          className="mt-2.5 px-3 py-1 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors inline-flex items-center gap-1"
+                        >
+                          Open Reservations System <ChevronRight size={12} />
+                        </button>
+                      </div>
                     ) : (
-                      <>
-                        {state.reservations.slice(0, 5).map(res => (
-                          <div key={res.id} className="px-5 py-3.5 flex items-center justify-between border-b last:border-0" style={{ borderColor: 'rgba(0,0,0,0.04)' }}>
+                      <div className="space-y-2">
+                        {state.reservations.slice(0, 3).map(res => (
+                          <div
+                            key={res.id}
+                            className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-between text-xs"
+                          >
                             <div>
-                              <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#111' }}>{res.name}</p>
-                              <p style={{ fontSize: '12px', color: '#6B7280' }}>{res.date} at {res.time} • {res.guests} guests</p>
+                              <p className="font-bold text-gray-800">{res.name}</p>
+                              <p className="text-[11px] text-gray-500">
+                                {res.date} at {res.time} • {res.guests} guests
+                              </p>
                             </div>
                             <StatusBadge status={res.status} />
                           </div>
                         ))}
-                        {state.reservations.length === 0 && <p className="py-10 text-center" style={{ color: '#9CA3AF', fontSize: '14px' }}>No reservations yet</p>}
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
