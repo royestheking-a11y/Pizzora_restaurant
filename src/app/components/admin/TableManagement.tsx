@@ -7,7 +7,8 @@ import {
   Receipt, StickyNote, TableProperties, Wifi, ArrowRight, Zap,
   Search, CreditCard, Smartphone, Banknote,
   Tag, Percent, CheckCircle2, AlertTriangle, PrinterCheck, Split,
-  MoveRight, Sparkles, Phone, User, Flame, LayoutGrid, ArrowLeft, MousePointerClick, Edit2
+  MoveRight, Sparkles, Phone, User, Flame, LayoutGrid, ArrowLeft, MousePointerClick, Edit2,
+  UserCheck
 } from 'lucide-react';
 import {
   useApp,
@@ -517,6 +518,9 @@ function TablePaymentModal({
       createdAt: new Date().toISOString(),
       estimatedTime: 'Completed',
       orderNumber: invNum,
+      isOnlineOrder: false,
+      source: 'table',
+      orderType: 'Dine In',
     };
 
     // Save into restaurant orders and cash registers
@@ -642,10 +646,18 @@ function TablePaymentModal({
           {/* Customer Summary */}
           <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gray-50 border border-gray-200 text-xs">
             <div>
-              <span className="font-bold text-gray-700 block text-sm">
-                👤 {customerName.trim() || 'Walk-in Guest'}
+              <span className="font-bold text-gray-800 flex items-center gap-1.5 text-sm">
+                <User size={14} className="text-red-500" />
+                <span>{customerName.trim() || 'Walk-in Guest'}</span>
               </span>
-              <span className="text-gray-500">{customerPhone || 'No phone'} · 👥 {guestCount} Guests</span>
+              <span className="text-gray-500 flex items-center gap-1.5 mt-0.5">
+                <span>{customerPhone || 'No phone'}</span>
+                <span className="text-gray-300">·</span>
+                <span className="inline-flex items-center gap-1 font-medium text-gray-700">
+                  <UserCheck size={12} className="text-gray-500" />
+                  <span>{guestCount} Guests</span>
+                </span>
+              </span>
             </div>
             <div className="text-right">
               <span className="text-gray-400 text-[10px] block uppercase font-bold">Total Items</span>
@@ -758,8 +770,15 @@ function TablePaymentModal({
                 <span className="font-bold text-purple-900" style={{ fontFamily: 'var(--font-heading)' }}>
                   Divide Payment (৳{total.toFixed(2)})
                 </span>
-                <span className={splitRemaining === 0 ? 'text-green-700 font-extrabold flex items-center gap-1' : 'text-red-600 font-extrabold'}>
-                  {splitRemaining === 0 ? '✓ Balanced' : `Due: ৳${splitRemaining.toFixed(2)}`}
+                <span className={splitRemaining === 0 ? 'text-green-700 font-extrabold inline-flex items-center gap-1' : 'text-red-600 font-extrabold'}>
+                  {splitRemaining === 0 ? (
+                    <>
+                      <CheckCircle2 size={13} className="text-green-600" />
+                      <span>Balanced</span>
+                    </>
+                  ) : (
+                    `Due: ৳${splitRemaining.toFixed(2)}`
+                  )}
                 </span>
               </div>
               <div className="space-y-2">
@@ -913,8 +932,19 @@ function TableCard({
               </span>
             </div>
             <p className="flex items-center gap-1.5 mt-1 text-xs text-gray-500 font-medium">
-              <Users size={13} /> {table.seats} Seats
-              {table.guestCount ? ` · 👥 ${table.guestCount} guests` : ''}
+              <span className="inline-flex items-center gap-1">
+                <Users size={12} className="text-gray-400" />
+                <span>{table.seats} Seats</span>
+              </span>
+              {table.guestCount ? (
+                <>
+                  <span className="text-gray-300">·</span>
+                  <span className="inline-flex items-center gap-1 text-gray-700 font-semibold">
+                    <UserCheck size={12} className="text-red-500" />
+                    <span>{table.guestCount} guests</span>
+                  </span>
+                </>
+              ) : null}
             </p>
           </div>
 
@@ -925,8 +955,8 @@ function TableCard({
                 {cfg.label}
               </span>
             </div>
-            <span className="text-[10px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-              Open POS ➜
+            <span className="text-[10px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+              Open POS <ArrowRight size={10} />
             </span>
           </div>
         </div>
@@ -935,8 +965,9 @@ function TableCard({
         {isOccupied ? (
           <div className="my-3 p-3 rounded-2xl bg-gray-50/80 border border-gray-100 group-hover:bg-red-50/30 group-hover:border-red-100 transition-colors space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-gray-700 truncate max-w-[140px]">
-                👤 {table.customerName || 'Dine-In Customer'}
+              <span className="font-bold text-gray-800 truncate max-w-[150px] inline-flex items-center gap-1.5">
+                <User size={13} className="text-red-500 flex-shrink-0" />
+                <span className="truncate">{table.customerName || 'Dine-In Customer'}</span>
               </span>
               {table.occupiedSince && (
                 <span className="flex items-center gap-1 text-[11px] text-gray-500 font-semibold">
@@ -1287,6 +1318,9 @@ export function TableManagement() {
         createdAt: new Date().toISOString(),
         estimatedTime: 'Completed',
         orderNumber: invNum,
+        isOnlineOrder: false,
+        source: 'table',
+        orderType: 'Dine In',
       };
 
       // Save into restaurant orders and cash registers
@@ -1802,7 +1836,7 @@ export function TableManagement() {
               className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all hover:bg-amber-100"
               style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', textDecoration: 'none', fontFamily: 'var(--font-heading)' }}
             >
-              <ChefHat size={14} /> Kitchen Screen ↗
+              <ChefHat size={14} /> Kitchen Screen <ExternalLink size={12} className="opacity-70" />
             </a>
 
             <button

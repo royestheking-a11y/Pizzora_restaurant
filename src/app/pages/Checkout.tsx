@@ -105,7 +105,7 @@ export function Checkout() {
   const handlePlaceOrder = () => {
     setLoading(true);
     setTimeout(() => {
-      const id = `RZQ${Date.now().toString().slice(-6)}`;
+      const id = `PIZO-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
       const order = {
         id: Date.now().toString(),
         orderNumber: id,
@@ -118,6 +118,9 @@ export function Checkout() {
         address: `${form.address}, ${form.city}`,
         createdAt: new Date().toISOString(),
         estimatedTime: '30-45 minutes',
+        isOnlineOrder: true,
+        source: 'website',
+        orderType: 'Online Delivery',
       };
       dispatch({ type: 'PLACE_ORDER', payload: order });
       

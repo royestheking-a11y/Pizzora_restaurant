@@ -29,6 +29,7 @@ const MenuItemSchema = new mongoose.Schema({
   variants: Array,
   badge: String,
   showOnWebsite: { type: Boolean, default: true },
+  recipe: Array, // [{ inventoryItemId, inventoryItemName, quantity, unit }]
 }, { strict: true });
 
 const OrderSchema = new mongoose.Schema({
@@ -50,6 +51,7 @@ const OrderSchema = new mongoose.Schema({
 
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ status: 1 });
+OrderSchema.index({ orderNumber: 1 });
 
 const ReservationSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
@@ -184,14 +186,20 @@ const ChefSchema = new mongoose.Schema({
 
 const ExpenseEntrySchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
+  section: { type: String, default: 'Kitchen' },
   category: String,
   subcategory: String,
   amount: Number,
   date: String,
+  time: String,
   paymentMethod: String,
   description: String,
   invoiceNo: String,
+  recordedBy: String,
 }, { strict: true });
+
+ExpenseEntrySchema.index({ date: -1 });
+ExpenseEntrySchema.index({ category: 1 });
 
 const CashRegisterEntrySchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
@@ -214,6 +222,9 @@ const CashRegisterEntrySchema = new mongoose.Schema({
   },
 }, { strict: true });
 
+CashRegisterEntrySchema.index({ date: -1 });
+CashRegisterEntrySchema.index({ status: 1 });
+
 const InventoryItemSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
   name: String,
@@ -221,23 +232,38 @@ const InventoryItemSchema = new mongoose.Schema({
   category: String,
   unit: String,
   supplier: String,
-  costPrice: Number,
+  costPrice: Number, // Purchase price / কেনা মূল্য
   currentStock: Number,
   minStock: Number,
   maxStock: Number,
   addedDate: String,
+  initialStock: { type: Number, default: 0 }, // প্রাথমিক পরিমাণ
+  menuItemId: String, // Optional linked MenuItem ID for auto-deduction
+  lastPurchasePrice: Number,
+  lastPurchasedDate: String,
+  lastPurchasedQty: Number,
 }, { strict: true });
+
+InventoryItemSchema.index({ category: 1, name: 1 });
 
 const StockMovementSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
   itemId: String,
   itemName: String,
-  type: String, // 'Purchase IN' | 'Sale OUT' | 'Waste OUT' | 'Return IN' | 'Adjustment'
+  type: String, // 'Purchase IN' | 'Sale OUT' | 'Waste OUT' | 'Return IN' | 'Adjustment' | 'Initial Stock'
   quantity: Number,
   date: String,
   note: String,
+  unitPrice: { type: Number, default: 0 },
   totalCost: { type: Number, default: 0 },
+  systemStock: Number, // For reconciliation
+  physicalStock: Number, // For reconciliation
+  difference: Number, // For reconciliation (physicalStock - systemStock)
+  performedBy: String,
+  orderNumber: String,
 }, { strict: true });
+
+StockMovementSchema.index({ date: -1, itemId: 1 });
 
 const ItemReviewSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
@@ -301,10 +327,17 @@ const PrintJobSchema = new mongoose.Schema({
   status: { type: String, default: 'success' }, // 'success' | 'failed'
   paymentMethod: { type: String, default: '' },
   total: { type: Number, default: 0 },
-}, { strict: true });
+  orderType: { type: String, default: 'POS' },
+  customerName: { type: String, default: '' },
+  tableNo: { type: String, default: '' },
+  source: { type: String, default: 'pos' }, // 'pos' | 'table' | 'online' | 'admin'
+  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+}, { strict: false });
 
 PrintJobSchema.index({ printedAt: -1 });
 PrintJobSchema.index({ orderId: 1 });
+PrintJobSchema.index({ invoiceNumber: 1 });
+PrintJobSchema.index({ source: 1 });
 export const PrintJob = mongoose.model('PrintJob', PrintJobSchema);
 
 // ── Restaurant Settings (singleton doc for global config) ─────────────────

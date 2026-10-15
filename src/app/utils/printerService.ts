@@ -385,39 +385,73 @@ class QZTrayService {
   // ─── Main print method ───────────────────────────────────────────────────────
   async printReceipt(
     invoice: InvoiceData,
-    settings?: PrinterSettings
+    settings?: PrinterSettings,
+    options?: {
+      skipAutoLog?: boolean;
+      isReprint?: boolean;
+      reprintReason?: string;
+      source?: 'pos' | 'table' | 'online' | 'admin';
+    }
   ): Promise<{ success: boolean; error?: string }> {
     const s = settings || loadPrinterSettings();
+    let finalResult: { success: boolean; error?: string };
 
     // 1. Direct Browser Print (Default & Recommended - No QZ Tray needed!)
     if (s.printMode !== 'qz') {
       const html = generateReceiptHtml(invoice, s);
       const ok = await printHtmlViaIframe(html);
-      return ok
+      finalResult = ok
         ? { success: true }
         : { success: false, error: 'Could not open print window. Please allow print/popups in browser.' };
-    }
-
-    // 2. QZ Tray Mode (Raw ESC/POS)
-    if (!s.printerName) {
+    } else if (!s.printerName) {
+      // 2. QZ Tray Mode (Raw ESC/POS)
       console.warn('[QZ Tray] No printer configured, falling back to Direct Browser Print');
       const html = generateReceiptHtml(invoice, s);
       const ok = await printHtmlViaIframe(html);
-      return ok ? { success: true } : { success: false, error: 'No printer selected.' };
-    }
-
-    if (this.status !== 'online') {
+      finalResult = ok ? { success: true } : { success: false, error: 'No printer selected.' };
+    } else if (this.status !== 'online') {
       const connected = await this.connect();
       if (!connected) {
         console.warn('[QZ Tray] Not running, automatically falling back to Direct Browser Print');
         const html = generateReceiptHtml(invoice, s);
         const ok = await printHtmlViaIframe(html);
-        return ok
+        finalResult = ok
           ? { success: true }
           : { success: false, error: 'QZ Tray is not running and browser print failed.' };
+      } else {
+        finalResult = await this.executeQZPrint(invoice, s);
+      }
+    } else {
+      finalResult = await this.executeQZPrint(invoice, s);
+    }
+
+    // Auto-log to Reprint System if not explicitly skipped
+    if (!options?.skipAutoLog) {
+      try {
+        await logPrintJob({
+          invoiceNumber: invoice.invoiceNumber,
+          orderId: invoice.orderId,
+          printedBy: invoice.cashierName || (typeof window !== 'undefined' ? (sessionStorage.getItem('pizzora_admin_name') || 'Staff') : 'Staff'),
+          isReprint: options?.isReprint || false,
+          reprintReason: options?.reprintReason || '',
+          status: finalResult.success ? 'success' : 'failed',
+          paymentMethod: invoice.paymentMethod,
+          total: invoice.total,
+          orderType: invoice.orderType,
+          customerName: invoice.customerName,
+          tableNo: invoice.tableNo,
+          source: options?.source,
+          snapshot: invoice,
+        });
+      } catch (logErr) {
+        console.warn('[PrintJob] Auto-log exception:', logErr);
       }
     }
 
+    return finalResult;
+  }
+
+  private async executeQZPrint(invoice: InvoiceData, s: PrinterSettings): Promise<{ success: boolean; error?: string }> {
     try {
       const qz = this.qz as any;
       const config = qz.configs.create(s.printerName, {
@@ -1280,24 +1314,65 @@ export async function generateInvoiceNumber(): Promise<string> {
   return `PIZ-${y}-${n}`;
 }
 
-// ─── Log a Print Job (calls backend) ─────────────────────────────────────────
-export async function logPrintJob(job: {
+export interface PrintJobPayload {
+  id?: string;
   invoiceNumber: string;
   orderId: string;
-  printedBy: string;
-  isReprint: boolean;
+  printedBy?: string;
+  isReprint?: boolean;
   reprintReason?: string;
-  status: 'success' | 'failed';
-  paymentMethod: string;
-  total: number;
-}): Promise<void> {
+  status?: 'success' | 'failed';
+  paymentMethod?: string;
+  total?: number;
+  orderType?: string;
+  customerName?: string;
+  tableNo?: string;
+  source?: 'pos' | 'table' | 'online' | 'admin';
+  snapshot?: any;
+}
+
+// ─── Log a Print Job (calls backend) ─────────────────────────────────────────
+export async function logPrintJob(job: PrintJobPayload): Promise<void> {
   try {
-    const token = sessionStorage.getItem('pizzora_token');
+    const token = typeof window !== 'undefined'
+      ? (sessionStorage.getItem('pizzora_token') || localStorage.getItem('pizzora_token') || '')
+      : '';
     const BACKEND_URL = getBackendUrl();
 
-    // 2 second strict timeout
+    // Infer source if missing
+    let src = job.source;
+    if (!src) {
+      const typeLower = (job.orderType || '').toLowerCase();
+      if (job.tableNo || typeLower.includes('table') || typeLower.includes('dine')) {
+        src = 'table';
+      } else if (typeLower.includes('online') || typeLower.includes('delivery') || (job.orderId && job.orderId.startsWith('PIZO')) || (job.invoiceNumber && job.invoiceNumber.startsWith('PIZO'))) {
+        src = 'online';
+      } else {
+        src = 'pos';
+      }
+    }
+
+    const payload = {
+      id: job.id || `PJ${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      invoiceNumber: job.invoiceNumber || `PIZ-${Date.now().toString().slice(-6)}`,
+      orderId: job.orderId || `ORD-${Date.now().toString().slice(-6)}`,
+      printedBy: job.printedBy || (typeof window !== 'undefined' ? (sessionStorage.getItem('pizzora_admin_name') || 'Cashier') : 'Cashier'),
+      isReprint: Boolean(job.isReprint),
+      reprintReason: job.reprintReason || '',
+      status: job.status || 'success',
+      paymentMethod: job.paymentMethod || 'Cash',
+      total: Number(job.total) || 0,
+      orderType: job.orderType || (src === 'table' ? 'Dine In' : (src === 'online' ? 'Online Order' : 'POS')),
+      customerName: job.customerName || (src === 'table' ? (job.tableNo ? `Table ${job.tableNo}` : 'Guest') : 'Guest'),
+      tableNo: job.tableNo || '',
+      source: src,
+      snapshot: job.snapshot || null,
+      printedAt: new Date().toISOString(),
+    };
+
+    // 4 second timeout for slow connections
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
 
     await fetch(`${BACKEND_URL}/api/print-jobs`, {
       method: 'POST',
@@ -1306,12 +1381,7 @@ export async function logPrintJob(job: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       signal: controller.signal,
-      body: JSON.stringify({
-        id: `PJ${Date.now()}`,
-        ...job,
-        printedAt: new Date().toISOString(),
-        reprintReason: job.reprintReason || '',
-      }),
+      body: JSON.stringify(payload),
     });
 
     clearTimeout(timeoutId);

@@ -23,6 +23,7 @@ export interface MenuItem {
   variants?: { name: string; price: number }[];
   badge?: string;
   showOnWebsite?: boolean;
+  recipe?: Array<{ inventoryItemId: string; inventoryItemName: string; quantity: number; unit?: string }>;
 }
 
 export interface Chef {

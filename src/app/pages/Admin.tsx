@@ -27,14 +27,16 @@ import { ReprintSystem } from '../components/admin/ReprintSystem';
 import { RoleManagement } from '../components/admin/RoleManagement';
 import { DeliverySettingsPanel } from '../components/admin/DeliverySettingsPanel';
 import { ProductOrderAnalytics } from '../components/admin/ProductOrderAnalytics';
-import { Printer, RotateCcw, Truck } from 'lucide-react';
+import { OnlineOrderManagement, isWebsiteOnlineOrder } from '../components/admin/OnlineOrderManagement';
+import { Printer, RotateCcw, Truck, Globe } from 'lucide-react';
+import { logPrintJob } from '../utils/printerService';
 import { AdminStatSkeleton, AdminListSkeleton, TableRowSkeleton, POSCardSkeleton, ChartSkeleton } from '../components/Skeletons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Mock auth - replaced by real auth
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AdminTab = 'dashboard' | 'sales' | 'orders' | 'product-analytics' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles' | 'delivery-settings';
+type AdminTab = 'dashboard' | 'sales' | 'online-orders' | 'orders' | 'product-analytics' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles' | 'delivery-settings';
 
 // ─── Input Style Helper ────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
@@ -820,6 +822,61 @@ export function Admin() {
   // Print Order State
   const [printOrder, setPrintOrder] = useState<any | null>(null);
 
+  const handlePrintOrder = async (order: any) => {
+    if (!order) return;
+    const isTable = Boolean(order.isTableOrder || (order.address && order.address.toLowerCase().includes('table')) || order.tableNumber);
+    const isOnline = Boolean(order.isOnlineOrder || order.source === 'website' || (order.orderNumber && order.orderNumber.startsWith('PIZO')));
+    const source: 'pos' | 'table' | 'online' | 'admin' = isTable ? 'table' : (isOnline ? 'online' : 'pos');
+    const invoiceNumber = order.orderNumber || (isTable ? `TBL-${order.tableNumber || ''}-${order.id?.slice(-6)}` : `PIZ-${order.id?.slice(-8)}`);
+    
+    const items = (order.items || []).map((ci: any) => ({
+      name: isTable ? (ci.name || 'Item') : (ci.item?.name || ci.name || 'Item'),
+      quantity: ci.quantity || 1,
+      price: isTable ? (ci.price || 0) : (ci.item?.price || ci.price || 0),
+      variant: ci.variant,
+    }));
+
+    // Log to Reprint System database immediately
+    logPrintJob({
+      invoiceNumber,
+      orderId: order.id,
+      printedBy: sessionStorage.getItem('pizzora_admin_name') || 'Admin',
+      isReprint: false,
+      status: 'success',
+      paymentMethod: order.paymentMethod || 'Cash',
+      total: order.total || 0,
+      orderType: isTable ? 'Dine In' : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
+      customerName: order.customerName || (isTable ? `Table ${order.tableNumber || ''}` : 'Guest'),
+      tableNo: order.tableNumber ? String(order.tableNumber) : '',
+      source,
+      snapshot: {
+        invoiceNumber,
+        orderId: order.id,
+        orderType: isTable ? 'Dine In' : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
+        tableNo: order.tableNumber ? String(order.tableNumber) : '',
+        customerName: order.customerName || (isTable ? `Table ${order.tableNumber || ''}` : 'Guest'),
+        cashierName: sessionStorage.getItem('pizzora_admin_name') || 'Admin',
+        dateTime: new Date(order.createdAt || Date.now()).toLocaleString(),
+        items,
+        subtotal: order.total || 0,
+        discount: order.discount || 0,
+        total: order.total || 0,
+        paymentMethod: order.paymentMethod || 'Cash',
+        splitPayments: order.splitPayments,
+        amountPaid: order.total || 0,
+        change: 0,
+      }
+    }).catch(e => console.warn('[Admin] Failed to log print job:', e));
+
+    setPrintOrder(order);
+    setTimeout(() => {
+      document.body.classList.add('print-thermal');
+      window.print();
+      document.body.classList.remove('print-thermal');
+      setPrintOrder(null);
+    }, 500);
+  };
+
   // Generic Delete Confirmation State
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
@@ -932,6 +989,7 @@ export function Admin() {
 
   const totalRevenue = completedUnifiedOrders.reduce((sum, o) => sum + o.total, 0);
   const pendingOrders = allUnifiedOrders.filter(o => o.status === 'Pending').length;
+  const pendingOnlineOrders = state.orders.filter(o => isWebsiteOnlineOrder(o) && o.status === 'Pending').length;
   const pendingReservations = state.reservations.filter(r => r.status === 'Pending').length;
   const unreadMessages = state.messages.filter(m => !m.isRead).length;
   const pendingTableOrders = (state.tableOrders ?? []).filter(o => o.status === 'Pending').length;
@@ -1018,10 +1076,11 @@ export function Admin() {
   const sidebarItems: { id: AdminTab; icon: typeof LayoutDashboard; label: string; badge?: number }[] = [
     { id: 'dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'sales',        icon: TrendingUp,      label: 'Sales Report' },
-    { id: 'orders',       icon: ShoppingBag,     label: 'Orders',           badge: pendingOrders },
+    { id: 'orders',       icon: ShoppingBag,     label: 'All Orders',       badge: pendingOrders },
+    { id: 'online-orders',icon: Globe,           label: 'Online Orders',    badge: pendingOnlineOrders },
     { id: 'product-analytics', icon: BarChart3,  label: 'Product Sales Analytics' },
-    { id: 'reservations', icon: Calendar,        label: 'Reservations',     badge: pendingReservations },
     { id: 'tables',       icon: LayoutGrid,      label: 'Table Management', badge: pendingTableOrders },
+    { id: 'reservations', icon: Calendar,        label: 'Reservations',     badge: pendingReservations },
     { id: 'payments',     icon: CreditCard,      label: 'Payments' },
     { id: 'inventory',    icon: Package,         label: 'Inventory' },
     { id: 'expense',      icon: Wallet,          label: 'Expense' },
@@ -1710,12 +1769,19 @@ export function Admin() {
             </div>
           )}
 
+          {/* ══ DEDICATED ONLINE ORDERS EXECUTION STATION ════════ */}
+          {activeTab === 'online-orders' && (
+            <OnlineOrderManagement
+              onPrintOrder={handlePrintOrder}
+            />
+          )}
+
           {/* ══ ORDERS & PRODUCT SALES ANALYTICS ═════════════════ */}
           {(activeTab === 'orders' || activeTab === 'product-analytics') && (
             <div className="space-y-5 w-full max-w-full min-w-0 overflow-hidden">
               {/* Top Sub-navigation Switcher */}
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-gray-100 border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-gray-100 border border-gray-200 shadow-sm flex-wrap">
                   <button
                     onClick={() => {
                       if (activeTab === 'product-analytics') setActiveTab('orders');
@@ -1730,7 +1796,21 @@ export function Admin() {
                     }}
                   >
                     <ShoppingBag size={14} />
-                    <span>All Orders & Receipts ({allUnifiedOrders.length})</span>
+                    <span>All Orders ({allUnifiedOrders.length})</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('online-orders')}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-gray-600 hover:text-gray-900"
+                    style={{ fontFamily: 'var(--font-heading)' }}
+                  >
+                    <Globe size={14} className="text-red-500" />
+                    <span>Online Orders Only ({state.orders.filter(isWebsiteOnlineOrder).length})</span>
+                    {pendingOnlineOrders > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white animate-pulse">
+                        {pendingOnlineOrders}
+                      </span>
+                    )}
                   </button>
 
                   <button
@@ -1823,15 +1903,7 @@ export function Admin() {
                             </select>
                           )}
                           <button
-                            onClick={() => {
-                              setPrintOrder(order);
-                              setTimeout(() => {
-                                document.body.classList.add('print-thermal');
-                                window.print();
-                                document.body.classList.remove('print-thermal');
-                                setPrintOrder(null);
-                              }, 500);
-                            }}
+                            onClick={() => handlePrintOrder(order)}
                             className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
                             title="Print Invoice"
                           >

@@ -481,7 +481,14 @@ app.get('/api/orders/history', authenticateJWT, async (req, res) => {
 app.get('/api/orders/track/:orderNumber', async (req, res) => {
   try {
     const { orderNumber } = req.params;
-    const order = await Order.findOne({ orderNumber });
+    const cleanNum = (orderNumber || '').trim().replace(/^#/, '');
+    const order = await Order.findOne({
+      $or: [
+        { orderNumber: cleanNum },
+        { orderNumber: `#${cleanNum}` },
+        { orderNumber: { $regex: new RegExp(`^#?${cleanNum}$`, 'i') } }
+      ]
+    });
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
@@ -560,6 +567,197 @@ function checkPermanentError(err) {
   return msg.includes('E11000') || msg.includes('validation failed') || msg.includes('Invalid ID format') || msg.includes('Unauthorized');
 }
 
+function findRelatedInventoryDeductions(lineItem, allInventory, allMenuItems = []) {
+  const deductions = [];
+  const qty = Number(lineItem.quantity) || 1;
+
+  const menuItemId = lineItem.item?.id || lineItem.menuItemId || lineItem.id;
+  const itemName = lineItem.item?.name || lineItem.name || '';
+  const itemCategory = lineItem.item?.category || '';
+  const itemIngredients = lineItem.item?.ingredients || [];
+  const variantName = lineItem.item?.variant?.name || lineItem.variant?.name || lineItem.specialRequest || '';
+
+  const fullMenuItem = allMenuItems.find(m =>
+    (menuItemId && m.id === menuItemId) ||
+    (itemName && m.name && m.name.trim().toLowerCase() === itemName.trim().toLowerCase())
+  );
+
+  const finalIngredients = (fullMenuItem?.ingredients && fullMenuItem.ingredients.length > 0)
+    ? fullMenuItem.ingredients
+    : itemIngredients;
+
+  const finalCategory = fullMenuItem?.category || itemCategory;
+
+  // 1. If explicit custom recipe is defined on the MenuItem, use it:
+  if (fullMenuItem?.recipe && Array.isArray(fullMenuItem.recipe) && fullMenuItem.recipe.length > 0) {
+    for (const r of fullMenuItem.recipe) {
+      const inv = allInventory.find(i => i.id === r.inventoryItemId || (i.name && i.name.toLowerCase() === r.inventoryItemName?.toLowerCase()));
+      if (inv) {
+        deductions.push({
+          inventoryItem: inv,
+          quantityToDeduct: (Number(r.quantity) || 1) * qty,
+          reason: `Recipe: ${r.inventoryItemName || inv.name} for ${itemName}`
+        });
+      }
+    }
+    return deductions;
+  }
+
+  // 2. Intelligent Auto-Detection:
+  const deductedInvIds = new Set();
+
+  // A. Direct Product Match
+  const directMatch = allInventory.find(inv =>
+    (menuItemId && (inv.menuItemId === menuItemId || inv.id === menuItemId)) ||
+    (itemName && inv.name && inv.name.trim().toLowerCase() === itemName.trim().toLowerCase())
+  );
+  if (directMatch && !deductedInvIds.has(directMatch.id)) {
+    deductions.push({
+      inventoryItem: directMatch,
+      quantityToDeduct: qty,
+      reason: `Direct product sale (${itemName})`
+    });
+    deductedInvIds.add(directMatch.id);
+  }
+
+  // B. Packaging / Box Auto-Detection
+  const isPizza = (finalCategory && finalCategory.toLowerCase().includes('pizza')) || itemName.toLowerCase().includes('pizza');
+  const isBurger = (finalCategory && finalCategory.toLowerCase().includes('burger')) || itemName.toLowerCase().includes('burger');
+
+  if (isPizza) {
+    const textToSearch = `${variantName} ${itemName} ${lineItem.specialRequest || ''}`.toLowerCase();
+    let size = '';
+    if (textToSearch.includes('12') || textToSearch.includes('large')) size = '12';
+    else if (textToSearch.includes('8') || textToSearch.includes('small')) size = '8';
+    else size = '10'; // default 10-inch pizza
+
+    let boxItem = allInventory.find(inv => {
+      const n = (inv.name || '').toLowerCase();
+      return (n.includes('box') || (inv.category || '').toLowerCase().includes('packaging') || (inv.category || '').toLowerCase().includes('food raw materials')) &&
+             (n.includes(size) || n.includes(`${size}"`) || n.includes(`${size} inch`)) &&
+             n.includes('pizza');
+    });
+
+    if (!boxItem) {
+      boxItem = allInventory.find(inv => {
+        const n = (inv.name || '').toLowerCase();
+        return n.includes('box') && (n.includes(size) || n.includes(`${size}"`));
+      });
+    }
+
+    if (!boxItem) {
+      boxItem = allInventory.find(inv => {
+        const n = (inv.name || '').toLowerCase();
+        return n.includes('pizza') && n.includes('box');
+      });
+    }
+
+    if (boxItem && !deductedInvIds.has(boxItem.id)) {
+      deductions.push({
+        inventoryItem: boxItem,
+        quantityToDeduct: qty,
+        reason: `Packaging: ${boxItem.name} (${size}" Pizza)`
+      });
+      deductedInvIds.add(boxItem.id);
+    }
+  } else if (isBurger) {
+    const burgerBox = allInventory.find(inv => {
+      const n = (inv.name || '').toLowerCase();
+      return (n.includes('burger') && n.includes('box')) || (n.includes('burger') && (inv.category || '').toLowerCase().includes('packaging'));
+    });
+    if (burgerBox && !deductedInvIds.has(burgerBox.id)) {
+      deductions.push({
+        inventoryItem: burgerBox,
+        quantityToDeduct: qty,
+        reason: `Packaging: ${burgerBox.name}`
+      });
+      deductedInvIds.add(burgerBox.id);
+    }
+  }
+
+  // C. Ingredients / Raw Materials Auto-Detection
+  if (finalIngredients && finalIngredients.length > 0) {
+    for (const ing of finalIngredients) {
+      const ingLower = ing.trim().toLowerCase();
+      const matchedInv = allInventory.find(inv => {
+        if (deductedInvIds.has(inv.id)) return false;
+        const invName = (inv.name || '').trim().toLowerCase();
+        return (
+          invName === ingLower ||
+          invName.includes(ingLower) ||
+          ingLower.includes(invName) ||
+          (ingLower.includes('cheese') && invName.includes('cheese')) ||
+          (ingLower.includes('mozzarella') && invName.includes('mozzarella')) ||
+          (ingLower.includes('chicken') && invName.includes('chicken')) ||
+          (ingLower.includes('beef') && invName.includes('beef')) ||
+          (ingLower.includes('tomato') && invName.includes('tomato')) ||
+          (ingLower.includes('mushroom') && invName.includes('mushroom')) ||
+          (ingLower.includes('dough') && (invName.includes('dough') || invName.includes('flour')))
+        );
+      });
+
+      if (matchedInv && !deductedInvIds.has(matchedInv.id)) {
+        const unitPortion = (matchedInv.unit?.toLowerCase() === 'kg') ? 0.1 : 1;
+        deductions.push({
+          inventoryItem: matchedInv,
+          quantityToDeduct: unitPortion * qty,
+          reason: `Ingredient: ${matchedInv.name}`
+        });
+        deductedInvIds.add(matchedInv.id);
+      }
+    }
+  }
+
+  return deductions;
+}
+
+async function deductInventoryForOrder(order, isTableOrder = false) {
+  try {
+    const items = order.items || [];
+    if (!items.length) return;
+
+    const [allInventory, allMenuItems] = await Promise.all([
+      InventoryItem.find(),
+      MenuItem.find()
+    ]);
+
+    for (const lineItem of items) {
+      const deductions = findRelatedInventoryDeductions(lineItem, allInventory, allMenuItems);
+      for (const { inventoryItem: inv, quantityToDeduct, reason } of deductions) {
+        const newStock = Math.max(0, (inv.currentStock || 0) - quantityToDeduct);
+        inv.currentStock = newStock;
+        await InventoryItem.updateOne({ id: inv.id }, { $set: { currentStock: newStock } });
+
+        const movement = {
+          id: `mv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          itemId: inv.id,
+          itemName: inv.name,
+          type: 'Sale OUT',
+          quantity: quantityToDeduct,
+          date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' }),
+          note: `Order #${order.orderNumber || (order.id ? order.id.slice(-6) : 'POS')} - ${reason}${isTableOrder ? ' (Table)' : ''}`,
+          unitPrice: inv.costPrice || 0,
+          totalCost: quantityToDeduct * (inv.costPrice || 0),
+          orderNumber: order.orderNumber || (order.id ? order.id.slice(-6) : ''),
+        };
+        await StockMovement.create(movement);
+
+        // Notify admins in real-time
+        io.to('adminRoom').emit('REMOTE_ACTION', {
+          type: 'UPDATE_INVENTORY_ITEM',
+          payload: { ...inv.toObject(), currentStock: newStock }
+        });
+        io.to('adminRoom').emit('REMOTE_ACTION', {
+          type: 'ADD_STOCK_MOVEMENT',
+          payload: movement
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Error auto-deducting inventory for order:', err);
+  }
+}
+
 async function processDbAction(action) {
   // Prevent NoSQL Injection (skip for actions with non-id payloads)
   const skipIdCheck = ['REORDER_CAROUSEL_SLIDE'];
@@ -590,16 +788,25 @@ async function processDbAction(action) {
     case 'DELETE_MENU_ITEM': await MenuItem.findOneAndDelete({ id: action.payload }); break;
 
     // Orders
-    case 'PLACE_ORDER': await Order.create(action.payload); break;
+    case 'PLACE_ORDER':
+      await Order.create(action.payload);
+      await deductInventoryForOrder(action.payload, false);
+      break;
     case 'BATCH_PLACE_ORDERS':
       if (action.payload && action.payload.length > 0) {
         await Order.insertMany(action.payload);
+        for (const o of action.payload) {
+          await deductInventoryForOrder(o, false);
+        }
       }
       break;
     case 'UPDATE_ORDER_STATUS': await Order.findOneAndUpdate({ id: action.payload.id }, { status: action.payload.status }); break;
 
     // Table Orders
-    case 'PLACE_TABLE_ORDER': await TableOrder.create(action.payload); break;
+    case 'PLACE_TABLE_ORDER':
+      await TableOrder.create(action.payload);
+      await deductInventoryForOrder(action.payload, true);
+      break;
     case 'UPDATE_TABLE_ORDER': await TableOrder.findOneAndUpdate({ id: action.payload.id }, { $set: action.payload }, { upsert: true, new: true }); break;
     case 'UPDATE_TABLE_ORDER_STATUS': await TableOrder.findOneAndUpdate({ id: action.payload.id }, { status: action.payload.status }); break;
     case 'DELETE_ORDER': await Order.findOneAndDelete({ id: action.payload }); break;
@@ -739,12 +946,30 @@ app.post('/api/invoices/generate-number', authenticateJWT, async (req, res) => {
   }
 });
 
-// ── Print Job Log (POST to create, GET to fetch history) ──────────────────────
-app.post('/api/print-jobs', authenticateJWT, async (req, res) => {
+// ── Print Job Log (POST to create, GET to fetch history, POST to sync missing) ──────────────────────
+app.post('/api/print-jobs', async (req, res) => {
   try {
     const job = req.body;
     if (!job || !job.id) return res.status(400).json({ error: 'Invalid print job data' });
-    const created = await PrintJob.create(job);
+
+    // Infer source if not explicitly provided
+    if (!job.source) {
+      const orderTypeLower = (job.orderType || '').toLowerCase();
+      if (job.tableNo || orderTypeLower.includes('table') || orderTypeLower.includes('dine')) {
+        job.source = 'table';
+      } else if (orderTypeLower.includes('online') || orderTypeLower.includes('delivery') || (job.orderId && job.orderId.startsWith('PIZO')) || (job.invoiceNumber && job.invoiceNumber.startsWith('PIZO'))) {
+        job.source = 'online';
+      } else {
+        job.source = 'pos';
+      }
+    }
+
+    // Upsert to avoid duplicate keys on fast double clicks
+    const created = await PrintJob.findOneAndUpdate(
+      { id: job.id },
+      { $set: job },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
     res.json({ success: true, printJob: created });
   } catch (error) {
     console.error('Failed to log print job:', error);
@@ -752,19 +977,237 @@ app.post('/api/print-jobs', authenticateJWT, async (req, res) => {
   }
 });
 
-app.get('/api/print-jobs', authenticateJWT, async (req, res) => {
+app.get('/api/print-jobs', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
     const skip = parseInt(req.query.skip) || 0;
-    const search = req.query.search || '';
-    const query = search
-      ? { $or: [{ invoiceNumber: new RegExp(search, 'i') }, { orderId: new RegExp(search, 'i') }] }
-      : {};
-    const jobs = await PrintJob.find(query).sort({ printedAt: -1 }).skip(skip).limit(limit);
+    const search = (req.query.search || '').trim();
+    const source = (req.query.source || '').trim().toLowerCase();
+    const daysParam = req.query.days; // '2' (default), 'all', or number
+
+    let query = {};
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { invoiceNumber: searchRegex },
+        { orderId: searchRegex },
+        { customerName: searchRegex },
+        { tableNo: searchRegex },
+        { orderType: searchRegex },
+        { printedBy: searchRegex },
+        { paymentMethod: searchRegex },
+      ];
+    }
+
+    // Default to last 2 days (Today & Yesterday) unless days=all is explicitly requested
+    const shouldLimit2Days = daysParam !== 'all' && (!search || daysParam === '2');
+    if (shouldLimit2Days) {
+      const now = new Date();
+      const dhakaOffset = 6 * 60; // minutes
+      const nowDhaka = new Date(now.getTime() + dhakaOffset * 60 * 1000);
+      const startOfYesterdayDhaka = new Date(nowDhaka);
+      startOfYesterdayDhaka.setUTCDate(startOfYesterdayDhaka.getUTCDate() - 1);
+      startOfYesterdayDhaka.setUTCHours(0, 0, 0, 0);
+      const cutoffUtc = new Date(startOfYesterdayDhaka.getTime() - dhakaOffset * 60 * 1000);
+      query.printedAt = { $gte: cutoffUtc.toISOString() };
+    }
+
+    if (source && source !== 'all') {
+      if (source === 'table') {
+        query.$or = (query.$or || []).concat([
+          { source: 'table' },
+          { tableNo: { $exists: true, $ne: '' } },
+          { orderType: /dine|table/i }
+        ]);
+      } else if (source === 'online') {
+        query.$or = (query.$or || []).concat([
+          { source: 'online' },
+          { invoiceNumber: /^PIZO/i },
+          { orderType: /online|delivery/i }
+        ]);
+      } else if (source === 'pos') {
+        query.source = 'pos';
+      }
+    }
+
+    const jobs = await PrintJob.find(query).sort({ printedAt: -1, _id: -1 }).skip(skip).limit(limit);
     const total = await PrintJob.countDocuments(query);
     res.json({ success: true, printJobs: jobs, total });
   } catch (error) {
     console.error('Failed to fetch print jobs:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Sync any completed table/online/POS orders that were generated or placed but never logged in printjobs
+app.post('/api/print-jobs/sync-missing', async (req, res) => {
+  try {
+    const parseItems = (rawItems) => {
+      if (!Array.isArray(rawItems)) return [];
+      return rawItems.map(ci => {
+        const name = ci.name || ci.item?.name || (typeof ci.title === 'string' ? ci.title : 'Item');
+        const price = (typeof ci.price === 'number') ? ci.price : ((ci.item && typeof ci.item.price === 'number') ? ci.item.price : 0);
+        const quantity = ci.quantity || ci.qty || 1;
+        const variant = ci.variant || ci.selectedVariant?.name || '';
+        const note = ci.note || ci.specialRequest || '';
+        return { name, quantity, price, variant, note };
+      });
+    };
+
+    const existingJobs = await PrintJob.find({}).lean();
+    const existingJobMap = new Map();
+    existingJobs.forEach(j => {
+      if (j.orderId) existingJobMap.set(j.orderId, j);
+      if (j.invoiceNumber) existingJobMap.set(j.invoiceNumber, j);
+    });
+
+    const allOrders = await Order.find({
+      $or: [
+        { orderNumber: { $exists: true, $ne: '' } },
+        { id: { $exists: true, $ne: '' } }
+      ]
+    }).lean();
+
+    const allTableOrders = await TableOrder.find({
+      id: { $exists: true, $ne: '' }
+    }).lean();
+
+    let addedCount = 0;
+    let repairedCount = 0;
+
+    // 1. Process regular & settled table orders from Order collection
+    for (const order of allOrders) {
+      const isTable = Boolean(order.isTableOrder || (order.address && order.address.toLowerCase().includes('table')) || order.tableNumber);
+      const isOnline = Boolean(order.isOnlineOrder || order.source === 'website' || (order.orderNumber && order.orderNumber.startsWith('PIZO')));
+      const source = isTable ? 'table' : (isOnline ? 'online' : 'pos');
+      const tableNo = order.tableNumber ? String(order.tableNumber) : (order.address && order.address.match(/table\s*(\d+)/i) ? order.address.match(/table\s*(\d+)/i)[1] : '');
+      const invNum = order.orderNumber || (isTable ? `TBL-${tableNo || '1'}-${String(order.id).slice(-6)}` : `PIZ-${String(order.id).slice(-8)}`);
+      const items = parseItems(order.items);
+
+      const existingJob = existingJobMap.get(order.id) || (order.orderNumber ? existingJobMap.get(order.orderNumber) : null);
+
+      if (existingJob) {
+        // Repair snapshot if items had dummy names
+        const hasDummy = (existingJob.snapshot?.items || []).some(i => i.name === 'Item' && i.price === 0);
+        if (hasDummy && items.length > 0) {
+          await PrintJob.updateOne(
+            { _id: existingJob._id },
+            {
+              $set: {
+                tableNo: tableNo || existingJob.tableNo,
+                orderType: isTable ? `Dine In — Table ${tableNo}` : existingJob.orderType,
+                'snapshot.items': items,
+                'snapshot.tableNo': tableNo || existingJob.tableNo,
+                'snapshot.orderType': isTable ? `Dine In — Table ${tableNo}` : existingJob.orderType,
+              }
+            }
+          );
+          repairedCount++;
+        }
+      } else {
+        // Insert missing job
+        await PrintJob.create({
+          id: `PJ_SYNC_${order.id || Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          invoiceNumber: invNum,
+          orderId: order.id,
+          printedBy: order.cashierName || 'Staff',
+          printedAt: order.createdAt || new Date().toISOString(),
+          isReprint: false,
+          reprintReason: '',
+          status: 'success',
+          paymentMethod: order.paymentMethod || 'Cash',
+          total: order.total || 0,
+          orderType: isTable ? `Dine In — Table ${tableNo}` : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
+          customerName: order.customerName || (isTable ? `Table ${tableNo || ''} Guest` : 'Guest'),
+          tableNo,
+          source,
+          snapshot: {
+            invoiceNumber: invNum,
+            orderId: order.id,
+            orderType: isTable ? `Dine In — Table ${tableNo}` : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
+            tableNo,
+            customerName: order.customerName || (isTable ? `Table ${tableNo || ''} Guest` : 'Guest'),
+            cashierName: order.cashierName || 'Staff',
+            dateTime: new Date(order.createdAt || Date.now()).toLocaleString(),
+            items,
+            subtotal: order.total || 0,
+            discount: order.discount || 0,
+            total: order.total || 0,
+            paymentMethod: order.paymentMethod || 'Cash',
+            splitPayments: order.splitPayments,
+            amountPaid: order.total || 0,
+            change: 0,
+          }
+        });
+        addedCount++;
+      }
+    }
+
+    // 2. Process active or kitchen table orders from TableOrder collection (e.g. Table 3, Table 2)
+    for (const to of allTableOrders) {
+      const existingJob = existingJobMap.get(to.id) || (to.orderNumber ? existingJobMap.get(to.orderNumber) : null);
+      const tableNo = String(to.tableNumber || to.tableId || '');
+      const invNum = to.orderNumber || `TBL-${tableNo || '1'}-${String(to.id).slice(-6)}`;
+      const items = parseItems(to.items);
+      const createdAtIso = typeof to.createdAt === 'number' ? new Date(to.createdAt).toISOString() : (to.createdAt || new Date().toISOString());
+
+      if (existingJob) {
+        const hasDummy = (existingJob.snapshot?.items || []).some(i => i.name === 'Item' && i.price === 0);
+        if (hasDummy && items.length > 0) {
+          await PrintJob.updateOne(
+            { _id: existingJob._id },
+            {
+              $set: {
+                tableNo,
+                orderType: `Dine In — Table ${tableNo}`,
+                'snapshot.items': items,
+                'snapshot.tableNo': tableNo,
+              }
+            }
+          );
+          repairedCount++;
+        }
+      } else {
+        await PrintJob.create({
+          id: `PJ_SYNC_${to.id}_${Math.random().toString(36).substring(2, 6)}`,
+          invoiceNumber: invNum,
+          orderId: to.id,
+          printedBy: 'Staff',
+          printedAt: createdAtIso,
+          isReprint: false,
+          reprintReason: '',
+          status: 'success',
+          paymentMethod: to.paymentMethod || 'Table Check',
+          total: to.total || 0,
+          orderType: `Dine In — Table ${tableNo}`,
+          customerName: to.customerName || `Table ${tableNo}`,
+          tableNo,
+          source: 'table',
+          snapshot: {
+            invoiceNumber: invNum,
+            orderId: to.id,
+            orderType: `Dine In — Table ${tableNo}`,
+            tableNo,
+            customerName: to.customerName || `Table ${tableNo}`,
+            cashierName: 'Staff',
+            dateTime: new Date(createdAtIso).toLocaleString(),
+            items,
+            subtotal: to.total || 0,
+            discount: to.discount || 0,
+            total: to.total || 0,
+            paymentMethod: to.paymentMethod || 'Table Check',
+            splitPayments: to.splitPayments,
+            amountPaid: to.total || 0,
+            change: 0,
+          }
+        });
+        addedCount++;
+      }
+    }
+
+    res.json({ success: true, synced: addedCount, repaired: repairedCount });
+  } catch (error) {
+    console.error('Failed to sync missing print jobs:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

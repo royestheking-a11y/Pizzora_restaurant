@@ -10,6 +10,10 @@ export interface CartItem {
   item: MenuItem;
   quantity: number;
   specialRequest?: string;
+  size?: string;
+  crust?: string;
+  spiceLevel?: string;
+  specialInstructions?: string;
 }
 
 export type OrderStatus = 'Pending' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
@@ -35,6 +39,9 @@ export interface Order {
   createdAt: string;
   estimatedTime: string;
   orderNumber: string;
+  isOnlineOrder?: boolean;
+  source?: 'website' | 'pos' | 'table' | string;
+  orderType?: string;
 }
 
 export type ReservationStatus = 'Pending' | 'Confirmed' | 'Rejected' | 'Cancelled';
@@ -172,13 +179,16 @@ export interface PayrollRecord {
 
 export interface ExpenseEntry {
   id: string;
+  section?: string;
   category: string;
   subcategory: string;
   amount: number;
   date: string;
-  paymentMethod: 'Cash' | 'Bank Transfer' | 'bKash' | 'Card' | string;
+  time?: string;
+  paymentMethod: 'Cash' | 'Bank Transfer' | 'bKash' | 'Nagad' | 'Card' | string;
   description: string;
   invoiceNo: string;
+  recordedBy?: string;
 }
 
 export interface CashRegisterEntry {
@@ -209,22 +219,33 @@ export interface InventoryItem {
   category: string;
   unit: string;
   supplier: string;
-  costPrice: number;
+  costPrice: number; // Purchase price / কেনা মূল্য
   currentStock: number;
   minStock: number;
   maxStock: number;
   addedDate?: string;
+  initialStock?: number; // প্রাথমিক পরিমাণ
+  menuItemId?: string; // Optional link to MenuItem for automatic sales deduction
+  lastPurchasePrice?: number;
+  lastPurchasedDate?: string;
+  lastPurchasedQty?: number;
 }
 
 export interface StockMovement {
   id: string;
   itemId: string;
   itemName: string;
-  type: 'Purchase IN' | 'Sale OUT' | 'Waste OUT' | 'Return IN' | 'Adjustment' | string;
+  type: 'Purchase IN' | 'Sale OUT' | 'Waste OUT' | 'Return IN' | 'Adjustment' | 'Initial Stock' | string;
   quantity: number;
   date: string;
   note: string;
+  unitPrice?: number;
   totalCost?: number;
+  systemStock?: number; // For reconciliation
+  physicalStock?: number; // For reconciliation
+  difference?: number; // For reconciliation (physicalStock - systemStock)
+  performedBy?: string; // Auditor or user
+  orderNumber?: string;
 }
 
 export interface ItemReview {
@@ -503,6 +524,194 @@ const initialState: AppState = {
   analytics: null,
 };
 
+// ─── Inventory Deduction Helper ───────────────────────────────────────────────
+
+function findRelatedInventoryDeductionsClient(
+  lineItem: any,
+  allInventory: InventoryItem[],
+  allMenuItems: MenuItem[] = []
+): Array<{ inventoryItem: InventoryItem; quantityToDeduct: number; reason: string }> {
+  const deductions: Array<{ inventoryItem: InventoryItem; quantityToDeduct: number; reason: string }> = [];
+  const qty = Number(lineItem.quantity) || 1;
+
+  const menuItemId = lineItem.item?.id || lineItem.menuItemId || lineItem.id;
+  const itemName = lineItem.item?.name || lineItem.name || '';
+  const itemCategory = lineItem.item?.category || '';
+  const itemIngredients = lineItem.item?.ingredients || [];
+  const variantName = lineItem.item?.variant?.name || lineItem.variant?.name || lineItem.specialRequest || '';
+
+  const fullMenuItem = allMenuItems.find(m =>
+    (menuItemId && m.id === menuItemId) ||
+    (itemName && m.name && m.name.trim().toLowerCase() === itemName.trim().toLowerCase())
+  );
+
+  const finalIngredients = (fullMenuItem?.ingredients && fullMenuItem.ingredients.length > 0)
+    ? fullMenuItem.ingredients
+    : itemIngredients;
+
+  const finalCategory = fullMenuItem?.category || itemCategory;
+
+  // 1. If explicit recipe configured on MenuItem:
+  if ((fullMenuItem as any)?.recipe && Array.isArray((fullMenuItem as any).recipe) && (fullMenuItem as any).recipe.length > 0) {
+    for (const r of (fullMenuItem as any).recipe) {
+      const inv = allInventory.find(i => i.id === r.inventoryItemId || (i.name && i.name.toLowerCase() === r.inventoryItemName?.toLowerCase()));
+      if (inv) {
+        deductions.push({
+          inventoryItem: inv,
+          quantityToDeduct: (Number(r.quantity) || 1) * qty,
+          reason: `Recipe: ${r.inventoryItemName || inv.name} for ${itemName}`
+        });
+      }
+    }
+    return deductions;
+  }
+
+  // 2. Intelligent Auto-Detection:
+  const deductedInvIds = new Set<string>();
+
+  // A. Direct Product Match
+  const directMatch = allInventory.find(inv =>
+    (menuItemId && (inv.menuItemId === menuItemId || inv.id === menuItemId)) ||
+    (itemName && inv.name && inv.name.trim().toLowerCase() === itemName.trim().toLowerCase())
+  );
+  if (directMatch && !deductedInvIds.has(directMatch.id)) {
+    deductions.push({
+      inventoryItem: directMatch,
+      quantityToDeduct: qty,
+      reason: `Direct product sale (${itemName})`
+    });
+    deductedInvIds.add(directMatch.id);
+  }
+
+  // B. Packaging / Box Auto-Detection
+  const isPizza = (finalCategory && finalCategory.toLowerCase().includes('pizza')) || itemName.toLowerCase().includes('pizza');
+  const isBurger = (finalCategory && finalCategory.toLowerCase().includes('burger')) || itemName.toLowerCase().includes('burger');
+
+  if (isPizza) {
+    const textToSearch = `${variantName} ${itemName} ${lineItem.specialRequest || ''}`.toLowerCase();
+    let size = '';
+    if (textToSearch.includes('12') || textToSearch.includes('large')) size = '12';
+    else if (textToSearch.includes('8') || textToSearch.includes('small')) size = '8';
+    else size = '10'; // default 10-inch pizza
+
+    let boxItem = allInventory.find(inv => {
+      const n = (inv.name || '').toLowerCase();
+      return (n.includes('box') || (inv.category || '').toLowerCase().includes('packaging') || (inv.category || '').toLowerCase().includes('food raw materials')) &&
+             (n.includes(size) || n.includes(`${size}"`) || n.includes(`${size} inch`)) &&
+             n.includes('pizza');
+    });
+
+    if (!boxItem) {
+      boxItem = allInventory.find(inv => {
+        const n = (inv.name || '').toLowerCase();
+        return n.includes('box') && (n.includes(size) || n.includes(`${size}"`));
+      });
+    }
+
+    if (!boxItem) {
+      boxItem = allInventory.find(inv => {
+        const n = (inv.name || '').toLowerCase();
+        return n.includes('pizza') && n.includes('box');
+      });
+    }
+
+    if (boxItem && !deductedInvIds.has(boxItem.id)) {
+      deductions.push({
+        inventoryItem: boxItem,
+        quantityToDeduct: qty,
+        reason: `Packaging: ${boxItem.name} (${size}" Pizza)`
+      });
+      deductedInvIds.add(boxItem.id);
+    }
+  } else if (isBurger) {
+    const burgerBox = allInventory.find(inv => {
+      const n = (inv.name || '').toLowerCase();
+      return (n.includes('burger') && n.includes('box')) || (n.includes('burger') && (inv.category || '').toLowerCase().includes('packaging'));
+    });
+    if (burgerBox && !deductedInvIds.has(burgerBox.id)) {
+      deductions.push({
+        inventoryItem: burgerBox,
+        quantityToDeduct: qty,
+        reason: `Packaging: ${burgerBox.name}`
+      });
+      deductedInvIds.add(burgerBox.id);
+    }
+  }
+
+  // C. Ingredients Auto-Detection
+  if (finalIngredients && finalIngredients.length > 0) {
+    for (const ing of finalIngredients) {
+      const ingLower = ing.trim().toLowerCase();
+      const matchedInv = allInventory.find(inv => {
+        if (deductedInvIds.has(inv.id)) return false;
+        const invName = (inv.name || '').trim().toLowerCase();
+        return (
+          invName === ingLower ||
+          invName.includes(ingLower) ||
+          ingLower.includes(invName) ||
+          (ingLower.includes('cheese') && invName.includes('cheese')) ||
+          (ingLower.includes('mozzarella') && invName.includes('mozzarella')) ||
+          (ingLower.includes('chicken') && invName.includes('chicken')) ||
+          (ingLower.includes('beef') && invName.includes('beef')) ||
+          (ingLower.includes('tomato') && invName.includes('tomato')) ||
+          (ingLower.includes('mushroom') && invName.includes('mushroom')) ||
+          (ingLower.includes('dough') && (invName.includes('dough') || invName.includes('flour')))
+        );
+      });
+
+      if (matchedInv && !deductedInvIds.has(matchedInv.id)) {
+        const unitPortion = (matchedInv.unit?.toLowerCase() === 'kg') ? 0.1 : 1;
+        deductions.push({
+          inventoryItem: matchedInv,
+          quantityToDeduct: unitPortion * qty,
+          reason: `Ingredient: ${matchedInv.name}`
+        });
+        deductedInvIds.add(matchedInv.id);
+      }
+    }
+  }
+
+  return deductions;
+}
+
+function deductInventoryForOrderClient(
+  inventory: InventoryItem[],
+  menuItems: MenuItem[],
+  items: Array<{ item?: any; menuItemId?: string; id?: string; name?: string; quantity?: number }>,
+  orderInfo: { orderNumber?: string; id?: string; isTable?: boolean; tableNumber?: string | number }
+): { updatedInventory: InventoryItem[]; movements: StockMovement[] } {
+  let updatedInventory = [...inventory];
+  const movements: StockMovement[] = [];
+  const today = new Date().toLocaleDateString('en-CA');
+
+  for (const lineItem of items || []) {
+    const deductions = findRelatedInventoryDeductionsClient(lineItem, updatedInventory, menuItems);
+    for (const { inventoryItem: inv, quantityToDeduct, reason } of deductions) {
+      const idx = updatedInventory.findIndex(i => i.id === inv.id);
+      if (idx !== -1) {
+        const currentInv = updatedInventory[idx];
+        const newStock = Math.max(0, (currentInv.currentStock || 0) - quantityToDeduct);
+        updatedInventory[idx] = { ...currentInv, currentStock: newStock };
+
+        movements.push({
+          id: `mv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          itemId: currentInv.id,
+          itemName: currentInv.name,
+          type: 'Sale OUT',
+          quantity: quantityToDeduct,
+          unitPrice: currentInv.costPrice || 0,
+          totalCost: quantityToDeduct * (currentInv.costPrice || 0),
+          date: today,
+          note: `Order #${orderInfo.orderNumber || (orderInfo.id ? orderInfo.id.slice(-6) : 'POS')} - ${reason}${orderInfo.isTable ? ` (Table ${orderInfo.tableNumber || ''})` : ''}`,
+          orderNumber: orderInfo.orderNumber || (orderInfo.id ? orderInfo.id.slice(-6) : '')
+        });
+      }
+    }
+  }
+
+  return { updatedInventory, movements };
+}
+
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
 function reducer(state: AppState, action: Action): AppState {
@@ -570,14 +779,42 @@ function reducer(state: AppState, action: Action): AppState {
     case 'CLEAR_CART':
       return { ...state, cart: [] };
 
-    case 'PLACE_ORDER':
-      return { ...state, orders: [action.payload, ...state.orders], cart: [] };
+    case 'PLACE_ORDER': {
+      const deduction = deductInventoryForOrderClient(state.inventory, state.menuItems, action.payload.items, {
+        orderNumber: action.payload.orderNumber,
+        id: action.payload.id,
+        isTable: false
+      });
+      return {
+        ...state,
+        orders: [action.payload, ...state.orders],
+        cart: [],
+        inventory: deduction.updatedInventory,
+        stockMovements: [...deduction.movements, ...state.stockMovements]
+      };
+    }
 
     case 'BATCH_PLACE_ORDERS': {
       // Merge offline-queued orders — skip any already in state (dedup by id)
       const existingIds = new Set(state.orders.map(o => o.id));
       const newOrders = action.payload.filter(o => !existingIds.has(o.id));
-      return { ...state, orders: [...newOrders, ...state.orders] };
+      let currentInv = [...state.inventory];
+      const allMovements: StockMovement[] = [];
+      newOrders.forEach(o => {
+        const d = deductInventoryForOrderClient(currentInv, state.menuItems, o.items, {
+          orderNumber: o.orderNumber,
+          id: o.id,
+          isTable: false
+        });
+        currentInv = d.updatedInventory;
+        allMovements.push(...d.movements);
+      });
+      return {
+        ...state,
+        orders: [...newOrders, ...state.orders],
+        inventory: currentInv,
+        stockMovements: [...allMovements, ...state.stockMovements]
+      };
     }
 
     case 'UPDATE_ORDER_STATUS':
@@ -748,8 +985,20 @@ function reducer(state: AppState, action: Action): AppState {
 
     // ── Table Order Actions ────────────────────────────────────────────────────
 
-    case 'PLACE_TABLE_ORDER':
-      return { ...state, tableOrders: [action.payload, ...state.tableOrders] };
+    case 'PLACE_TABLE_ORDER': {
+      const deduction = deductInventoryForOrderClient(state.inventory, state.menuItems, action.payload.items, {
+        orderNumber: action.payload.invoiceNumber || (action.payload.id ? action.payload.id.slice(-6) : 'POS'),
+        id: action.payload.id,
+        isTable: true,
+        tableNumber: action.payload.tableNumber
+      });
+      return {
+        ...state,
+        tableOrders: [action.payload, ...state.tableOrders],
+        inventory: deduction.updatedInventory,
+        stockMovements: [...deduction.movements, ...state.stockMovements]
+      };
+    }
 
     case 'UPDATE_TABLE_ORDER': {
       const exists = state.tableOrders.some(o => o.id === action.payload.id);
@@ -823,12 +1072,14 @@ function reducer(state: AppState, action: Action): AppState {
 
     // ── Inventory ────────────────────────────────────────────────────────────
     case 'ADD_INVENTORY_ITEM':
+      if (state.inventory.some(i => i.id === action.payload.id)) return state;
       return { ...state, inventory: [action.payload, ...state.inventory] };
     case 'UPDATE_INVENTORY_ITEM':
       return { ...state, inventory: state.inventory.map(i => i.id === action.payload.id ? action.payload : i) };
     case 'DELETE_INVENTORY_ITEM':
       return { ...state, inventory: state.inventory.filter(i => i.id !== action.payload) };
     case 'ADD_STOCK_MOVEMENT':
+      if (state.stockMovements.some(m => m.id === action.payload.id)) return state;
       return { ...state, stockMovements: [action.payload, ...state.stockMovements] };
 
     // ── Reviews ──────────────────────────────────────────────────────────────

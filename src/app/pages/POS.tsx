@@ -551,6 +551,9 @@ export function POS() {
       createdAt: new Date().toISOString(),
       estimatedTime: 'Done',
       orderNumber: lastInvoice.invoiceNumber,
+      isOnlineOrder: false,
+      source: 'pos',
+      orderType: lastInvoice.orderType || 'POS',
     };
 
     if (isOffline) {
@@ -671,10 +674,15 @@ export function POS() {
       change: inv.change,
     };
 
-    const result = await printerService.printReceipt(invoiceData, settings);
+    const result = await printerService.printReceipt(invoiceData, settings, {
+      skipAutoLog: true,
+      isReprint,
+      reprintReason,
+      source: 'pos',
+    });
     setIsPrinting(false);
 
-    // Log print job
+    // Log print job with full receipt snapshot and source
     await logPrintJob({
       invoiceNumber: inv.invoiceNumber,
       orderId: inv.id,
@@ -684,6 +692,10 @@ export function POS() {
       status: result.success ? 'success' : 'failed',
       paymentMethod: inv.method,
       total: inv.total,
+      orderType: 'POS',
+      customerName: invoiceData.customerName || 'POS Customer',
+      source: 'pos',
+      snapshot: invoiceData,
     });
 
     if (result.success) {
