@@ -1061,8 +1061,8 @@ export function Admin() {
   }, [state.tables]);
 
   const activeCashShift = useMemo(() => {
-    return (state.cashRegisterShifts ?? []).find(s => s.status === 'open');
-  }, [state.cashRegisterShifts]);
+    return (state.cashRegister ?? []).find(s => s.status === 'Open');
+  }, [state.cashRegister]);
 
   const todayExpensesTotal = useMemo(() => {
     return (state.expenses ?? [])
