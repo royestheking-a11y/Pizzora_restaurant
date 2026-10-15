@@ -967,15 +967,25 @@ export function CashRegisterManagement() {
                 </div>
 
                 {/* Expected Cash in Drawer */}
-                <div className="border-t border-emerald-200 pt-2.5 mt-1 bg-emerald-50/60 p-2.5 rounded-lg">
+                <div className="border-t border-emerald-200 pt-2.5 mt-1 bg-emerald-50/60 p-3 rounded-xl space-y-1.5">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-900 font-black text-xs">EXPECTED CASH IN DRAWER:</span>
-                    <span className="font-black text-sm text-red-600" style={{ fontFamily: 'var(--font-heading)' }}>
+                    <span className="font-black text-base text-emerald-700" style={{ fontFamily: 'var(--font-heading)' }}>
                       ৳{expectedDrawerCash.toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-500 mt-1 leading-tight">
-                    (Opening ৳{activeSession.openingBalance.toLocaleString()} + Cash Sales ৳{currentSales.cash.toLocaleString()})
+                  <p className="text-[10.5px] text-gray-600 leading-tight">
+                    (Opening Cash ৳{activeSession.openingBalance.toLocaleString()} + Physical Cash Sales ৳{currentSales.cash.toLocaleString()})
+                  </p>
+
+                  <div className="pt-2 border-t border-emerald-200/60 flex justify-between items-center text-xs">
+                    <span className="text-gray-700 font-bold">Total Intake (Drawer + Digital):</span>
+                    <span className="font-black text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                      ৳{(expectedDrawerCash + currentSales.bkash + currentSales.nagad + currentSales.card + currentSales.other).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 leading-tight bg-white/70 p-1.5 rounded-lg border border-emerald-100">
+                    💡 <strong>bKash / Digital (৳{(currentSales.bkash + currentSales.nagad + currentSales.card + currentSales.other).toLocaleString()})</strong> goes directly to your bKash merchant account/bank, not into the physical cash drawer box.
                   </p>
                 </div>
               </div>
