@@ -147,19 +147,19 @@ if (process.env.MONGO_URI) {
         console.error('[Migration] Failed to backfill CashRegisterEntry dates:', err);
       }
 
-      // ── Clean up legacy demo tables (T06, V01, V02, O01, O02) ──
-      // The restaurant has only 5 active tables (T01 - T05).
+      // ── Clean up legacy demo tables & accidental HOME DELIVERY tables ──
+      // The restaurant has strictly 5 dining tables (1, 2, 3, 4, 5).
       try {
-        const demoTableIds = ['T06', 'V01', 'V02', 'O01', 'O02'];
-        const activeOrders = await TableOrder.find({ tableId: { $in: demoTableIds }, status: { $nin: ['Paid', 'Served'] } });
-        const busyIds = new Set(activeOrders.map(o => o.tableId));
-        const idsToDelete = demoTableIds.filter(id => !busyIds.has(id));
-        if (idsToDelete.length > 0) {
-          const res = await RestaurantTable.deleteMany({ id: { $in: idsToDelete } });
-          if (res.deletedCount > 0) {
-            console.log(`[Migration] Cleaned up ${res.deletedCount} unused demo tables (T06, V01, V02, O01, O02) to maintain 5 tables.`);
-          }
-        }
+        await RestaurantTable.deleteMany({
+          $or: [
+            { id: { $in: ['T06', 'V01', 'V02', 'O01', 'O02', 'HOME DELIVERY'] } },
+            { tableNumber: /home delivery/i }
+          ]
+        });
+        await RestaurantTable.updateMany(
+          { area: { $in: ['VIP', 'Outdoor'] } },
+          { $set: { area: 'Dining' } }
+        );
       } catch (err) {
         console.error('Failed to cleanup demo tables:', err);
       }

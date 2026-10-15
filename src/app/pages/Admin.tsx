@@ -1105,7 +1105,7 @@ export function Admin() {
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'sales', icon: TrendingUp, label: 'Sales Report' },
     { id: 'orders', icon: ShoppingBag, label: 'All Orders', badge: pendingOrders },
-    { id: 'online-orders', icon: Globe, label: 'Online Orders', badge: pendingOnlineOrders },
+    { id: 'online-orders', icon: Truck, label: 'Home Delivery & Online', badge: pendingOnlineOrders },
     { id: 'product-analytics', icon: BarChart3, label: 'Product Sales Analytics' },
     { id: 'tables', icon: LayoutGrid, label: 'Table Management', badge: pendingTableOrders },
     { id: 'reservations', icon: Calendar, label: 'Reservations', badge: pendingReservations },

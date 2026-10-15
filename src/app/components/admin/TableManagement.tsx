@@ -41,7 +41,7 @@ const statusConfig: Record<TableStatus, { label: string; bg: string; text: strin
   Paid: { label: 'Bill Paid', bg: '#F3F4F6', text: '#4B5563', border: '#E5E7EB', dot: '#9CA3AF', icon: Receipt },
 };
 
-const areas: TableArea[] = ['Dining', 'VIP', 'Outdoor'];
+const areas: TableArea[] = ['Dining'];
 
 const areaConfig: Record<TableArea, { color: string; bg: string; borderColor: string; Icon: typeof Utensils; label: string }> = {
   Dining: { color: '#F9002B', bg: '#FFF5F5', borderColor: 'rgba(249,0,43,0.12)', Icon: Utensils, label: 'Dining Area' },
@@ -147,7 +147,7 @@ function TableModal({
           </div>
           <div>
             <label style={labelStyle}>Restaurant Area *</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               {areas.map(a => {
                 const cfg = areaConfig[a];
                 const isActive = form.area === a;
@@ -1061,7 +1061,11 @@ export function TableManagement() {
     updateTableOrderStatus,
   } = useApp();
 
-  const tables = state.tables ?? [];
+  const tables = useMemo(() => {
+    return (state.tables ?? [])
+      .filter(t => !t.tableNumber?.toLowerCase().includes('home delivery') && t.id !== 'HOME DELIVERY')
+      .map(t => ({ ...t, area: 'Dining' as TableArea }));
+  }, [state.tables]);
   const tableOrders = state.tableOrders ?? [];
   const menuItems = state.menuItems ?? [];
 
@@ -1718,23 +1722,24 @@ export function TableManagement() {
 
   // 1-click prune to 5 tables
   const handlePruneToFiveTables = () => {
-    const extraTables = tables.filter(t => !['T01', 'T02', 'T03', 'T04', 'T05'].includes(t.tableNumber));
+    const valid5 = ['1', '2', '3', '4', '5', 'T01', 'T02', 'T03', 'T04', 'T05'];
+    const extraTables = tables.filter(t => !valid5.includes(t.tableNumber));
     if (extraTables.length === 0) {
-      showNotification('You already have only the 5 main dining tables (T01 - T05).', 'info');
+      showNotification('You already have only the 5 main dining tables (Tables 1 - 5).', 'info');
       return;
     }
 
     setDeleteConfirm({
       isOpen: true,
       title: `Keep Only 5 Active Tables?`,
-      message: `You currently have ${tables.length} tables. Do you want to remove the ${extraTables.length} extra demo tables (${extraTables.map(t => t.tableNumber).join(', ')}) and keep only your 5 active dining tables (T01 - T05)?`,
+      message: `You currently have ${tables.length} tables. Do you want to remove the ${extraTables.length} extra tables (${extraTables.map(t => t.tableNumber).join(', ')}) and keep only your 5 active dining tables?`,
       onConfirm: () => {
         extraTables.forEach(t => {
           dispatch({ type: 'DELETE_TABLE', payload: t.id });
         });
-        showNotification(`Removed ${extraTables.length} demo tables. 5 tables remain.`, 'success');
+        showNotification(`Removed ${extraTables.length} extra tables. 5 dining tables remain.`, 'success');
         setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
-        setSelectedTableId('T01');
+        if (tables[0]) setSelectedTableId(tables[0].id);
       }
     });
   };

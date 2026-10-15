@@ -4,7 +4,7 @@ import {
   Search, Plus, Minus, Trash2, X, ChevronDown, Printer,
   ShoppingCart, Tag, Percent, CreditCard, Smartphone, Banknote,
   Users, MapPin, Package, Clock, CheckCircle2, AlertCircle,
-  LayoutGrid, RefreshCw, Receipt, ArrowLeft, ChevronRight, User,
+  LayoutGrid, RefreshCw, Receipt, ArrowLeft, ChevronRight, User, Phone,
   Pause, Play, LogOut, Star, WifiOff, CloudOff, CloudUpload, Lock, ExternalLink,
   BadgeCheck, ShieldCheck, KeyRound, EyeOff, Eye, Loader2, Fingerprint, Activity,
   PrinterCheck, AlertTriangle, Settings, Split, TableProperties
@@ -119,8 +119,10 @@ export function POS() {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [orderType, setOrderType] = useState<OrderType>('Dine In');
-  const [tableNo, setTableNo] = useState('T01');
+  const [tableNo, setTableNo] = useState('1');
   const [customerName, setCustomerName] = useState('');
+  const [deliveryPhone, setDeliveryPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [discountType, setDiscountType] = useState<DiscountType>('flat');
   const [discountVal, setDiscountVal] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
@@ -157,6 +159,8 @@ export function POS() {
     orderType: OrderType;
     table: string;
     customer: string;
+    phone?: string;
+    address?: string;
     time: string;
   } | null>(null);
   const [splitAmounts, setSplitAmounts] = useState<{
@@ -438,7 +442,7 @@ export function POS() {
     setCart(prev => prev.map(c => c.item.id === id ? { ...c, quantity: Math.max(1, c.quantity + delta) } : c));
   };
   const removeItem = (id: string) => setCart(prev => prev.filter(c => c.item.id !== id));
-  const clearCart = () => { setCart([]); setDiscountVal(''); setCustomerName(''); setActiveHoldMetadata(null); };
+  const clearCart = () => { setCart([]); setDiscountVal(''); setCustomerName(''); setDeliveryPhone(''); setDeliveryAddress(''); setActiveHoldMetadata(null); };
 
   // ── Totals ────────────────────────────────────────────────────────────────
   const subtotal = cart.reduce((s, c) => s + c.item.price * c.quantity, 0);
@@ -520,6 +524,8 @@ export function POS() {
       change: paymentMethod === 'Cash' ? change : 0, 
       orderType, table: tableNo,
       customer: customerName, time: invoiceTime,
+      phone: deliveryPhone,
+      address: deliveryAddress,
     });
 
     setIsPreview(true);
@@ -532,6 +538,8 @@ export function POS() {
   const completePaymentFinal = async () => {
     if (!lastInvoice) return;
 
+    const isDelivery = lastInvoice.orderType === 'Delivery';
+
     const newOrder = {
       id: lastInvoice.id,
       items: lastInvoice.items.map(c => ({
@@ -542,17 +550,17 @@ export function POS() {
       subtotal: lastInvoice.sub,
       discount: lastInvoice.disc,
       total: lastInvoice.total,
-      status: 'Delivered' as const,
+      status: (isDelivery ? 'Confirmed' : 'Delivered') as any,
       paymentMethod: lastInvoice.method,
       splitPayments: lastInvoice.splitPayments,
-      customerName: lastInvoice.customer || (lastInvoice.orderType === 'Dine In' ? `Table ${lastInvoice.table}` : 'POS Customer'),
-      phone: '',
-      address: lastInvoice.orderType === 'Dine In' ? `Table ${lastInvoice.table}` : lastInvoice.orderType,
+      customerName: lastInvoice.customer || (lastInvoice.orderType === 'Dine In' ? `Table ${lastInvoice.table}` : isDelivery ? 'Delivery Guest' : 'POS Customer'),
+      phone: lastInvoice.phone || '',
+      address: isDelivery ? (lastInvoice.address || 'Home Delivery') : (lastInvoice.orderType === 'Dine In' ? `Table ${lastInvoice.table}` : lastInvoice.orderType),
       createdAt: new Date().toISOString(),
-      estimatedTime: 'Done',
+      estimatedTime: isDelivery ? '30-45 mins' : 'Done',
       orderNumber: lastInvoice.invoiceNumber,
-      isOnlineOrder: false,
-      source: 'pos',
+      isOnlineOrder: isDelivery,
+      source: isDelivery ? 'pos-delivery' : 'pos',
       orderType: lastInvoice.orderType || 'POS',
     };
 
@@ -1248,7 +1256,7 @@ export function POS() {
                 <select value={tableNo} onChange={e => setTableNo(e.target.value)}
                   className="appearance-none pr-10 cursor-pointer hover:bg-gray-100 transition-colors"
                   style={{ padding: '8px 36px 8px 16px', borderRadius: '12px', border: '1.5px solid #E5E7EB', fontSize: '14px', fontFamily: 'var(--font-heading)', fontWeight: 800, color: '#111', backgroundColor: '#F9FAFB', outline: 'none' }}>
-                  {(state.tables && state.tables.length > 0 ? state.tables.map(t => t.tableNumber) : ['T01', 'T02', 'T03', 'T04', 'T05']).map(t => (
+                  {(state.tables && state.tables.length > 0 ? state.tables.filter(t => !t.tableNumber?.toLowerCase().includes('home delivery') && t.id !== 'HOME DELIVERY').map(t => t.tableNumber) : ['1', '2', '3', '4', '5']).map(t => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
@@ -1381,13 +1389,35 @@ export function POS() {
             )}
           </div>
 
-          {/* Customer name */}
-          <div className="px-3 pt-3 pb-2 border-b" style={{ borderColor: '#F3F4F6' }}>
+          {/* Customer name & Delivery details */}
+          <div className="px-3 pt-3 pb-2 border-b space-y-1.5" style={{ borderColor: '#F3F4F6' }}>
             <div className="relative">
               <User size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: '#9CA3AF' }} />
-              <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer name (optional)"
+              <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder={orderType === 'Delivery' ? "Customer name *" : "Customer name (optional)"}
                 style={{ width: '100%', padding: '7px 10px 7px 28px', borderRadius: '8px', border: '1.5px solid #E5E7EB', fontSize: '12px', outline: 'none', backgroundColor: '#F9FAFB' }} />
             </div>
+            {orderType === 'Delivery' && (
+              <>
+                <div className="relative">
+                  <Phone size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    value={deliveryPhone}
+                    onChange={e => setDeliveryPhone(e.target.value)}
+                    placeholder="Phone number * (for rider)"
+                    style={{ width: '100%', padding: '7px 10px 7px 28px', borderRadius: '8px', border: '1.5px solid #E5E7EB', fontSize: '12px', outline: 'none', backgroundColor: '#F9FAFB' }}
+                  />
+                </div>
+                <div className="relative">
+                  <MapPin size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-red-500" />
+                  <input
+                    value={deliveryAddress}
+                    onChange={e => setDeliveryAddress(e.target.value)}
+                    placeholder="Delivery Address (House, Road, Area) *"
+                    style={{ width: '100%', padding: '7px 10px 7px 28px', borderRadius: '8px', border: '1.5px solid #E5E7EB', fontSize: '12px', outline: 'none', backgroundColor: '#F9FAFB' }}
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           {/* Cart items */}

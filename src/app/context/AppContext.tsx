@@ -481,11 +481,11 @@ const defaultEmployees: Employee[] = [
 
 // ─── Default Tables (5 tables) ────────────────────────────────────────────────
 const defaultTables: RestaurantTable[] = [
-  { id: 'T01', tableNumber: 'T01', seats: 4, area: 'Dining', status: 'Available' },
-  { id: 'T02', tableNumber: 'T02', seats: 4, area: 'Dining', status: 'Available' },
-  { id: 'T03', tableNumber: 'T03', seats: 4, area: 'Dining', status: 'Available' },
-  { id: 'T04', tableNumber: 'T04', seats: 4, area: 'Dining', status: 'Available' },
-  { id: 'T05', tableNumber: 'T05', seats: 4, area: 'Dining', status: 'Available' },
+  { id: '1', tableNumber: '1', seats: 4, area: 'Dining', status: 'Available' },
+  { id: '2', tableNumber: '2', seats: 6, area: 'Dining', status: 'Available' },
+  { id: '3', tableNumber: '3', seats: 6, area: 'Dining', status: 'Available' },
+  { id: '4', tableNumber: '4', seats: 4, area: 'Dining', status: 'Available' },
+  { id: '5', tableNumber: '5', seats: 2, area: 'Dining', status: 'Available' },
 ];
 
 
