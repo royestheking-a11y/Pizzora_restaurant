@@ -8,8 +8,9 @@ import {
   Search, CreditCard, Smartphone, Banknote,
   Tag, Percent, CheckCircle2, AlertTriangle, PrinterCheck, Split,
   MoveRight, Sparkles, Phone, User, Flame, LayoutGrid, ArrowLeft, MousePointerClick, Edit2,
-  UserCheck
+  UserCheck, Truck
 } from 'lucide-react';
+import { TakeHomeDeliveryModal } from './TakeHomeDeliveryModal';
 import {
   useApp,
   RestaurantTable,
@@ -1080,6 +1081,7 @@ export function TableManagement() {
   });
 
   // Modals
+  const [showTakeDeliveryModal, setShowTakeDeliveryModal] = useState(false);
   const [qrModalTable, setQrModalTable] = useState<RestaurantTable | null>(null);
   const [transferModalTable, setTransferModalTable] = useState<RestaurantTable | null>(null);
   const [paymentModalTable, setPaymentModalTable] = useState<RestaurantTable | null>(null);
@@ -1877,47 +1879,63 @@ export function TableManagement() {
       </div>
 
       {/* ─── Persistent Top Table Switcher Bar ──────────────────────────────── */}
-      <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-200 overflow-x-auto flex items-center gap-2.5 scrollbar-thin">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-gray-500 uppercase tracking-wider flex-shrink-0">
-          <Utensils size={13} className="text-red-600" />
-          <span>Quick Switch Table:</span>
-        </div>
-        {tables.map(t => {
-          const isSelected = selectedTableId === t.id;
-          const cfg = statusConfig[t.status];
-          const activeOrd = tableOrders.find(o => o.tableId === t.id && !['Paid'].includes(o.status));
-          const hasDraft = (tableDrafts[t.id]?.items?.length || 0) > 0;
+      <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-200 overflow-x-auto flex items-center justify-between gap-2.5 scrollbar-thin">
+        <div className="flex items-center gap-2.5 flex-shrink-0">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-gray-500 uppercase tracking-wider flex-shrink-0">
+            <Utensils size={13} className="text-red-600" />
+            <span>Quick Switch Table:</span>
+          </div>
+          {tables.map(t => {
+            const isSelected = selectedTableId === t.id;
+            const cfg = statusConfig[t.status];
+            const activeOrd = tableOrders.find(o => o.tableId === t.id && !['Paid'].includes(o.status));
+            const hasDraft = (tableDrafts[t.id]?.items?.length || 0) > 0;
 
-          return (
-            <button
-              key={t.id}
-              onClick={() => {
-                setSelectedTableId(t.id);
-                if (viewMode === 'floor') setViewMode('pos');
-              }}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all flex-shrink-0"
-              style={{
-                backgroundColor: isSelected ? '#1A0000' : t.status === 'Available' ? '#F9FAFB' : '#FFF5F5',
-                color: isSelected ? '#fff' : t.status === 'Available' ? '#374151' : '#F9002B',
-                border: `1.5px solid ${isSelected ? '#F9002B' : cfg.border}`,
-                boxShadow: isSelected ? '0 4px 12px rgba(249,0,43,0.25)' : 'none',
-                fontFamily: 'var(--font-heading)',
-              }}
-            >
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isSelected ? '#F9002B' : cfg.dot }} />
-              <span>{t.tableNumber}</span>
-              {activeOrd ? (
-                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold" style={{ backgroundColor: isSelected ? 'rgba(249,0,43,0.3)' : '#FEE2E2', color: isSelected ? '#fff' : '#DC2626' }}>
-                  ৳{activeOrd.total}
-                </span>
-              ) : hasDraft ? (
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" title="Unsent Draft" />
-              ) : (
-                <span className="text-[10px] text-gray-400 font-normal">({t.seats}s)</span>
-              )}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={t.id}
+                onClick={() => {
+                  setSelectedTableId(t.id);
+                  if (viewMode === 'floor') setViewMode('pos');
+                }}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all flex-shrink-0"
+                style={{
+                  backgroundColor: isSelected ? '#1A0000' : t.status === 'Available' ? '#F9FAFB' : '#FFF5F5',
+                  color: isSelected ? '#fff' : t.status === 'Available' ? '#374151' : '#F9002B',
+                  border: `1.5px solid ${isSelected ? '#F9002B' : cfg.border}`,
+                  boxShadow: isSelected ? '0 4px 12px rgba(249,0,43,0.25)' : 'none',
+                  fontFamily: 'var(--font-heading)',
+                }}
+              >
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isSelected ? '#F9002B' : cfg.dot }} />
+                <span>{t.tableNumber}</span>
+                {activeOrd ? (
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold" style={{ backgroundColor: isSelected ? 'rgba(249,0,43,0.3)' : '#FEE2E2', color: isSelected ? '#fff' : '#DC2626' }}>
+                    ৳{activeOrd.total}
+                  </span>
+                ) : hasDraft ? (
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" title="Unsent Draft" />
+                ) : (
+                  <span className="text-[10px] text-gray-400 font-normal">({t.seats}s)</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Take Home Delivery Button */}
+        <div className="flex items-center gap-2 flex-shrink-0 pl-2.5 border-l border-gray-200">
+          <button
+            type="button"
+            onClick={() => setShowTakeDeliveryModal(true)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex-shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-emerald-200 active:scale-95 cursor-pointer"
+            style={{ fontFamily: 'var(--font-heading)' }}
+            title="Create Home Delivery Order directly without leaving Table Management"
+          >
+            <Truck size={14} className="text-white" />
+            <span>Take Home Delivery</span>
+          </button>
+        </div>
       </div>
 
       {/* ────────────────────────────────────────────────────────────────────────
@@ -2773,6 +2791,11 @@ export function TableManagement() {
         message={deleteConfirm.message}
         onConfirm={deleteConfirm.onConfirm}
         onCancel={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      <TakeHomeDeliveryModal
+        isOpen={showTakeDeliveryModal}
+        onClose={() => setShowTakeDeliveryModal(false)}
       />
     </div>
   );
