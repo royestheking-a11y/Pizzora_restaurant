@@ -79,25 +79,20 @@ function getDhakaTimeBounds() {
 }
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string }> = {
-    Pending:           { bg: '#FEF3C7', color: '#92400E' },
-    Confirmed:         { bg: '#D1FAE5', color: '#065F46' },
-    Preparing:         { bg: '#DBEAFE', color: '#1E40AF' },
-    Cooking:           { bg: '#FFF7ED', color: '#C2410C' },
-    Ready:             { bg: '#FEF2F2', color: '#B91C1C' },
-    Served:            { bg: '#FAF5FF', color: '#6B21A8' },
-    Paid:              { bg: '#F0FDF4', color: '#15803D' },
-    'Out for Delivery':{ bg: '#EDE9FE', color: '#5B21B6' },
-    Delivered:         { bg: '#D1FAE5', color: '#065F46' },
-    Cancelled:         { bg: '#FEE2E2', color: '#991B1B' },
-    Rejected:          { bg: '#FEE2E2', color: '#991B1B' },
+    Pending: { bg: '#FEF3C7', color: '#92400E' },
+    Confirmed: { bg: '#D1FAE5', color: '#065F46' },
+    Preparing: { bg: '#DBEAFE', color: '#1E40AF' },
+    'Out for Delivery': { bg: '#EDE9FE', color: '#5B21B6' },
+    Delivered: { bg: '#D1FAE5', color: '#065F46' },
+    Cancelled: { bg: '#FEE2E2', color: '#991B1B' },
+    Rejected: { bg: '#FEE2E2', color: '#991B1B' },
   };
   const s = map[status] || { bg: '#F3F4F6', color: '#374151' };
   return (
     <span
-      className="px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5"
+      className="px-2.5 py-1 rounded-full text-xs font-semibold"
       style={{ backgroundColor: s.bg, color: s.color, fontFamily: 'var(--font-heading)' }}
     >
-      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }}></span>
       {status}
     </span>
   );
@@ -172,7 +167,7 @@ function MenuItemModal({
   onClose: () => void;
   categories: string[];
 }) {
-  const spiceLevels: MenuItem['spiceLevel'][] = ['Mild','Medium','Hot','Extra Hot'];
+  const spiceLevels: MenuItem['spiceLevel'][] = ['Mild', 'Medium', 'Hot', 'Extra Hot'];
 
   const [isUploading, setIsUploading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -227,7 +222,7 @@ function MenuItemModal({
                 </div>
               )}
             </div>
-            
+
             <div className="relative group">
               <input
                 type="file"
@@ -239,8 +234,8 @@ function MenuItemModal({
                   const currentCount = form.images?.length || 0;
                   const allowedToUpload = 4 - currentCount;
                   if (allowedToUpload <= 0) {
-                     alert("You can only upload up to 4 images per item.");
-                     return;
+                    alert("You can only upload up to 4 images per item.");
+                    return;
                   }
                   const files = Array.from(e.target.files || []).slice(0, allowedToUpload);
                   if (files.length > 0) {
@@ -259,7 +254,7 @@ function MenuItemModal({
                   }
                 }}
               />
-              <div 
+              <div
                 className={`w-full p-5 rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${isUploading ? 'bg-blue-50/50 border-blue-200' : 'bg-white border-gray-200 hover:border-red-300 hover:bg-red-50/30'}`}
                 style={{ fontFamily: 'var(--font-heading)' }}
               >
@@ -469,7 +464,7 @@ function GalleryEditModal({
                 </div>
               )}
             </div>
-            
+
             {!form.url ? (
               <div className="relative group">
                 <input
@@ -493,7 +488,7 @@ function GalleryEditModal({
                     }
                   }}
                 />
-                <div 
+                <div
                   className={`w-full p-6 rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${isUploading ? 'bg-blue-50/50 border-blue-200' : 'bg-white border-gray-200 hover:border-red-300 hover:bg-red-50/30'}`}
                   style={{ fontFamily: 'var(--font-heading)' }}
                 >
@@ -524,7 +519,7 @@ function GalleryEditModal({
           <div>
             <label style={labelStyle}>Category</label>
             <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value as GalleryForm['category'] }))} style={inputStyle}>
-              {['Restaurant','Food','Events','Kitchen'].map(c => <option key={c} value={c}>{c}</option>)}
+              {['Restaurant', 'Food', 'Events', 'Kitchen'].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         </div>
@@ -610,7 +605,7 @@ function CarouselSlideModal({
                 </div>
               )}
             </div>
-            
+
             {!form.url ? (
               <div className="relative group">
                 <input
@@ -634,7 +629,7 @@ function CarouselSlideModal({
                     }
                   }}
                 />
-                <div 
+                <div
                   className={`w-full p-6 rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${isUploading ? 'bg-blue-50/50 border-blue-200' : 'bg-white border-gray-200 hover:border-red-300 hover:bg-red-50/30'}`}
                   style={{ fontFamily: 'var(--font-heading)' }}
                 >
@@ -772,7 +767,7 @@ export function Admin() {
   const { state, dispatch, showNotification, refreshAnalytics } = useApp();
 
   const menuCategories = React.useMemo(() => {
-    const defaultCats = ['Pizza','Fried Corner','Wings','Meatbox','Burger','Sub','Shawarma','Momo','Combo','Chawomen','Seafood','Pasta','Rich Bowl','Curry','Sizzling','Platter','Ramen','Naan','Cold Coffee','Hot Coffee','Lassi','Dessert','Biryani','Couple','Soup','Wonton','Salad','Soft Drink','Water','Juice'];
+    const defaultCats = ['Pizza', 'Fried Corner', 'Wings', 'Meatbox', 'Burger', 'Sub', 'Shawarma', 'Momo', 'Combo', 'Chawomen', 'Seafood', 'Pasta', 'Rich Bowl', 'Curry', 'Sizzling', 'Platter', 'Ramen', 'Naan', 'Cold Coffee', 'Hot Coffee', 'Lassi', 'Dessert', 'Biryani', 'Couple', 'Soup', 'Wonton', 'Salad', 'Soft Drink', 'Water', 'Juice'];
     const dynamicCats = Array.from(new Set(state.menuItems.map(item => item.category))).filter(Boolean);
     return Array.from(new Set([...defaultCats, ...dynamicCats])).sort();
   }, [state.menuItems]);
@@ -833,7 +828,7 @@ export function Admin() {
     const isOnline = Boolean(order.isOnlineOrder || order.source === 'website' || (order.orderNumber && order.orderNumber.startsWith('PIZO')));
     const source: 'pos' | 'table' | 'online' | 'admin' = isTable ? 'table' : (isOnline ? 'online' : 'pos');
     const invoiceNumber = order.orderNumber || (isTable ? `TBL-${order.tableNumber || ''}-${order.id?.slice(-6)}` : `PIZ-${order.id?.slice(-8)}`);
-    
+
     const items = (order.items || []).map((ci: any) => ({
       name: isTable ? (ci.name || 'Item') : (ci.item?.name || ci.name || 'Item'),
       quantity: ci.quantity || 1,
@@ -888,7 +883,7 @@ export function Admin() {
     title: string;
     message: string;
     onConfirm: () => void;
-  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
 
   const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
 
@@ -941,7 +936,7 @@ export function Admin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginForm)
       });
-      
+
       const data = await res.json();
       if (res.ok && data.token) {
         const { token, role, username } = data;
@@ -988,7 +983,7 @@ export function Admin() {
     return unified.sort((a, b) => b.timestamp - a.timestamp);
   }, [state.orders, state.tableOrders]);
 
-  const completedUnifiedOrders = allUnifiedOrders.filter(o => 
+  const completedUnifiedOrders = allUnifiedOrders.filter(o =>
     o.isTableOrder ? o.status === 'Paid' : o.status === 'Delivered'
   );
 
@@ -1002,14 +997,14 @@ export function Admin() {
   // ── Payment Analytics ─────────────────────────────────────────────────
   const { startOfDay, startOfWeek, startOfMonth, startOfYear, dhakaStr, dayOfWeek } = useMemo(() => getDhakaTimeBounds(), []);
 
-  const todayRevenue   = state.analytics?.todayRevenue ?? completedUnifiedOrders.filter(o => o.timestamp >= startOfDay).reduce((s, o) => s + o.total, 0);
-  const weeklyRevenue  = state.analytics?.weeklyRevenue ?? completedUnifiedOrders.filter(o => o.timestamp >= startOfWeek).reduce((s, o) => s + o.total, 0);
+  const todayRevenue = state.analytics?.todayRevenue ?? completedUnifiedOrders.filter(o => o.timestamp >= startOfDay).reduce((s, o) => s + o.total, 0);
+  const weeklyRevenue = state.analytics?.weeklyRevenue ?? completedUnifiedOrders.filter(o => o.timestamp >= startOfWeek).reduce((s, o) => s + o.total, 0);
   const monthlyRevenue = state.analytics?.monthlyRevenue ?? completedUnifiedOrders.filter(o => o.timestamp >= startOfMonth).reduce((s, o) => s + o.total, 0);
 
-  const bkashOrders  = completedUnifiedOrders.filter(o => o.paymentMethod === 'bKash' || o.splitPayments?.some((p: any) => p.method === 'bKash' && p.amount > 0));
-  const nagadOrders  = completedUnifiedOrders.filter(o => o.paymentMethod === 'Nagad' || o.splitPayments?.some((p: any) => p.method === 'Nagad' && p.amount > 0));
-  const cashOrders   = completedUnifiedOrders.filter(o => o.paymentMethod === 'Cash on Delivery' || o.paymentMethod === 'At Table' || o.paymentMethod === 'Cash' || o.splitPayments?.some((p: any) => p.method === 'Cash' && p.amount > 0));
-  const cardOrders   = completedUnifiedOrders.filter(o => o.paymentMethod === 'Card' || o.splitPayments?.some((p: any) => p.method === 'Card' && p.amount > 0));
+  const bkashOrders = completedUnifiedOrders.filter(o => o.paymentMethod === 'bKash' || o.splitPayments?.some((p: any) => p.method === 'bKash' && p.amount > 0));
+  const nagadOrders = completedUnifiedOrders.filter(o => o.paymentMethod === 'Nagad' || o.splitPayments?.some((p: any) => p.method === 'Nagad' && p.amount > 0));
+  const cashOrders = completedUnifiedOrders.filter(o => o.paymentMethod === 'Cash on Delivery' || o.paymentMethod === 'At Table' || o.paymentMethod === 'Cash' || o.splitPayments?.some((p: any) => p.method === 'Cash' && p.amount > 0));
+  const cardOrders = completedUnifiedOrders.filter(o => o.paymentMethod === 'Card' || o.splitPayments?.some((p: any) => p.method === 'Card' && p.amount > 0));
 
   const bkashTotal = completedUnifiedOrders.reduce((s, o) => {
     if (o.paymentMethod === 'bKash') return s + o.total;
@@ -1047,10 +1042,10 @@ export function Admin() {
     return s;
   }, 0);
 
-  const weekDays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const weeklyBreakdown = weekDays.map((day, i) => {
     const dayStart = startOfWeek + i * 86400000;
-    const dayEnd   = dayStart + 86400000;
+    const dayEnd = dayStart + 86400000;
     const rev = completedUnifiedOrders
       .filter(o => { const t = o.timestamp; return t >= dayStart && t < dayEnd; })
       .reduce((s, o) => s + o.total, 0);
@@ -1061,10 +1056,6 @@ export function Admin() {
   // ── Executive Dashboard Helpers ─────────────────────────────────────────
   const [dashboardChannelFilter, setDashboardChannelFilter] = useState<'all' | 'table' | 'pos' | 'online'>('all');
 
-  const todayOrders = useMemo(() => {
-    return allUnifiedOrders.filter(o => o.timestamp >= startOfDay);
-  }, [allUnifiedOrders, startOfDay]);
-
   const occupiedTables = useMemo(() => {
     return (state.tables ?? []).filter(t => t.status !== 'Available');
   }, [state.tables]);
@@ -1072,14 +1063,6 @@ export function Admin() {
   const activeCashShift = useMemo(() => {
     return (state.cashRegisterShifts ?? []).find(s => s.status === 'open');
   }, [state.cashRegisterShifts]);
-
-  const lowStockItems = useMemo(() => {
-    return (state.inventory ?? []).filter((item: any) => {
-      const stock = item.stock ?? item.currentStock ?? 0;
-      const min = item.minThreshold ?? item.minStock ?? 5;
-      return stock <= min;
-    });
-  }, [state.inventory]);
 
   const todayExpensesTotal = useMemo(() => {
     return (state.expenses ?? [])
@@ -1091,11 +1074,11 @@ export function Admin() {
   }, [state.expenses, startOfDay]);
 
   const filteredDashboardOrders = useMemo(() => {
-    if (dashboardChannelFilter === 'all') return allUnifiedOrders.slice(0, 8);
-    if (dashboardChannelFilter === 'table') return allUnifiedOrders.filter(o => o.isTableOrder || o.tableNumber).slice(0, 8);
-    if (dashboardChannelFilter === 'online') return allUnifiedOrders.filter(o => isWebsiteOnlineOrder(o)).slice(0, 8);
-    if (dashboardChannelFilter === 'pos') return allUnifiedOrders.filter(o => !o.isTableOrder && !isWebsiteOnlineOrder(o)).slice(0, 8);
-    return allUnifiedOrders.slice(0, 8);
+    if (dashboardChannelFilter === 'all') return allUnifiedOrders.slice(0, 6);
+    if (dashboardChannelFilter === 'table') return allUnifiedOrders.filter(o => o.isTableOrder || o.tableNumber).slice(0, 6);
+    if (dashboardChannelFilter === 'online') return allUnifiedOrders.filter(o => isWebsiteOnlineOrder(o)).slice(0, 6);
+    if (dashboardChannelFilter === 'pos') return allUnifiedOrders.filter(o => !o.isTableOrder && !isWebsiteOnlineOrder(o)).slice(0, 6);
+    return allUnifiedOrders.slice(0, 6);
   }, [allUnifiedOrders, dashboardChannelFilter]);
 
   const handleExportPayments = () => {
@@ -1119,26 +1102,26 @@ export function Admin() {
   };
 
   const sidebarItems: { id: AdminTab; icon: typeof LayoutDashboard; label: string; badge?: number }[] = [
-    { id: 'dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
-    { id: 'sales',        icon: TrendingUp,      label: 'Sales Report' },
-    { id: 'orders',       icon: ShoppingBag,     label: 'All Orders',       badge: pendingOrders },
-    { id: 'online-orders',icon: Globe,           label: 'Online Orders',    badge: pendingOnlineOrders },
-    { id: 'product-analytics', icon: BarChart3,  label: 'Product Sales Analytics' },
-    { id: 'tables',       icon: LayoutGrid,      label: 'Table Management', badge: pendingTableOrders },
-    { id: 'reservations', icon: Calendar,        label: 'Reservations',     badge: pendingReservations },
-    { id: 'payments',     icon: CreditCard,      label: 'Payments' },
-    { id: 'inventory',    icon: Package,         label: 'Inventory' },
-    { id: 'expense',      icon: Wallet,          label: 'Expense' },
-    { id: 'cash-register',icon: Banknote,        label: 'Cash Register' },
-    { id: 'payroll',      icon: Users,           label: 'Payroll' },
-    { id: 'menu',         icon: UtensilsCrossed, label: 'Menu Management' },
-    { id: 'chefs',        icon: Users,           label: 'Chefs' },
-    { id: 'gallery',      icon: Image,           label: 'Gallery' },
-    { id: 'messages',     icon: MessageSquare,   label: 'Messages', badge: unreadMessages },
-    { id: 'manual-invoice',    icon: Printer,       label: 'Invoice System' },
-    { id: 'printer-settings',  icon: Printer,       label: 'Printer Settings' },
-    { id: 'reprint',           icon: RotateCcw,     label: 'Reprint System' },
-    { id: 'delivery-settings', icon: Truck,         label: 'Delivery Charges' },
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { id: 'sales', icon: TrendingUp, label: 'Sales Report' },
+    { id: 'orders', icon: ShoppingBag, label: 'All Orders', badge: pendingOrders },
+    { id: 'online-orders', icon: Globe, label: 'Online Orders', badge: pendingOnlineOrders },
+    { id: 'product-analytics', icon: BarChart3, label: 'Product Sales Analytics' },
+    { id: 'tables', icon: LayoutGrid, label: 'Table Management', badge: pendingTableOrders },
+    { id: 'reservations', icon: Calendar, label: 'Reservations', badge: pendingReservations },
+    { id: 'payments', icon: CreditCard, label: 'Payments' },
+    { id: 'inventory', icon: Package, label: 'Inventory' },
+    { id: 'expense', icon: Wallet, label: 'Expense' },
+    { id: 'cash-register', icon: Banknote, label: 'Cash Register' },
+    { id: 'payroll', icon: Users, label: 'Payroll' },
+    { id: 'menu', icon: UtensilsCrossed, label: 'Menu Management' },
+    { id: 'chefs', icon: Users, label: 'Chefs' },
+    { id: 'gallery', icon: Image, label: 'Gallery' },
+    { id: 'messages', icon: MessageSquare, label: 'Messages', badge: unreadMessages },
+    { id: 'manual-invoice', icon: Printer, label: 'Invoice System' },
+    { id: 'printer-settings', icon: Printer, label: 'Printer Settings' },
+    { id: 'reprint', icon: RotateCcw, label: 'Reprint System' },
+    { id: 'delivery-settings', icon: Truck, label: 'Delivery Charges' },
     ...(adminRole === 'admin' ? [{ id: 'roles' as AdminTab, icon: ShieldCheck, label: 'Role Management' }] : []),
   ];
 
@@ -1433,1973 +1416,1915 @@ export function Admin() {
   // ──────────────────────────────────────────────────────────────────────
   return (
     <>
-    <div className="flex min-h-screen" style={{ backgroundColor: '#F0EDE8' }}>
+      <div className="flex min-h-screen" style={{ backgroundColor: '#F0EDE8' }}>
 
-      {/* ── Mobile Overlay ────────────────────────────────── */}
-      {sidebarOpen && (
+        {/* ── Mobile Overlay ────────────────────────────────── */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 md:hidden"
+            style={{ backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* ── Sidebar ──────────────────────────────────────── */}
         <div
-          className="fixed inset-0 z-30 md:hidden"
-          style={{ backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* ── Sidebar ──────────────────────────────────────── */}
-      <div
-        className={`print-hidden flex-shrink-0 flex flex-col shadow-2xl fixed top-0 bottom-0 left-0 z-40 transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
-        style={{
-          width: '260px',
-          backgroundColor: '#0A0A0A',
-          borderRight: '1px solid rgba(255,255,255,0.05)'
-        }}
-      >
-        {/* Sidebar Header */}
-        <div className="px-5 pt-6 pb-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center h-8"> {/* Fixed small height container to cut off whitespace */}
-              <img 
-                src="/pizzoralogo.png" 
-                alt="Pizzora" 
-                className="h-12 object-contain scale-[1.7] origin-left" 
-                style={{ filter: 'brightness(0) invert(1)', opacity: 0.95 }} 
-              />
-            </div>
-            {/* Close button — mobile only */}
-            <button
-              className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors hover:bg-white/10"
-              style={{ background: 'rgba(255,255,255,0.05)' }}
-              onClick={() => setSidebarOpen(false)}
-            >
-              <X size={16} style={{ color: 'rgba(255,255,255,0.7)' }} />
-            </button>
-          </div>
-          
-          <div className="mt-8 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg flex-shrink-0" style={{ background: 'linear-gradient(135deg, #F9002B, #9f001c)', boxShadow: '0 4px 14px rgba(249,0,43,0.3)' }}>
-              <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '13px', letterSpacing: '0.5px' }}>AD</span>
-            </div>
-            <div className="flex flex-col">
-              <span style={{ color: '#fff', fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '14px', letterSpacing: '0.3px', lineHeight: 1.2 }}>Administrator</span>
-              <div className="flex items-center gap-1.5 mt-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.6)]"></div>
-                <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '11px', letterSpacing: '0.5px' }}>System Active</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-          {sidebarItems.map(({ id, icon: Icon, label, badge }) => (
-            <button
-              key={id}
-              onClick={() => { setActiveTab(id); setSidebarOpen(false); }}
-              className="w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-medium transition-all"
-              style={{
-                background: activeTab === id ? 'rgba(249,0,43,0.18)' : 'transparent',
-                color: activeTab === id ? '#F9002B' : 'rgba(255,255,255,0.6)',
-                border: activeTab === id ? '1px solid rgba(249,0,43,0.25)' : '1px solid transparent',
-                fontFamily: 'var(--font-heading)',
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <Icon size={16} />
-                <span>{label}</span>
-              </div>
-              {badge !== undefined && badge > 0 && (
-                <span
-                  className="px-1.5 py-0.5 rounded-full text-xs font-bold text-white"
-                  style={{ backgroundColor: '#DC2626', minWidth: '20px', textAlign: 'center' }}
-                >
-                  {badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
-
-        {/* Sidebar Footer */}
-        <div className="p-4 border-t space-y-1" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-          <button
-            onClick={() => navigate('/pos')}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-white"
-            style={{ background: 'linear-gradient(135deg,#F9002B,#C8001F)', fontFamily: 'var(--font-heading)' }}
-          >
-            <CreditCard size={14} />
-            <span>Open POS</span>
-          </button>
-          <button
-            onClick={() => navigate('/')}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all hover:bg-white/8"
-            style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-heading)' }}
-          >
-            <ExternalLink size={14} />
-            <span>View Website</span>
-          </button>
-          <button
-            onClick={() => {
-              sessionStorage.removeItem('pizzora_token');
-              sessionStorage.removeItem('pizzora_admin_logged_in');
-              sessionStorage.removeItem('pizzora_admin_role');
-              sessionStorage.removeItem('pizzora_admin_name');
-              dispatch({ type: 'ADMIN_LOGOUT' });
-              navigate('/admin');
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all hover:bg-red-900/20"
-            style={{ color: 'rgba(255,100,100,0.7)', fontFamily: 'var(--font-heading)' }}
-          >
-            <LogOut size={14} /> Logout
-          </button>
-        </div>
-      </div>
-
-      {/* ── Main Content ─────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-h-screen min-w-0 w-full md:w-[calc(100vw-260px)] md:max-w-[calc(100vw-260px)] md:ml-[260px] overflow-x-hidden">
-
-        {/* Top Bar */}
-        <div
-          className="flex items-center justify-between px-4 md:px-6 py-4 sticky top-0 z-30 shadow-sm"
-          style={{ backgroundColor: '#fff', borderBottom: '1px solid rgba(249,0,43,0.08)' }}
+          className={`print-hidden flex-shrink-0 flex flex-col shadow-2xl fixed top-0 bottom-0 left-0 z-40 transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+          style={{
+            width: '260px',
+            backgroundColor: '#0A0A0A',
+            borderRight: '1px solid rgba(255,255,255,0.05)'
+          }}
         >
-          <div className="flex items-center gap-3 min-w-0">
-            {/* Hamburger — mobile only */}
-            <button
-              className="md:hidden flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-              style={{ backgroundColor: '#FFF5F5', border: '1px solid rgba(249,0,43,0.12)' }}
-              onClick={() => setSidebarOpen(true)}
-            >
-              <MenuIcon size={18} style={{ color: '#F9002B' }} />
-            </button>
-            <div className="min-w-0">
-              <h2 className="truncate" style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '18px', color: '#111', lineHeight: 1 }}>
-                {sidebarItems.find(s => s.id === activeTab)?.label}
-              </h2>
+          {/* Sidebar Header */}
+          <div className="px-5 pt-6 pb-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center h-8"> {/* Fixed small height container to cut off whitespace */}
+                <img
+                  src="/pizzoralogo.png"
+                  alt="Pizzora"
+                  className="h-12 object-contain scale-[1.7] origin-left"
+                  style={{ filter: 'brightness(0) invert(1)', opacity: 0.95 }}
+                />
+              </div>
+              {/* Close button — mobile only */}
+              <button
+                className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors hover:bg-white/10"
+                style={{ background: 'rgba(255,255,255,0.05)' }}
+                onClick={() => setSidebarOpen(false)}
+              >
+                <X size={16} style={{ color: 'rgba(255,255,255,0.7)' }} />
+              </button>
+            </div>
+
+            <div className="mt-8 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg flex-shrink-0" style={{ background: 'linear-gradient(135deg, #F9002B, #9f001c)', boxShadow: '0 4px 14px rgba(249,0,43,0.3)' }}>
+                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '13px', letterSpacing: '0.5px' }}>AD</span>
+              </div>
+              <div className="flex flex-col">
+                <span style={{ color: '#fff', fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '14px', letterSpacing: '0.3px', lineHeight: 1.2 }}>Administrator</span>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.6)]"></div>
+                  <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '11px', letterSpacing: '0.5px' }}>System Active</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <LiveTopStats orders={state.orders} expenses={state.expenses} />
-            {unreadMessages > 0 && (
-              <div className="relative">
-                <button onClick={() => { setActiveTab('messages'); setSidebarOpen(false); }} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FEE2E2' }}>
-                  <MessageSquare size={16} style={{ color: '#DC2626' }} />
-                </button>
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-white flex items-center justify-center" style={{ backgroundColor: '#DC2626', fontSize: '9px' }}>{unreadMessages}</span>
-              </div>
-            )}
-            {pendingTableOrders > 0 && (
-              <div className="relative">
-                <button onClick={() => { setActiveTab('tables'); setSidebarOpen(false); }} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#EDE9FE' }}>
-                  <LayoutGrid size={16} style={{ color: '#7C3AED' }} />
-                </button>
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-white flex items-center justify-center" style={{ backgroundColor: '#7C3AED', fontSize: '9px' }}>{pendingTableOrders}</span>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Page Content */}
-        <div className="flex-1 p-4 md:p-6 overflow-y-auto overflow-x-hidden min-w-0 max-w-full">
-
-          {/* ══ DASHBOARD ══════════════════════════════════ */}
-          {activeTab === 'dashboard' && (
-            <div className="space-y-6">
-              {/* 1. Quick Operations Hero Action Bar */}
-              <div
-                className="p-5 rounded-2xl shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+          {/* Navigation */}
+          <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
+            {sidebarItems.map(({ id, icon: Icon, label, badge }) => (
+              <button
+                key={id}
+                onClick={() => { setActiveTab(id); setSidebarOpen(false); }}
+                className="w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-medium transition-all"
                 style={{
-                  background: 'linear-gradient(135deg, #111827 0%, #1F2937 100%)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: activeTab === id ? 'rgba(249,0,43,0.18)' : 'transparent',
+                  color: activeTab === id ? '#F9002B' : 'rgba(255,255,255,0.6)',
+                  border: activeTab === id ? '1px solid rgba(249,0,43,0.25)' : '1px solid transparent',
+                  fontFamily: 'var(--font-heading)',
                 }}
               >
-                <div className="flex items-center gap-3.5">
-                  <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'rgba(249,0,43,0.15)', border: '1px solid rgba(249,0,43,0.3)' }}
-                  >
-                    <Activity size={22} color="#F9002B" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <h2
-                        className="text-base sm:text-lg font-black text-white tracking-tight"
-                        style={{ fontFamily: 'var(--font-heading)' }}
-                      >
-                        Pizzora Operations Cockpit
-                      </h2>
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                          activeCashShift
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : 'bg-gray-700 text-gray-300 border border-gray-600'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            activeCashShift ? 'bg-emerald-400 animate-pulse' : 'bg-gray-400'
-                          }`}
-                        ></span>
-                        {activeCashShift ? 'Cash Register Open' : 'Register Closed'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Live restaurant pulse · <strong>{occupiedTables.length}</strong> of{' '}
-                      <strong>{state.tables?.length || 5}</strong> tables active ·{' '}
-                      <strong>{pendingOrders}</strong> orders queued
-                    </p>
-                  </div>
+                <div className="flex items-center gap-3">
+                  <Icon size={16} />
+                  <span>{label}</span>
                 </div>
+                {badge !== undefined && badge > 0 && (
+                  <span
+                    className="px-1.5 py-0.5 rounded-full text-xs font-bold text-white"
+                    style={{ backgroundColor: '#DC2626', minWidth: '20px', textAlign: 'center' }}
+                  >
+                    {badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    onClick={() => window.open('/pos', '_blank')}
-                    className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-sm hover:shadow-md flex items-center gap-1.5 active:scale-95"
-                    style={{
-                      background: 'linear-gradient(135deg, #F9002B, #C8001F)',
-                      fontFamily: 'var(--font-heading)',
-                    }}
-                  >
-                    <ShoppingBag size={14} /> Open POS Counter
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('tables')}
-                    className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-200 hover:text-white transition-all bg-white/10 hover:bg-white/15 border border-white/10 flex items-center gap-1.5"
-                    style={{ fontFamily: 'var(--font-heading)' }}
-                  >
-                    <LayoutGrid size={14} /> Table Floor ({occupiedTables.length}/{state.tables?.length || 5})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('cash-register')}
-                    className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-200 hover:text-white transition-all bg-white/10 hover:bg-white/15 border border-white/10 flex items-center gap-1.5"
-                    style={{ fontFamily: 'var(--font-heading)' }}
-                  >
-                    <Banknote size={14} /> Cash Register
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('reprint')}
-                    className="px-3 py-2.5 rounded-xl text-xs font-bold text-gray-300 hover:text-white transition-all bg-white/10 hover:bg-white/15 border border-white/10 flex items-center gap-1.5"
-                    title="Universal Reprint System"
-                  >
-                    <RotateCcw size={14} /> Reprint
-                  </button>
-                </div>
+          {/* Sidebar Footer */}
+          <div className="p-4 border-t space-y-1" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+            <button
+              onClick={() => navigate('/pos')}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-white"
+              style={{ background: 'linear-gradient(135deg,#F9002B,#C8001F)', fontFamily: 'var(--font-heading)' }}
+            >
+              <CreditCard size={14} />
+              <span>Open POS</span>
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all hover:bg-white/8"
+              style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-heading)' }}
+            >
+              <ExternalLink size={14} />
+              <span>View Website</span>
+            </button>
+            <button
+              onClick={() => {
+                sessionStorage.removeItem('pizzora_token');
+                sessionStorage.removeItem('pizzora_admin_logged_in');
+                sessionStorage.removeItem('pizzora_admin_role');
+                sessionStorage.removeItem('pizzora_admin_name');
+                dispatch({ type: 'ADMIN_LOGOUT' });
+                navigate('/admin');
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all hover:bg-red-900/20"
+              style={{ color: 'rgba(255,100,100,0.7)', fontFamily: 'var(--font-heading)' }}
+            >
+              <LogOut size={14} /> Logout
+            </button>
+          </div>
+        </div>
+
+        {/* ── Main Content ─────────────────────────────────── */}
+        <div className="flex-1 flex flex-col min-h-screen min-w-0 w-full md:w-[calc(100vw-260px)] md:max-w-[calc(100vw-260px)] md:ml-[260px] overflow-x-hidden">
+
+          {/* Top Bar */}
+          <div
+            className="flex items-center justify-between px-4 md:px-6 py-4 sticky top-0 z-30 shadow-sm"
+            style={{ backgroundColor: '#fff', borderBottom: '1px solid rgba(249,0,43,0.08)' }}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Hamburger — mobile only */}
+              <button
+                className="md:hidden flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all"
+                style={{ backgroundColor: '#FFF5F5', border: '1px solid rgba(249,0,43,0.12)' }}
+                onClick={() => setSidebarOpen(true)}
+              >
+                <MenuIcon size={18} style={{ color: '#F9002B' }} />
+              </button>
+              <div className="min-w-0">
+                <h2 className="truncate" style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '18px', color: '#111', lineHeight: 1 }}>
+                  {sidebarItems.find(s => s.id === activeTab)?.label}
+                </h2>
               </div>
-
-              {/* 2. Executive KPI Cards (Row of 4) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                {/* Metric 1: Today's Revenue */}
-                <div
-                  onClick={() => setActiveTab('sales')}
-                  className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                  style={{ border: '1.5px solid rgba(22, 163, 74, 0.15)' }}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                      <TrendingUp size={22} />
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Today's Revenue
-                    </span>
-                  </div>
-                  <p
-                    className="text-2xl font-black text-emerald-600 leading-none group-hover:scale-[1.02] transition-transform origin-left"
-                    style={{ fontFamily: 'var(--font-heading)' }}
-                  >
-                    ৳{todayRevenue.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-700 font-bold mt-2" style={{ fontFamily: 'var(--font-heading)' }}>
-                    Today's Sales Flow
-                  </p>
-                  <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                    Lifetime: ৳{(state.analytics?.totalRevenue || totalRevenue).toLocaleString()} ({allUnifiedOrders.length} orders)
-                  </p>
-                </div>
-
-                {/* Metric 2: Active Orders & Queues */}
-                <div
-                  onClick={() => setActiveTab('orders')}
-                  className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                  style={{ border: '1.5px solid rgba(249, 0, 43, 0.15)' }}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-11 h-11 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
-                      <ShoppingBag size={22} />
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-red-100 text-red-700">
-                      {pendingOrders} Pending
-                    </span>
-                  </div>
-                  <p
-                    className="text-2xl font-black text-red-600 leading-none group-hover:scale-[1.02] transition-transform origin-left"
-                    style={{ fontFamily: 'var(--font-heading)' }}
-                  >
-                    {pendingOrders}{' '}
-                    <span className="text-sm font-semibold text-gray-500">
-                      / {todayOrders.length} today
-                    </span>
-                  </p>
-                  <p className="text-xs text-gray-700 font-bold mt-2" style={{ fontFamily: 'var(--font-heading)' }}>
-                    Active Order Queue
-                  </p>
-                  <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500">
-                    <span className="bg-gray-100 px-1.5 py-0.5 rounded font-semibold text-gray-700">
-                      {pendingTableOrders} Tables
-                    </span>
-                    <span className="bg-gray-100 px-1.5 py-0.5 rounded font-semibold text-gray-700">
-                      {pendingOnlineOrders} Online
-                    </span>
-                  </div>
-                </div>
-
-                {/* Metric 3: Table Floor Occupancy */}
-                <div
-                  onClick={() => setActiveTab('tables')}
-                  className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                  style={{ border: '1.5px solid rgba(2, 132, 199, 0.15)' }}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-11 h-11 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-                      <LayoutGrid size={22} />
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-sky-100 text-sky-700">
-                      {occupiedTables.length}/{state.tables?.length || 5} Busy
-                    </span>
-                  </div>
-                  <p
-                    className="text-2xl font-black text-sky-600 leading-none group-hover:scale-[1.02] transition-transform origin-left"
-                    style={{ fontFamily: 'var(--font-heading)' }}
-                  >
-                    {occupiedTables.length}{' '}
-                    <span className="text-sm font-semibold text-gray-500">
-                      of {state.tables?.length || 5} Tables
-                    </span>
-                  </p>
-                  {/* Progress bar */}
-                  <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
-                    <div
-                      className="h-full bg-sky-500 rounded-full transition-all duration-500"
-                      style={{
-                        width: `${Math.min(100, Math.round((occupiedTables.length / (state.tables?.length || 5)) * 100))}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <p className="text-[11px] text-gray-500 mt-1.5">
-                    {(state.tables?.length || 5) - occupiedTables.length} tables available for walk-in seating
-                  </p>
-                </div>
-
-                {/* Metric 4: Cash Drawer & Register */}
-                <div
-                  onClick={() => setActiveTab('cash-register')}
-                  className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                  style={{ border: '1.5px solid rgba(124, 58, 237, 0.15)' }}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                      <Banknote size={22} />
-                    </div>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
-                        activeCashShift ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {activeCashShift ? 'Shift Active' : 'Register Closed'}
-                    </span>
-                  </div>
-                  <p
-                    className="text-2xl font-black text-purple-600 leading-none group-hover:scale-[1.02] transition-transform origin-left"
-                    style={{ fontFamily: 'var(--font-heading)' }}
-                  >
-                    {activeCashShift
-                      ? `৳${Math.round(
-                          activeCashShift.openingCash +
-                            (activeCashShift.cashSales || 0) -
-                            (activeCashShift.cashPayouts || 0)
-                        ).toLocaleString()}`
-                      : 'Closed'}
-                  </p>
-                  <p className="text-xs text-gray-700 font-bold mt-2" style={{ fontFamily: 'var(--font-heading)' }}>
-                    Cash Drawer Balance
-                  </p>
-                  <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                    Today's Expenses: ৳{Math.round(todayExpensesTotal).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {/* 3. Conditional Low Stock Alert Banner */}
-              {lowStockItems.length > 0 && (
-                <div className="bg-amber-50 border border-amber-200/80 p-4 rounded-2xl flex items-center justify-between gap-3 text-amber-900 text-xs shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 flex-shrink-0">
-                      <Package size={17} />
-                    </div>
-                    <div>
-                      <span className="font-extrabold text-amber-950" style={{ fontFamily: 'var(--font-heading)' }}>
-                        Low Stock Alert ({lowStockItems.length} items):
-                      </span>{' '}
-                      {lowStockItems.slice(0, 3).map((i: any) => i.name).join(', ')}
-                      {lowStockItems.length > 3 ? ` and ${lowStockItems.length - 3} more items` : ''} are below minimum reorder threshold.
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setActiveTab('inventory')}
-                    className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs whitespace-nowrap transition-colors flex items-center gap-1 shadow-sm"
-                  >
-                    View Inventory <ChevronRight size={13} />
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <LiveTopStats orders={state.orders} expenses={state.expenses} />
+              {unreadMessages > 0 && (
+                <div className="relative">
+                  <button onClick={() => { setActiveTab('messages'); setSidebarOpen(false); }} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FEE2E2' }}>
+                    <MessageSquare size={16} style={{ color: '#DC2626' }} />
                   </button>
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-white flex items-center justify-center" style={{ backgroundColor: '#DC2626', fontSize: '9px' }}>{unreadMessages}</span>
                 </div>
               )}
-
-              {/* 4. Main Two-Column Cockpit Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* ── Left Column: Live Orders Feed (7 Cols) ────────────────── */}
-                <div
-                  className="lg:col-span-7 bg-white rounded-2xl shadow-sm overflow-hidden"
-                  style={{ border: '1px solid rgba(0,0,0,0.05)' }}
-                >
-                  <div
-                    className="p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                    style={{ borderColor: 'rgba(0,0,0,0.05)' }}
-                  >
-                    <div>
-                      <h3
-                        className="font-bold text-base text-gray-900 flex items-center gap-2"
-                        style={{ fontFamily: 'var(--font-heading)' }}
-                      >
-                        <ShoppingBag size={17} className="text-red-600" />
-                        Live Unified Orders Feed
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-0.5">Real-time orders across POS, Tables & Website</p>
-                    </div>
-
-                    {/* Channel Filter Pills */}
-                    <div className="flex bg-gray-100 p-1 rounded-xl gap-1 overflow-x-auto">
-                      {[
-                        { key: 'all', label: 'All' },
-                        { key: 'table', label: 'Tables' },
-                        { key: 'pos', label: 'POS' },
-                        { key: 'online', label: 'Online' },
-                      ].map(pill => (
-                        <button
-                          key={pill.key}
-                          onClick={() => setDashboardChannelFilter(pill.key as any)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap"
-                          style={{
-                            backgroundColor: dashboardChannelFilter === pill.key ? '#fff' : 'transparent',
-                            color: dashboardChannelFilter === pill.key ? '#F9002B' : '#6B7280',
-                            boxShadow: dashboardChannelFilter === pill.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                          }}
-                        >
-                          {pill.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Orders List */}
-                  <div className="divide-y divide-gray-100">
-                    {filteredDashboardOrders.length === 0 ? (
-                      <div className="py-12 text-center text-gray-400">
-                        <ShoppingBag size={32} className="mx-auto mb-2 opacity-40" />
-                        <p className="text-xs font-semibold">No orders in this channel filter</p>
-                      </div>
-                    ) : (
-                      filteredDashboardOrders.map(order => {
-                        const isTable = Boolean(order.isTableOrder || order.tableNumber);
-                        const isOnline = isWebsiteOnlineOrder(order);
-                        return (
-                          <div
-                            key={order.id}
-                            className="px-5 py-3.5 hover:bg-gray-50/80 transition-colors flex items-center justify-between gap-3"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span
-                                  className="font-bold text-xs text-red-600"
-                                  style={{ fontFamily: 'var(--font-heading)' }}
-                                >
-                                  #{order.orderNumber}
-                                </span>
-                                <span
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                                    isTable
-                                      ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                                      : isOnline
-                                      ? 'bg-blue-50 text-blue-700 border border-blue-200/60'
-                                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                                  }`}
-                                >
-                                  {isTable
-                                    ? `Table ${order.tableNumber || ''} • Dine-In`
-                                    : isOnline
-                                    ? 'Online Delivery'
-                                    : 'POS Counter'}
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-700 font-medium truncate mt-1">
-                                {order.customerName || 'Walk-in Guest'} •{' '}
-                                <span className="text-gray-500">
-                                  {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
-                                  {order.items?.[0] ? ` (${(order.items[0].item?.name || order.items[0].name || '').slice(0, 20)}...)` : ''}
-                                </span>
-                              </p>
-                            </div>
-
-                            <div className="flex items-center gap-3 flex-shrink-0">
-                              <div className="text-right">
-                                <span
-                                  className="font-extrabold text-sm text-gray-900 block"
-                                  style={{ fontFamily: 'var(--font-heading)' }}
-                                >
-                                  ৳{order.total}
-                                </span>
-                                <span className="text-[10.5px] text-gray-400 font-medium">
-                                  {order.paymentMethod || 'Cash'}
-                                </span>
-                              </div>
-                              <StatusBadge status={order.status} />
-                              <button
-                                onClick={() => handlePrintOrder(order)}
-                                className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 transition-colors flex items-center justify-center flex-shrink-0"
-                                title="Print / Reprint Receipt"
-                              >
-                                <Printer size={13} />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {/* View All Footer */}
-                  <div
-                    className="p-3.5 bg-gray-50/70 border-t flex items-center justify-between text-xs"
-                    style={{ borderColor: 'rgba(0,0,0,0.05)' }}
-                  >
-                    <span className="text-gray-500 font-medium">
-                      Showing latest {filteredDashboardOrders.length} of {allUnifiedOrders.length} recorded orders
-                    </span>
-                    <button
-                      onClick={() => setActiveTab('orders')}
-                      className="font-bold text-red-600 hover:text-red-700 flex items-center gap-1 transition-colors"
-                      style={{ fontFamily: 'var(--font-heading)' }}
-                    >
-                      View All Orders in Orders Hub <ChevronRight size={13} />
-                    </button>
-                  </div>
+              {pendingTableOrders > 0 && (
+                <div className="relative">
+                  <button onClick={() => { setActiveTab('tables'); setSidebarOpen(false); }} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#EDE9FE' }}>
+                    <LayoutGrid size={16} style={{ color: '#7C3AED' }} />
+                  </button>
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-white flex items-center justify-center" style={{ backgroundColor: '#7C3AED', fontSize: '9px' }}>{pendingTableOrders}</span>
                 </div>
-
-                {/* ── Right Column: Floor Map & Executive Glance (5 Cols) ────── */}
-                <div className="lg:col-span-5 space-y-5">
-                  {/* Widget 1: Live Table Floor Map */}
-                  <div
-                    className="bg-white rounded-2xl p-5 shadow-sm"
-                    style={{ border: '1px solid rgba(0,0,0,0.05)' }}
-                  >
-                    <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-gray-100">
-                      <div>
-                        <h3
-                          className="font-bold text-sm text-gray-900 flex items-center gap-2"
-                          style={{ fontFamily: 'var(--font-heading)' }}
-                        >
-                          <LayoutGrid size={16} className="text-sky-600" />
-                          Live Floor Status
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {occupiedTables.length} Active • {(state.tables?.length || 5) - occupiedTables.length} Available
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setActiveTab('tables')}
-                        className="text-xs font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1"
-                        style={{ fontFamily: 'var(--font-heading)' }}
-                      >
-                        Manage Tables <ChevronRight size={13} />
-                      </button>
-                    </div>
-
-                    {/* Mini Table Grid */}
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {(state.tables && state.tables.length > 0 ? state.tables : [
-                        { id: '1', tableNumber: '1', seats: 4, area: 'Dining', status: 'Cooking' },
-                        { id: '2', tableNumber: '2', seats: 6, area: 'Dining', status: 'Available' },
-                        { id: '3', tableNumber: '3', seats: 6, area: 'Dining', status: 'Cooking' },
-                        { id: '4', tableNumber: '4', seats: 4, area: 'Dining', status: 'Available' },
-                        { id: '5', tableNumber: '5', seats: 2, area: 'Outdoor', status: 'Available' },
-                      ]).map((tbl: any) => {
-                        const isAvailable = tbl.status === 'Available';
-                        const isCooking = tbl.status === 'Cooking' || tbl.status === 'Ordering';
-                        return (
-                          <div
-                            key={tbl.id || tbl.tableNumber}
-                            onClick={() => setActiveTab('tables')}
-                            className="p-3 rounded-xl border transition-all cursor-pointer hover:shadow-md"
-                            style={{
-                              backgroundColor: isAvailable ? '#F0FDF4' : isCooking ? '#FFF7ED' : '#FAF5FF',
-                              borderColor: isAvailable ? '#BBF7D0' : isCooking ? '#FED7AA' : '#E9D5FF',
-                            }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span
-                                className="font-extrabold text-xs text-gray-900"
-                                style={{ fontFamily: 'var(--font-heading)' }}
-                              >
-                                Table {tbl.tableNumber}
-                              </span>
-                              <span
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                                style={{
-                                  backgroundColor: isAvailable ? '#DCFCE7' : isCooking ? '#FFEDD5' : '#F3E8FF',
-                                  color: isAvailable ? '#15803D' : isCooking ? '#C2410C' : '#7E22CE',
-                                }}
-                              >
-                                {tbl.status}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
-                              <Users size={11} /> {tbl.seats} Seats • {tbl.area}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Widget 2: Daily Net Performance */}
-                  <div
-                    className="bg-white rounded-2xl p-5 shadow-sm"
-                    style={{ border: '1px solid rgba(0,0,0,0.05)' }}
-                  >
-                    <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
-                      <h3
-                        className="font-bold text-sm text-gray-900 flex items-center gap-2"
-                        style={{ fontFamily: 'var(--font-heading)' }}
-                      >
-                        <Wallet size={16} className="text-purple-600" />
-                        Today's Cash Flow Glance
-                      </h3>
-                      <button
-                        onClick={() => setActiveTab('expense')}
-                        className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1"
-                        style={{ fontFamily: 'var(--font-heading)' }}
-                      >
-                        Expenses <ChevronRight size={13} />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100">
-                        <span className="text-[10.5px] text-gray-500 font-bold block">Gross Revenue</span>
-                        <span className="font-extrabold text-sm text-emerald-700">৳{Math.round(todayRevenue).toLocaleString()}</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-red-50 border border-red-100">
-                        <span className="text-[10.5px] text-gray-500 font-bold block">Expenses</span>
-                        <span className="font-extrabold text-sm text-red-600">৳{Math.round(todayExpensesTotal).toLocaleString()}</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-100">
-                        <span className="text-[10.5px] text-gray-500 font-bold block">Net Cashflow</span>
-                        <span className="font-extrabold text-sm text-purple-700">৳{Math.round(todayRevenue - todayExpensesTotal).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Widget 3: Compact Reservations & Customer Inquiries Hub (No wasted 50% blank space!) */}
-                  <div
-                    className="bg-white rounded-2xl p-5 shadow-sm"
-                    style={{ border: '1px solid rgba(0,0,0,0.05)' }}
-                  >
-                    <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
-                      <div className="flex items-center gap-2">
-                        <Calendar size={16} className="text-blue-600" />
-                        <h3 className="font-bold text-sm text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
-                          Reservations & Messages
-                        </h3>
-                      </div>
-                      <button
-                        onClick={() => setActiveTab('reservations')}
-                        className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                        style={{ fontFamily: 'var(--font-heading)' }}
-                      >
-                        View Hub <ChevronRight size={13} />
-                      </button>
-                    </div>
-
-                    {state.reservations.length === 0 ? (
-                      <div className="py-4 text-center rounded-xl bg-gray-50/70 border border-dashed border-gray-200">
-                        <p className="text-xs text-gray-500 font-medium">
-                          No pending table reservations currently.
-                        </p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
-                          {state.messages.length} customer message{state.messages.length !== 1 ? 's' : ''} received
-                        </p>
-                        <button
-                          onClick={() => setActiveTab('reservations')}
-                          className="mt-2.5 px-3 py-1 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors inline-flex items-center gap-1"
-                        >
-                          Open Reservations System <ChevronRight size={12} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {state.reservations.slice(0, 3).map(res => (
-                          <div
-                            key={res.id}
-                            className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-between text-xs"
-                          >
-                            <div>
-                              <p className="font-bold text-gray-800">{res.name}</p>
-                              <p className="text-[11px] text-gray-500">
-                                {res.date} at {res.time} • {res.guests} guests
-                              </p>
-                            </div>
-                            <StatusBadge status={res.status} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
-          )}
+          </div>
 
-          {/* ══ SALES REPORT ═════════════════════════════════════ */}
-          {activeTab === 'sales' && (
-            <div className="bg-white p-6 rounded-2xl shadow-sm overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-              <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
-                <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '20px', color: '#111' }}>Sales Analytics</h2>
-                <div className="flex bg-gray-100/80 p-1 rounded-xl">
-                  {(['daily', 'weekly', 'monthly', 'yearly'] as const).map(f => (
-                    <button
-                      key={f}
-                      onClick={() => setSalesFilter(f)}
-                      className="px-4 py-1.5 rounded-lg text-[13px] font-bold capitalize transition-all"
-                      style={{
-                        backgroundColor: salesFilter === f ? '#fff' : 'transparent',
-                        color: salesFilter === f ? '#F9002B' : '#6B7280',
-                        boxShadow: salesFilter === f ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                        fontFamily: 'var(--font-heading)'
-                      }}
+          {/* Page Content */}
+          <div className="flex-1 p-4 md:p-6 overflow-y-auto overflow-x-hidden min-w-0 max-w-full">
+
+            {/* ══ DASHBOARD ══════════════════════════════════ */}
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6">
+                {/* Stats Cards — Row 1 (Core Financial & Queue Metrics) */}
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                  {state.isInitialLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => <AdminStatSkeleton key={i} />)
+                  ) : [
+                    {
+                      label: 'Total Revenue',
+                      value: `৳${(state.analytics?.totalRevenue || totalRevenue).toLocaleString()}`,
+                      icon: DollarSign,
+                      color: '#16A34A',
+                      bg: '#DCFCE7',
+                      borderColor: 'rgba(22,163,74,0.18)',
+                      sub: `${state.analytics?.totalCustomers || allUnifiedOrders.length} all-time orders`,
+                      tab: 'sales' as AdminTab,
+                    },
+                    {
+                      label: 'Active Orders',
+                      value: pendingOrders,
+                      icon: ShoppingBag,
+                      color: '#F9002B',
+                      bg: '#FEE2E2',
+                      borderColor: 'rgba(249,0,43,0.18)',
+                      sub: `${allUnifiedOrders.length} recent`,
+                      tab: 'orders' as AdminTab,
+                    },
+                    {
+                      label: 'Reservations',
+                      value: state.reservations.length,
+                      icon: Calendar,
+                      color: '#2563EB',
+                      bg: '#DBEAFE',
+                      borderColor: 'rgba(37,99,235,0.18)',
+                      sub: `${pendingReservations} pending`,
+                      tab: 'reservations' as AdminTab,
+                    },
+                    {
+                      label: 'Messages',
+                      value: state.messages.length,
+                      icon: MessageSquare,
+                      color: '#7C3AED',
+                      bg: '#EDE9FE',
+                      borderColor: 'rgba(124,58,237,0.18)',
+                      sub: `${unreadMessages} unread`,
+                      tab: 'messages' as AdminTab,
+                    },
+                  ].map(({ label, value, icon: Icon, color, bg, borderColor, sub, tab }) => (
+                    <div
+                      key={label}
+                      onClick={() => setActiveTab(tab)}
+                      className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                      style={{ border: `1.5px solid ${borderColor}` }}
                     >
-                      {f}
-                    </button>
+                      <div className="flex items-start justify-between mb-3">
+                        <div
+                          className="w-11 h-11 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform"
+                          style={{ backgroundColor: bg }}
+                        >
+                          <Icon size={20} style={{ color }} />
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-400 group-hover:text-red-600 transition-colors flex items-center gap-0.5">
+                          Open <ChevronRight size={11} />
+                        </span>
+                      </div>
+                      <p
+                        className="font-black text-2xl leading-tight group-hover:scale-[1.01] transition-transform origin-left"
+                        style={{ fontFamily: 'var(--font-heading)', color }}
+                      >
+                        {value}
+                      </p>
+                      <p
+                        className="text-xs text-gray-800 font-bold mt-1.5"
+                        style={{ fontFamily: 'var(--font-heading)' }}
+                      >
+                        {label}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5 truncate">{sub}</p>
+                    </div>
                   ))}
                 </div>
-              </div>
 
-              {/* Data Calculation */}
-              {state.isInitialLoading ? (
-                <div>
-                  <div className="grid grid-cols-2 gap-4 mb-8">
-                    <AdminStatSkeleton />
-                    <AdminStatSkeleton />
-                  </div>
-                  <ChartSkeleton />
+                {/* Stats Cards — Row 2 (Operational & Catalog Assets) */}
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                  {state.isInitialLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => <AdminStatSkeleton key={i} />)
+                  ) : [
+                    {
+                      label: 'Inventory Items',
+                      value: (state.inventory ?? []).length,
+                      icon: Package,
+                      color: '#EA580C',
+                      bg: '#FEF3C7',
+                      borderColor: 'rgba(234,88,12,0.18)',
+                      sub: 'Active stock',
+                      tab: 'inventory' as AdminTab,
+                    },
+                    {
+                      label: 'Menu Items',
+                      value: state.menuItems.length,
+                      icon: UtensilsCrossed,
+                      color: '#0891B2',
+                      bg: '#CFFAFE',
+                      borderColor: 'rgba(8,145,178,0.18)',
+                      sub: 'Active items',
+                      tab: 'menu' as AdminTab,
+                    },
+                    {
+                      label: 'Gallery Images',
+                      value: state.galleryImages.length,
+                      icon: Image,
+                      color: '#7C3AED',
+                      bg: '#EDE9FE',
+                      borderColor: 'rgba(124,58,237,0.18)',
+                      sub: `${state.carouselSlides.length} carousel slides`,
+                      tab: 'gallery' as AdminTab,
+                    },
+                    {
+                      label: 'Customers',
+                      value:
+                        (state.analytics?.totalCustomers || allUnifiedOrders.length) +
+                        state.reservations.length,
+                      icon: Users,
+                      color: '#16A34A',
+                      bg: '#DCFCE7',
+                      borderColor: 'rgba(22,163,74,0.18)',
+                      sub: 'Total interactions',
+                      tab: 'sales' as AdminTab,
+                    },
+                  ].map(({ label, value, icon: Icon, color, bg, borderColor, sub, tab }) => (
+                    <div
+                      key={label}
+                      onClick={() => setActiveTab(tab)}
+                      className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                      style={{ border: `1.5px solid ${borderColor}` }}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div
+                          className="w-11 h-11 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform"
+                          style={{ backgroundColor: bg }}
+                        >
+                          <Icon size={20} style={{ color }} />
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-400 group-hover:text-red-600 transition-colors flex items-center gap-0.5">
+                          Open <ChevronRight size={11} />
+                        </span>
+                      </div>
+                      <p
+                        className="font-black text-2xl leading-tight group-hover:scale-[1.01] transition-transform origin-left"
+                        style={{ fontFamily: 'var(--font-heading)', color }}
+                      >
+                        {value}
+                      </p>
+                      <p
+                        className="text-xs text-gray-800 font-bold mt-1.5"
+                        style={{ fontFamily: 'var(--font-heading)' }}
+                      >
+                        {label}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5 truncate">{sub}</p>
+                    </div>
+                  ))}
                 </div>
-              ) : (() => {
-                let chartData: any[] = [];
-                let totalSales = 0;
-                let totalOrders = 0;
 
-                if (state.analytics) {
-                  if (salesFilter === 'daily') {
-                    chartData = state.analytics.dailyChart || [];
-                    totalSales = state.analytics.todayRevenue || 0;
-                  } else if (salesFilter === 'weekly') {
-                    chartData = state.analytics.weeklyChart || [];
-                    totalSales = state.analytics.weeklyRevenue || 0;
-                  } else if (salesFilter === 'monthly') {
-                    chartData = state.analytics.monthlyChart || [];
-                    totalSales = state.analytics.monthlyRevenue || 0;
-                  } else if (salesFilter === 'yearly') {
-                    chartData = state.analytics.yearlyChart || [];
-                    totalSales = state.analytics.yearlyRevenue || 0;
-                  }
-                  totalOrders = chartData.reduce((sum, item) => sum + (item.orders || 0), 0);
-                }
+                {/* ── Main Operations Section (Orders Feed + Floor & Operations Hub) ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                  {/* Left Column: Live Orders Feed (~58% width - 7 Cols) */}
+                  <div
+                    className="lg:col-span-7 bg-white rounded-2xl shadow-sm overflow-hidden"
+                    style={{ border: '1px solid rgba(0,0,0,0.05)' }}
+                  >
+                    <div
+                      className="p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      style={{ borderColor: 'rgba(0,0,0,0.05)' }}
+                    >
+                      <div>
+                        <h3
+                          className="font-bold text-base text-gray-900 flex items-center gap-2"
+                          style={{ fontFamily: 'var(--font-heading)' }}
+                        >
+                          <ShoppingBag size={17} className="text-red-600" />
+                          Recent Orders Stream
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Live tickets across Tables, POS Counter & Online
+                        </p>
+                      </div>
 
-                const renderCustomBarLabel = (props: any) => {
-                  const { x, y, width, index } = props;
-                  const orders = chartData[index]?.orders || 0;
-                  if (!orders) return <g></g>;
-                  return (
-                    <text x={x + width / 2} y={y - 8} fill="#9CA3AF" fontSize={10} fontWeight={600} textAnchor="middle">
-                      {orders} ord
-                    </text>
-                  );
-                };
+                      {/* Channel Filter Pills */}
+                      <div className="flex bg-gray-100 p-1 rounded-xl gap-1 overflow-x-auto">
+                        {[
+                          { key: 'all', label: 'All Orders' },
+                          { key: 'table', label: 'Tables' },
+                          { key: 'pos', label: 'POS' },
+                          { key: 'online', label: 'Online' },
+                        ].map(pill => (
+                          <button
+                            key={pill.key}
+                            onClick={() => setDashboardChannelFilter(pill.key as any)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap"
+                            style={{
+                              backgroundColor: dashboardChannelFilter === pill.key ? '#fff' : 'transparent',
+                              color: dashboardChannelFilter === pill.key ? '#F9002B' : '#6B7280',
+                              boxShadow: dashboardChannelFilter === pill.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                              fontFamily: 'var(--font-heading)',
+                            }}
+                          >
+                            {pill.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                return (
+                    {/* Orders List */}
+                    <div className="divide-y divide-gray-100">
+                      {filteredDashboardOrders.length === 0 ? (
+                        <div className="py-12 text-center text-gray-400">
+                          <ShoppingBag size={32} className="mx-auto mb-2 opacity-40" />
+                          <p className="text-xs font-semibold">No orders in this channel filter</p>
+                        </div>
+                      ) : (
+                        filteredDashboardOrders.map(order => {
+                          const isTable = Boolean(order.isTableOrder || order.tableNumber);
+                          const isOnline = isWebsiteOnlineOrder(order);
+                          return (
+                            <div
+                              key={order.id}
+                              className="px-5 py-3.5 hover:bg-gray-50/80 transition-colors flex items-center justify-between gap-3"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span
+                                    className="font-bold text-xs text-red-600"
+                                    style={{ fontFamily: 'var(--font-heading)' }}
+                                  >
+                                    #{order.orderNumber}
+                                  </span>
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                      isTable
+                                        ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                                        : isOnline
+                                        ? 'bg-blue-50 text-blue-700 border border-blue-200/60'
+                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                                    }`}
+                                  >
+                                    {isTable
+                                      ? `Table ${order.tableNumber || ''} • Dine-In`
+                                      : isOnline
+                                      ? 'Online Delivery'
+                                      : 'POS Counter'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-700 font-medium truncate mt-1">
+                                  {order.customerName || 'Walk-in Guest'} •{' '}
+                                  <span className="text-gray-500">
+                                    {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
+                                    {order.items?.[0]
+                                      ? ` (${(order.items[0].item?.name || order.items[0].name || '').slice(0, 22)}...)`
+                                      : ''}
+                                  </span>
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <div className="text-right">
+                                  <span
+                                    className="font-extrabold text-sm text-gray-900 block"
+                                    style={{ fontFamily: 'var(--font-heading)' }}
+                                  >
+                                    ৳{order.total}
+                                  </span>
+                                  <span className="text-[10.5px] text-gray-400 font-medium">
+                                    {order.paymentMethod || 'Cash'}
+                                  </span>
+                                </div>
+                                <StatusBadge status={order.status} />
+                                <button
+                                  onClick={() => handlePrintOrder(order)}
+                                  className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 transition-colors flex items-center justify-center flex-shrink-0"
+                                  title="Print Receipt"
+                                >
+                                  <Printer size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* View All Footer */}
+                    <div
+                      className="p-3.5 bg-gray-50/70 border-t flex items-center justify-between text-xs"
+                      style={{ borderColor: 'rgba(0,0,0,0.05)' }}
+                    >
+                      <span className="text-gray-500 font-medium">
+                        Showing latest {filteredDashboardOrders.length} of {allUnifiedOrders.length} recorded orders
+                      </span>
+                      <button
+                        onClick={() => setActiveTab('orders')}
+                        className="font-bold text-red-600 hover:text-red-700 flex items-center gap-1 transition-colors"
+                        style={{ fontFamily: 'var(--font-heading)' }}
+                      >
+                        View All Orders in Orders Hub <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Live Floor + Daily Operations + Inquiries Hub (5 Cols) */}
+                  <div className="lg:col-span-5 space-y-4">
+                    {/* Widget 1: Live Table Floor Status */}
+                    <div
+                      className="bg-white rounded-2xl p-5 shadow-sm"
+                      style={{ border: '1px solid rgba(0,0,0,0.05)' }}
+                    >
+                      <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
+                        <div>
+                          <h3
+                            className="font-bold text-sm text-gray-900 flex items-center gap-2"
+                            style={{ fontFamily: 'var(--font-heading)' }}
+                          >
+                            <LayoutGrid size={16} className="text-sky-600" />
+                            Live Table Floor
+                          </h3>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {occupiedTables.length} Active •{' '}
+                            {(state.tables?.length || 5) - occupiedTables.length} Free for seating
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab('tables')}
+                          className="text-xs font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1"
+                          style={{ fontFamily: 'var(--font-heading)' }}
+                        >
+                          Floor Map <ChevronRight size={13} />
+                        </button>
+                      </div>
+
+                      {/* Mini Table Grid */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {(state.tables && state.tables.length > 0
+                          ? state.tables
+                          : [
+                              { id: '1', tableNumber: '1', seats: 4, area: 'Dining', status: 'Cooking' },
+                              { id: '2', tableNumber: '2', seats: 6, area: 'Dining', status: 'Available' },
+                              { id: '3', tableNumber: '3', seats: 6, area: 'Dining', status: 'Cooking' },
+                              { id: '4', tableNumber: '4', seats: 4, area: 'Dining', status: 'Available' },
+                              { id: '5', tableNumber: '5', seats: 2, area: 'Outdoor', status: 'Available' },
+                            ]
+                        ).map((tbl: any) => {
+                          const isAvailable = tbl.status === 'Available';
+                          const isCooking = tbl.status === 'Cooking' || tbl.status === 'Ordering';
+                          return (
+                            <div
+                              key={tbl.id || tbl.tableNumber}
+                              onClick={() => setActiveTab('tables')}
+                              className="p-2.5 rounded-xl border transition-all cursor-pointer hover:shadow-md"
+                              style={{
+                                backgroundColor: isAvailable ? '#F0FDF4' : isCooking ? '#FFF7ED' : '#FAF5FF',
+                                borderColor: isAvailable ? '#BBF7D0' : isCooking ? '#FED7AA' : '#E9D5FF',
+                              }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span
+                                  className="font-extrabold text-xs text-gray-900"
+                                  style={{ fontFamily: 'var(--font-heading)' }}
+                                >
+                                  Table {tbl.tableNumber}
+                                </span>
+                                <span
+                                  className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full"
+                                  style={{
+                                    backgroundColor: isAvailable ? '#DCFCE7' : isCooking ? '#FFEDD5' : '#F3E8FF',
+                                    color: isAvailable ? '#15803D' : isCooking ? '#C2410C' : '#7E22CE',
+                                  }}
+                                >
+                                  {tbl.status}
+                                </span>
+                              </div>
+                              <p className="text-[10.5px] text-gray-500 mt-1 flex items-center gap-1">
+                                <Users size={10} /> {tbl.seats} Seats • {tbl.area}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Widget 2: Today's Financial & Shift Snapshot */}
+                    <div
+                      className="bg-white rounded-2xl p-5 shadow-sm"
+                      style={{ border: '1px solid rgba(0,0,0,0.05)' }}
+                    >
+                      <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <Wallet size={16} className="text-purple-600" />
+                          <h3
+                            className="font-bold text-sm text-gray-900"
+                            style={{ fontFamily: 'var(--font-heading)' }}
+                          >
+                            Today's Cash Flow Glance
+                          </h3>
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            activeCashShift
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {activeCashShift ? '🟢 Register Open' : '⚪ Closed'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                          <span className="text-[10px] text-gray-500 font-bold block uppercase">
+                            Today's Sales
+                          </span>
+                          <span className="font-extrabold text-sm text-emerald-700">
+                            ৳{Math.round(todayRevenue).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-red-50 border border-red-100">
+                          <span className="text-[10px] text-gray-500 font-bold block uppercase">
+                            Expenses
+                          </span>
+                          <span className="font-extrabold text-sm text-red-600">
+                            ৳{Math.round(todayExpensesTotal).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-100">
+                          <span className="text-[10px] text-gray-500 font-bold block uppercase">
+                            Net Cashflow
+                          </span>
+                          <span className="font-extrabold text-sm text-purple-700">
+                            ৳{Math.round(todayRevenue - todayExpensesTotal).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Widget 3: Compact Reservations & Customer Inquiries (NO wasted 50% blank screen!) */}
+                    <div
+                      className="bg-white rounded-2xl p-5 shadow-sm"
+                      style={{ border: '1px solid rgba(0,0,0,0.05)' }}
+                    >
+                      <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <Calendar size={16} className="text-blue-600" />
+                          <h3
+                            className="font-bold text-sm text-gray-900"
+                            style={{ fontFamily: 'var(--font-heading)' }}
+                          >
+                            Reservations & Inquiries
+                          </h3>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab('reservations')}
+                          className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          style={{ fontFamily: 'var(--font-heading)' }}
+                        >
+                          View All <ChevronRight size={13} />
+                        </button>
+                      </div>
+
+                      {state.reservations.length === 0 ? (
+                        <div className="py-3 px-4 rounded-xl bg-gray-50 border border-dashed border-gray-200 flex items-center justify-between text-xs">
+                          <div>
+                            <p className="font-semibold text-gray-700">No pending table reservations</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                              {unreadMessages} unread customer message{unreadMessages !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setActiveTab('reservations')}
+                            className="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
+                          >
+                            Manage →
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {state.reservations.slice(0, 3).map(res => (
+                            <div
+                              key={res.id}
+                              className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-between text-xs"
+                            >
+                              <div>
+                                <p className="font-bold text-gray-800">{res.name}</p>
+                                <p className="text-[11px] text-gray-500">
+                                  {res.date} at {res.time} • {res.guests} guests
+                                </p>
+                              </div>
+                              <StatusBadge status={res.status} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ══ SALES REPORT ═════════════════════════════════════ */}
+            {activeTab === 'sales' && (
+              <div className="bg-white p-6 rounded-2xl shadow-sm overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+                <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+                  <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '20px', color: '#111' }}>Sales Analytics</h2>
+                  <div className="flex bg-gray-100/80 p-1 rounded-xl">
+                    {(['daily', 'weekly', 'monthly', 'yearly'] as const).map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setSalesFilter(f)}
+                        className="px-4 py-1.5 rounded-lg text-[13px] font-bold capitalize transition-all"
+                        style={{
+                          backgroundColor: salesFilter === f ? '#fff' : 'transparent',
+                          color: salesFilter === f ? '#F9002B' : '#6B7280',
+                          boxShadow: salesFilter === f ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                          fontFamily: 'var(--font-heading)'
+                        }}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Data Calculation */}
+                {state.isInitialLoading ? (
                   <div>
                     <div className="grid grid-cols-2 gap-4 mb-8">
-                      <div className="p-4 rounded-xl" style={{ backgroundColor: '#FFF1F2', border: '1px solid rgba(249,0,43,0.1)' }}>
-                        <p style={{ fontSize: '12px', color: '#F9002B', fontFamily: 'var(--font-heading)', fontWeight: 700, textTransform: 'uppercase' }}>Total Sales ({salesFilter})</p>
-                        <p style={{ fontSize: '28px', fontWeight: 800, color: '#111', fontFamily: 'var(--font-heading)', marginTop: '4px' }}>৳{totalSales.toLocaleString()}</p>
-                      </div>
-                      <div className="p-4 rounded-xl" style={{ backgroundColor: '#F0FDF4', border: '1px solid rgba(22,163,74,0.1)' }}>
-                        <p style={{ fontSize: '12px', color: '#16A34A', fontFamily: 'var(--font-heading)', fontWeight: 700, textTransform: 'uppercase' }}>Total Orders ({salesFilter})</p>
-                        <p style={{ fontSize: '28px', fontWeight: 800, color: '#111', fontFamily: 'var(--font-heading)', marginTop: '4px' }}>{totalOrders}</p>
-                      </div>
+                      <AdminStatSkeleton />
+                      <AdminStatSkeleton />
                     </div>
-                    
-                    <div style={{ width: '100%', height: 350 }}>
-                      <ResponsiveContainer>
-                        <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6B7280', fontFamily: 'var(--font-body)' }} dy={10} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6B7280', fontFamily: 'var(--font-body)' }} tickFormatter={(val) => `৳${val}`} />
-                          <Tooltip 
-                            cursor={{ fill: 'rgba(249,0,43,0.04)' }}
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
-                            labelStyle={{ fontWeight: 700, color: '#111', marginBottom: '4px' }}
-                            formatter={(value: any, name: any, props: any) => [`৳${value} (${props.payload.orders} orders)`, 'Sales']}
-                          />
-                          <Bar dataKey="sales" name="Sales (৳)" fill="#F9002B" radius={[4, 4, 0, 0]} maxBarSize={40} label={renderCustomBarLabel} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
+                    <ChartSkeleton />
                   </div>
-                );
-              })()}
-            </div>
-          )}
+                ) : (() => {
+                  let chartData: any[] = [];
+                  let totalSales = 0;
+                  let totalOrders = 0;
 
-          {/* ══ DEDICATED ONLINE ORDERS EXECUTION STATION ════════ */}
-          {activeTab === 'online-orders' && (
-            <OnlineOrderManagement
-              onPrintOrder={handlePrintOrder}
-            />
-          )}
+                  if (state.analytics) {
+                    if (salesFilter === 'daily') {
+                      chartData = state.analytics.dailyChart || [];
+                      totalSales = state.analytics.todayRevenue || 0;
+                    } else if (salesFilter === 'weekly') {
+                      chartData = state.analytics.weeklyChart || [];
+                      totalSales = state.analytics.weeklyRevenue || 0;
+                    } else if (salesFilter === 'monthly') {
+                      chartData = state.analytics.monthlyChart || [];
+                      totalSales = state.analytics.monthlyRevenue || 0;
+                    } else if (salesFilter === 'yearly') {
+                      chartData = state.analytics.yearlyChart || [];
+                      totalSales = state.analytics.yearlyRevenue || 0;
+                    }
+                    totalOrders = chartData.reduce((sum, item) => sum + (item.orders || 0), 0);
+                  }
 
-          {/* ══ ORDERS & PRODUCT SALES ANALYTICS ═════════════════ */}
-          {(activeTab === 'orders' || activeTab === 'product-analytics') && (
-            <div className="space-y-5 w-full max-w-full min-w-0 overflow-hidden">
-              {/* Top Sub-navigation Switcher */}
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-gray-100 border border-gray-200 shadow-sm flex-wrap">
-                  <button
-                    onClick={() => {
-                      if (activeTab === 'product-analytics') setActiveTab('orders');
-                      setOrderViewSubTab('list');
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-                    style={{
-                      backgroundColor: (activeTab === 'orders' && orderViewSubTab === 'list') ? '#fff' : 'transparent',
-                      color: (activeTab === 'orders' && orderViewSubTab === 'list') ? '#F9002B' : '#4B5563',
-                      boxShadow: (activeTab === 'orders' && orderViewSubTab === 'list') ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
-                      fontFamily: 'var(--font-heading)',
-                    }}
-                  >
-                    <ShoppingBag size={14} />
-                    <span>All Orders ({allUnifiedOrders.length})</span>
-                  </button>
+                  const renderCustomBarLabel = (props: any) => {
+                    const { x, y, width, index } = props;
+                    const orders = chartData[index]?.orders || 0;
+                    if (!orders) return <g></g>;
+                    return (
+                      <text x={x + width / 2} y={y - 8} fill="#9CA3AF" fontSize={10} fontWeight={600} textAnchor="middle">
+                        {orders} ord
+                      </text>
+                    );
+                  };
 
-                  <button
-                    onClick={() => setActiveTab('online-orders')}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-gray-600 hover:text-gray-900"
-                    style={{ fontFamily: 'var(--font-heading)' }}
-                  >
-                    <Globe size={14} className="text-red-500" />
-                    <span>Online Orders Only ({state.orders.filter(isWebsiteOnlineOrder).length})</span>
-                    {pendingOnlineOrders > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white animate-pulse">
-                        {pendingOnlineOrders}
-                      </span>
-                    )}
-                  </button>
+                  return (
+                    <div>
+                      <div className="grid grid-cols-2 gap-4 mb-8">
+                        <div className="p-4 rounded-xl" style={{ backgroundColor: '#FFF1F2', border: '1px solid rgba(249,0,43,0.1)' }}>
+                          <p style={{ fontSize: '12px', color: '#F9002B', fontFamily: 'var(--font-heading)', fontWeight: 700, textTransform: 'uppercase' }}>Total Sales ({salesFilter})</p>
+                          <p style={{ fontSize: '28px', fontWeight: 800, color: '#111', fontFamily: 'var(--font-heading)', marginTop: '4px' }}>৳{totalSales.toLocaleString()}</p>
+                        </div>
+                        <div className="p-4 rounded-xl" style={{ backgroundColor: '#F0FDF4', border: '1px solid rgba(22,163,74,0.1)' }}>
+                          <p style={{ fontSize: '12px', color: '#16A34A', fontFamily: 'var(--font-heading)', fontWeight: 700, textTransform: 'uppercase' }}>Total Orders ({salesFilter})</p>
+                          <p style={{ fontSize: '28px', fontWeight: 800, color: '#111', fontFamily: 'var(--font-heading)', marginTop: '4px' }}>{totalOrders}</p>
+                        </div>
+                      </div>
 
-                  <button
-                    onClick={() => {
-                      if (activeTab === 'orders') setOrderViewSubTab('product-analytics');
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-                    style={{
-                      backgroundColor: (activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? '#F9002B' : 'transparent',
-                      color: (activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? '#fff' : '#4B5563',
-                      boxShadow: (activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? '0 2px 10px rgba(249,0,43,0.3)' : 'none',
-                      fontFamily: 'var(--font-heading)',
-                    }}
-                  >
-                    <BarChart3 size={14} />
-                    <span>Product Sales & Order Analytics</span>
-                    <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-white/20 text-white font-extrabold">NEW</span>
-                  </button>
-                </div>
+                      <div style={{ width: '100%', height: 350 }}>
+                        <ResponsiveContainer>
+                          <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6B7280', fontFamily: 'var(--font-body)' }} dy={10} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6B7280', fontFamily: 'var(--font-body)' }} tickFormatter={(val) => `৳${val}`} />
+                            <Tooltip
+                              cursor={{ fill: 'rgba(249,0,43,0.04)' }}
+                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                              labelStyle={{ fontWeight: 700, color: '#111', marginBottom: '4px' }}
+                              formatter={(value: any, name: any, props: any) => [`৳${value} (${props.payload.orders} orders)`, 'Sales']}
+                            />
+                            <Bar dataKey="sales" name="Sales (৳)" fill="#F9002B" radius={[4, 4, 0, 0]} maxBarSize={40} label={renderCustomBarLabel} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
+            )}
 
-              {(activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? (
-                <ProductOrderAnalytics />
-              ) : (
-                <div className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr style={{ backgroundColor: '#FFF5F5', borderBottom: '1px solid rgba(249,0,43,0.08)' }}>
-                      {['Order #', 'Customer', 'Items', 'Total', 'Payment', 'Status', 'Update'].map(h => (
-                        <th key={h} className="px-4 py-3.5 text-left" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '11px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {state.isInitialLoading ? (
-                      Array.from({ length: 5 }).map((_, i) => <TableRowSkeleton key={i} columns={7} />)
-                    ) : (
-                      <>
-                        {allUnifiedOrders.map(order => (
-                      <tr key={order.id} className="border-b hover:bg-amber-50/30 transition-colors" style={{ borderColor: 'rgba(0,0,0,0.04)' }}>
-                        <td className="px-4 py-3.5">
-                          <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#F9002B' }}>#{order.orderNumber}</p>
-                          <p style={{ fontSize: '11px', color: '#9CA3AF' }}>{new Date(order.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka' })}</p>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <p style={{ fontSize: '13px', fontWeight: 600, color: '#111', fontFamily: 'var(--font-heading)' }}>{order.displayTitle}</p>
-                          <p style={{ fontSize: '11px', color: '#9CA3AF' }}>{order.displayPhone}</p>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <p style={{ fontSize: '13px', color: '#374151' }}>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</p>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <p style={{ fontWeight: 800, fontSize: '14px', color: '#F9002B', fontFamily: 'var(--font-heading)' }}>৳{order.total}</p>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <p style={{ fontSize: '12px', color: '#6B7280' }}>{order.paymentMethod}</p>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <StatusBadge status={order.status} />
-                        </td>
-                        <td className="px-4 py-3.5 flex items-center gap-2">
-                          {order.isTableOrder ? (
-                            <select
-                              value={order.status}
-                              onChange={e => {
-                                dispatch({ type: 'UPDATE_TABLE_ORDER_STATUS', payload: { id: order.id, status: e.target.value as TableOrderStatus } });
-                                showNotification('Table Order status updated!', 'success');
-                              }}
-                              className="px-2 py-1.5 rounded-lg border text-xs font-semibold"
-                              style={{ borderColor: 'rgba(249,0,43,0.2)', color: '#111', fontFamily: 'var(--font-heading)', cursor: 'pointer' }}
-                            >
-                              {(['Pending','Confirmed','Cooking','Ready','Served','Paid'] as TableOrderStatus[]).map(s => (
-                                <option key={s} value={s}>{s}</option>
-                              ))}
-                            </select>
+            {/* ══ DEDICATED ONLINE ORDERS EXECUTION STATION ════════ */}
+            {activeTab === 'online-orders' && (
+              <OnlineOrderManagement
+                onPrintOrder={handlePrintOrder}
+              />
+            )}
+
+            {/* ══ ORDERS & PRODUCT SALES ANALYTICS ═════════════════ */}
+            {(activeTab === 'orders' || activeTab === 'product-analytics') && (
+              <div className="space-y-5 w-full max-w-full min-w-0 overflow-hidden">
+                {/* Top Sub-navigation Switcher */}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-gray-100 border border-gray-200 shadow-sm flex-wrap">
+                    <button
+                      onClick={() => {
+                        if (activeTab === 'product-analytics') setActiveTab('orders');
+                        setOrderViewSubTab('list');
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                      style={{
+                        backgroundColor: (activeTab === 'orders' && orderViewSubTab === 'list') ? '#fff' : 'transparent',
+                        color: (activeTab === 'orders' && orderViewSubTab === 'list') ? '#F9002B' : '#4B5563',
+                        boxShadow: (activeTab === 'orders' && orderViewSubTab === 'list') ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                        fontFamily: 'var(--font-heading)',
+                      }}
+                    >
+                      <ShoppingBag size={14} />
+                      <span>All Orders ({allUnifiedOrders.length})</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab('online-orders')}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-gray-600 hover:text-gray-900"
+                      style={{ fontFamily: 'var(--font-heading)' }}
+                    >
+                      <Globe size={14} className="text-red-500" />
+                      <span>Online Orders Only ({state.orders.filter(isWebsiteOnlineOrder).length})</span>
+                      {pendingOnlineOrders > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white animate-pulse">
+                          {pendingOnlineOrders}
+                        </span>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (activeTab === 'orders') setOrderViewSubTab('product-analytics');
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                      style={{
+                        backgroundColor: (activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? '#F9002B' : 'transparent',
+                        color: (activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? '#fff' : '#4B5563',
+                        boxShadow: (activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? '0 2px 10px rgba(249,0,43,0.3)' : 'none',
+                        fontFamily: 'var(--font-heading)',
+                      }}
+                    >
+                      <BarChart3 size={14} />
+                      <span>Product Sales & Order Analytics</span>
+                      <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-white/20 text-white font-extrabold">NEW</span>
+                    </button>
+                  </div>
+                </div>
+
+                {(activeTab === 'product-analytics' || orderViewSubTab === 'product-analytics') ? (
+                  <ProductOrderAnalytics />
+                ) : (
+                  <div className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr style={{ backgroundColor: '#FFF5F5', borderBottom: '1px solid rgba(249,0,43,0.08)' }}>
+                            {['Order #', 'Customer', 'Items', 'Total', 'Payment', 'Status', 'Update'].map(h => (
+                              <th key={h} className="px-4 py-3.5 text-left" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '11px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {state.isInitialLoading ? (
+                            Array.from({ length: 5 }).map((_, i) => <TableRowSkeleton key={i} columns={7} />)
                           ) : (
-                            <select
-                              value={order.status}
-                              onChange={e => {
-                                dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: order.id, status: e.target.value as OrderStatus } });
-                                showNotification('Order status updated!', 'success');
-                              }}
-                              className="px-2 py-1.5 rounded-lg border text-xs font-semibold"
-                              style={{ borderColor: 'rgba(249,0,43,0.2)', color: '#111', fontFamily: 'var(--font-heading)', cursor: 'pointer' }}
-                            >
-                              {(['Pending','Preparing','Out for Delivery','Delivered','Cancelled'] as OrderStatus[]).map(s => (
-                                <option key={s} value={s}>{s}</option>
+                            <>
+                              {allUnifiedOrders.map(order => (
+                                <tr key={order.id} className="border-b hover:bg-amber-50/30 transition-colors" style={{ borderColor: 'rgba(0,0,0,0.04)' }}>
+                                  <td className="px-4 py-3.5">
+                                    <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#F9002B' }}>#{order.orderNumber}</p>
+                                    <p style={{ fontSize: '11px', color: '#9CA3AF' }}>{new Date(order.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka' })}</p>
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <p style={{ fontSize: '13px', fontWeight: 600, color: '#111', fontFamily: 'var(--font-heading)' }}>{order.displayTitle}</p>
+                                    <p style={{ fontSize: '11px', color: '#9CA3AF' }}>{order.displayPhone}</p>
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <p style={{ fontSize: '13px', color: '#374151' }}>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</p>
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <p style={{ fontWeight: 800, fontSize: '14px', color: '#F9002B', fontFamily: 'var(--font-heading)' }}>৳{order.total}</p>
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <p style={{ fontSize: '12px', color: '#6B7280' }}>{order.paymentMethod}</p>
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <StatusBadge status={order.status} />
+                                  </td>
+                                  <td className="px-4 py-3.5 flex items-center gap-2">
+                                    {order.isTableOrder ? (
+                                      <select
+                                        value={order.status}
+                                        onChange={e => {
+                                          dispatch({ type: 'UPDATE_TABLE_ORDER_STATUS', payload: { id: order.id, status: e.target.value as TableOrderStatus } });
+                                          showNotification('Table Order status updated!', 'success');
+                                        }}
+                                        className="px-2 py-1.5 rounded-lg border text-xs font-semibold"
+                                        style={{ borderColor: 'rgba(249,0,43,0.2)', color: '#111', fontFamily: 'var(--font-heading)', cursor: 'pointer' }}
+                                      >
+                                        {(['Pending', 'Confirmed', 'Cooking', 'Ready', 'Served', 'Paid'] as TableOrderStatus[]).map(s => (
+                                          <option key={s} value={s}>{s}</option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <select
+                                        value={order.status}
+                                        onChange={e => {
+                                          dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: order.id, status: e.target.value as OrderStatus } });
+                                          showNotification('Order status updated!', 'success');
+                                        }}
+                                        className="px-2 py-1.5 rounded-lg border text-xs font-semibold"
+                                        style={{ borderColor: 'rgba(249,0,43,0.2)', color: '#111', fontFamily: 'var(--font-heading)', cursor: 'pointer' }}
+                                      >
+                                        {(['Pending', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'] as OrderStatus[]).map(s => (
+                                          <option key={s} value={s}>{s}</option>
+                                        ))}
+                                      </select>
+                                    )}
+                                    <button
+                                      onClick={() => handlePrintOrder(order)}
+                                      className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                                      title="Print Invoice"
+                                    >
+                                      <Printer size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => setViewOrderDetails(order)}
+                                      className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
+                                      title="View Order Details"
+                                    >
+                                      <Eye size={14} />
+                                    </button>
+                                    {adminRole === 'admin' && (
+                                      <button
+                                        onClick={() => setDeleteConfirm({
+                                          isOpen: true,
+                                          title: 'Delete Order?',
+                                          message: `Are you sure you want to permanently delete order ${order.orderNumber || order.id.slice(-6)}? This action cannot be undone and will remove it from all revenue calculations immediately.`,
+                                          onConfirm: () => {
+                                            if (order.isTableOrder) {
+                                              dispatch({ type: 'DELETE_TABLE_ORDER', payload: order.id });
+                                            } else {
+                                              dispatch({ type: 'DELETE_ORDER', payload: order.id });
+                                            }
+                                            setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                                            showNotification('Order permanently deleted', 'success');
+                                          }
+                                        })}
+                                        className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
+                                        title="Delete Order Permanently"
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
                               ))}
-                            </select>
+                            </>
                           )}
-                          <button
-                            onClick={() => handlePrintOrder(order)}
-                            className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
-                            title="Print Invoice"
-                          >
-                            <Printer size={14} />
-                          </button>
-                          <button
-                            onClick={() => setViewOrderDetails(order)}
-                            className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
-                            title="View Order Details"
-                          >
-                            <Eye size={14} />
-                          </button>
-                          {adminRole === 'admin' && (
-                            <button
-                              onClick={() => setDeleteConfirm({
-                                isOpen: true,
-                                title: 'Delete Order?',
-                                message: `Are you sure you want to permanently delete order ${order.orderNumber || order.id.slice(-6)}? This action cannot be undone and will remove it from all revenue calculations immediately.`,
-                                onConfirm: () => {
-                                  if (order.isTableOrder) {
-                                    dispatch({ type: 'DELETE_TABLE_ORDER', payload: order.id });
-                                  } else {
-                                    dispatch({ type: 'DELETE_ORDER', payload: order.id });
-                                  }
-                                  setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
-                                  showNotification('Order permanently deleted', 'success');
-                                }
-                              })}
-                              className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
-                              title="Delete Order Permanently"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                      ))}
-                      </>
+                        </tbody>
+                      </table>
+                      {(!state.isInitialLoading && allUnifiedOrders.length === 0) && (
+                        <div className="py-20 text-center">
+                          <ShoppingBag size={40} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
+                          <p style={{ color: '#6B7280', fontSize: '15px' }}>No orders received yet.</p>
+                        </div>
+                      )}
+                    </div>
+                    {allUnifiedOrders.length > 0 && (
+                      <div className="p-4 border-t" style={{ borderColor: 'rgba(0,0,0,0.04)', display: 'flex', justifyContent: 'center' }}>
+                        <button
+                          onClick={loadOlderOrders}
+                          disabled={isLoadingOlderOrders}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-gray-100 disabled:opacity-50"
+                          style={{ border: '1px solid rgba(0,0,0,0.1)', color: '#374151', fontFamily: 'var(--font-heading)' }}
+                        >
+                          {isLoadingOlderOrders ? 'Loading...' : 'Load Older Orders'}
+                        </button>
+                      </div>
                     )}
-                  </tbody>
-                </table>
-                {(!state.isInitialLoading && allUnifiedOrders.length === 0) && (
-                  <div className="py-20 text-center">
-                    <ShoppingBag size={40} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
-                    <p style={{ color: '#6B7280', fontSize: '15px' }}>No orders received yet.</p>
                   </div>
                 )}
               </div>
-              {allUnifiedOrders.length > 0 && (
-                <div className="p-4 border-t" style={{ borderColor: 'rgba(0,0,0,0.04)', display: 'flex', justifyContent: 'center' }}>
-                  <button
-                    onClick={loadOlderOrders}
-                    disabled={isLoadingOlderOrders}
-                    className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-gray-100 disabled:opacity-50"
-                    style={{ border: '1px solid rgba(0,0,0,0.1)', color: '#374151', fontFamily: 'var(--font-heading)' }}
-                  >
-                    {isLoadingOlderOrders ? 'Loading...' : 'Load Older Orders'}
-                  </button>
-                </div>
-              )}
-            </div>
             )}
-          </div>
-          )}
 
-          {/* ══ RESERVATIONS ═══════════════════════════════ */}
-          {activeTab === 'reservations' && (
-            <div className="space-y-4">
-              {state.isInitialLoading ? (
-                Array.from({ length: 4 }).map((_, i) => <AdminStatSkeleton key={i} />)
-              ) : (
-                <>
-                  {state.reservations.map(res => (
-                <div key={res.id} className="bg-white rounded-2xl p-5 shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      <div>
-                        <p style={{ fontSize: '10px', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'var(--font-heading)', marginBottom: '3px' }}>Guest Name</p>
-                        <p style={{ fontWeight: 700, fontSize: '14px', color: '#111', fontFamily: 'var(--font-heading)' }}>{res.name}</p>
-                        <p style={{ fontSize: '11px', color: '#6B7280' }}>{res.email}</p>
-                      </div>
-                      <div>
-                        <p style={{ fontSize: '10px', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'var(--font-heading)', marginBottom: '3px' }}>Date & Time</p>
-                        <p style={{ fontSize: '13px', color: '#374151', fontWeight: 600 }}>{res.date}</p>
-                        <p style={{ fontSize: '12px', color: '#6B7280' }}>{res.time}</p>
-                      </div>
-                      <div>
-                        <p style={{ fontSize: '10px', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'var(--font-heading)', marginBottom: '3px' }}>Guests & Phone</p>
-                        <p style={{ fontSize: '13px', color: '#374151', fontWeight: 600 }}>{res.guests} Guests</p>
-                        <p style={{ fontSize: '12px', color: '#6B7280' }}>{res.phone}</p>
-                      </div>
-                      <div>
-                        <p style={{ fontSize: '10px', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'var(--font-heading)', marginBottom: '3px' }}>Status</p>
-                        <StatusBadge status={res.status} />
-                        {res.specialRequest && <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }} className="line-clamp-1">{res.specialRequest}</p>}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => { dispatch({ type: 'UPDATE_RESERVATION', payload: { id: res.id, status: 'Confirmed' } }); showNotification('Reservation confirmed!', 'success'); }}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-md"
-                        style={{ backgroundColor: '#D1FAE5', color: '#065F46', fontFamily: 'var(--font-heading)' }}
-                      >
-                        <Check size={12} /> Confirm
-                      </button>
-                      <button
-                        onClick={() => { dispatch({ type: 'UPDATE_RESERVATION', payload: { id: res.id, status: 'Rejected' } }); showNotification('Reservation rejected.', 'info'); }}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-md"
-                        style={{ backgroundColor: '#FEE2E2', color: '#991B1B', fontFamily: 'var(--font-heading)' }}
-                      >
-                        <X size={12} /> Reject
-                      </button>
-                      {adminRole === 'admin' && (
-                        <button
-                          onClick={() => setDeleteConfirm({
-                            isOpen: true,
-                            title: 'Delete Reservation?',
-                            message: `Are you sure you want to delete reservation for ${res.name}?`,
-                            onConfirm: () => {
-                              dispatch({ type: 'DELETE_RESERVATION', payload: res.id });
-                              setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
-                              showNotification('Reservation deleted.', 'info');
-                            }
-                          })}
-                          className="p-2 rounded-xl hover:bg-gray-100 transition-colors"
-                        >
-                          <Trash2 size={14} style={{ color: '#9CA3AF' }} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {state.reservations.length === 0 && (
-                <div className="bg-white rounded-2xl py-20 text-center shadow-sm">
-                  <Calendar size={44} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
-                  <p style={{ color: '#6B7280', fontSize: '15px' }}>No reservations yet.</p>
-                </div>
-              )}
-                </>
-              )}
-            </div>
-          )}
-
-          {/* ══ INVENTORY ══════════════════════════════════ */}
-          {activeTab === 'inventory' && <InventoryManagement />}
-          {activeTab === 'expense' && <ExpenseManagement />}
-          {activeTab === 'cash-register' && <CashRegisterManagement />}
-
-          {activeTab === 'payroll' && <PayrollManagement />}
-          {activeTab === 'manual-invoice' && <ManualInvoice />}
-          {activeTab === 'printer-settings' && <PrinterSettings />}
-          {activeTab === 'reprint' && <ReprintSystem />}
-          {activeTab === 'roles' && adminRole === 'admin' && <RoleManagement />}
-          {activeTab === 'delivery-settings' && <DeliverySettingsPanel />}
-          {/* ══ TABLE MANAGEMENT ════════════════════════════ */}
-          {activeTab === 'tables' && <TableManagement />}
-
-          {/* ══ MENU MANAGEMENT ════════════════════════════ */}
-          {activeTab === 'menu' && (
-            <div>
-              {/* Toolbar */}
-              <div className="flex items-center justify-between mb-5">
-                <p style={{ color: '#6B7280', fontSize: '14px', fontFamily: 'var(--font-body)' }}>
-                  <span style={{ fontWeight: 700, color: '#111', fontFamily: 'var(--font-heading)' }}>{state.menuItems.length}</span> menu items
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="relative hidden sm:block">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9CA3AF' }} />
-                    <input
-                      type="text"
-                      placeholder="Search menu items..."
-                      value={menuSearchTerm}
-                      onChange={(e) => setMenuSearchTerm(e.target.value)}
-                      className="pl-9 pr-4 py-2 rounded-xl border text-sm"
-                      style={{ borderColor: 'rgba(249,0,43,0.15)', outline: 'none', fontFamily: 'var(--font-body)' }}
-                    />
-                  </div>
-                  <button
-                    onClick={() => { setMenuForm(blankMenuForm); setShowAddMenu(true); }}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg hover:-translate-y-0.5"
-                    style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', fontFamily: 'var(--font-heading)' }}
-                  >
-                    <Plus size={15} /> Add New Item
-                  </button>
-                </div>
-              </div>
-
-              {/* Menu Items Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {/* ══ RESERVATIONS ═══════════════════════════════ */}
+            {activeTab === 'reservations' && (
+              <div className="space-y-4">
                 {state.isInitialLoading ? (
-                  Array.from({ length: 8 }).map((_, i) => <POSCardSkeleton key={i} />)
+                  Array.from({ length: 4 }).map((_, i) => <AdminStatSkeleton key={i} />)
                 ) : (
-                  state.menuItems
-                    .filter(item => 
-                      item.name.toLowerCase().includes(menuSearchTerm.toLowerCase()) || 
-                      item.category.toLowerCase().includes(menuSearchTerm.toLowerCase())
-                    )
-                    .map(item => (
-                  <div key={item.id} className="bg-white rounded-2xl overflow-hidden shadow-sm group" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                    <div className="relative h-44 overflow-hidden">
-                      <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)' }} />
-                      <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
-                        {item.isPopular && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#F9002B', color: '#0A0A0A', fontFamily: 'var(--font-heading)' }}>Popular</span>
-                        )}
-                        {item.isVeg && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#16A34A', color: 'white', fontFamily: 'var(--font-heading)' }}>Veg</span>
-                        )}
-                      </div>
-                      <div className="absolute bottom-2 right-2">
-                        <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '16px', color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>৳{item.price}</span>
-                      </div>
-                    </div>
-                    <div className="p-3.5">
-                      <div className="mb-1">
-                        <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#111' }} className="line-clamp-1">{item.name}</h3>
-                        <p style={{ fontSize: '11px', color: '#6B7280' }}>{item.category} • {item.spiceLevel}</p>
-                      </div>
-                      <div className="flex items-center gap-1 mb-3">
-                        <Star size={10} fill="#F9002B" style={{ color: '#F9002B' }} />
-                        <span style={{ fontSize: '11px', color: '#6B7280' }}>{item.rating} ({item.reviewCount})</span>
-                      </div>
-                      {/* Action Buttons */}
-                      <div className="grid grid-cols-3 gap-1.5">
-                        <button
-                          onClick={() => {
-                            setEditingMenuItem(item);
-                            setMenuForm(menuItemToForm(item));
-                          }}
-                          className="flex flex-col items-center gap-1 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-sm"
-                          style={{ backgroundColor: '#DBEAFE', color: '#1E40AF', fontFamily: 'var(--font-heading)' }}
-                        >
-                          <Edit2 size={11} />
-                          <span style={{ fontSize: '10px' }}>Edit</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            dispatch({ type: 'UPDATE_MENU_ITEM', payload: { ...item, isPopular: !item.isPopular } });
-                            showNotification(`${item.name} ${item.isPopular ? 'unfeatured' : 'featured'}!`, 'success');
-                          }}
-                          className="flex flex-col items-center gap-1 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-sm"
-                          style={{ backgroundColor: item.isPopular ? 'rgba(249,0,43,0.2)' : '#F3F4F6', color: item.isPopular ? '#C8001F' : '#6B7280', fontFamily: 'var(--font-heading)' }}
-                        >
-                          <Star size={11} fill={item.isPopular ? '#F9002B' : 'none'} style={{ color: item.isPopular ? '#F9002B' : '#6B7280' }} />
-                          <span style={{ fontSize: '10px' }}>{item.isPopular ? 'Unfeature' : 'Feature'}</span>
-                        </button>
-                        {adminRole === 'admin' && (
-                          <button
-                            onClick={() => setDeleteConfirm({
-                              isOpen: true,
-                              title: 'Delete Menu Item?',
-                              message: `Are you sure you want to delete ${item.name}?`,
-                              onConfirm: () => {
-                                dispatch({ type: 'DELETE_MENU_ITEM', payload: item.id });
-                                setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
-                                showNotification(`${item.name} deleted.`, 'info');
-                              }
-                            })}
-                            className="flex flex-col items-center gap-1 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-sm"
-                            style={{ backgroundColor: '#FEE2E2', color: '#DC2626', fontFamily: 'var(--font-heading)' }}
-                          >
-                            <Trash2 size={11} />
-                            <span style={{ fontSize: '10px' }}>Delete</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-              </div>
-
-              {(!state.isInitialLoading && state.menuItems.length === 0) && (
-                <div className="bg-white rounded-2xl py-20 text-center shadow-sm mt-4">
-                  <UtensilsCrossed size={44} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
-                  <p style={{ color: '#6B7280', fontSize: '15px' }}>No menu items. Click "Add New Item" to get started.</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ══ CHEF MANAGEMENT ════════════════════════════ */}
-          {activeTab === 'chefs' && <ChefManagement />}
-
-          {/* ══ GALLERY MANAGEMENT ═════════════════════════ */}
-          {activeTab === 'gallery' && (
-            <div>
-              {/* Sub-Tabs */}
-              <div className="flex gap-2 mb-6">
-                {([
-                  { id: 'gallery', label: 'Gallery Images', icon: Image, count: state.galleryImages.length },
-                  { id: 'carousel', label: 'Carousel Slides', icon: Layers, count: state.carouselSlides.length },
-                ] as const).map(({ id, label, icon: Icon, count }) => (
-                  <button
-                    key={id}
-                    onClick={() => setGallerySubTab(id)}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
-                    style={{
-                      background: gallerySubTab === id ? 'linear-gradient(135deg, #F9002B, #C8001F)' : 'white',
-                      color: gallerySubTab === id ? '#fff' : '#6B7280',
-                      border: '1px solid',
-                      borderColor: gallerySubTab === id ? 'transparent' : 'rgba(249,0,43,0.15)',
-                      fontFamily: 'var(--font-heading)',
-                      boxShadow: gallerySubTab === id ? '0 4px 12px rgba(249,0,43,0.3)' : 'none',
-                    }}
-                  >
-                    <Icon size={14} />
-                    {label}
-                    <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: gallerySubTab === id ? 'rgba(255,255,255,0.2)' : 'rgba(249,0,43,0.08)', color: gallerySubTab === id ? '#fff' : '#F9002B', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                      {count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              {/* ── Gallery Images Sub-Tab ── */}
-              {gallerySubTab === 'gallery' && (
-                <div>
-                  {/* Add Gallery Form */}
-                  <div className="bg-white rounded-2xl p-5 mb-5 shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>Add New Gallery Image</h3>
-                      <button
-                        onClick={() => { setGalleryForm({ url: '', title: '', category: 'Food' }); setShowAddGallery(true); }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg"
-                        style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', fontFamily: 'var(--font-heading)' }}
-                      >
-                        <Plus size={14} /> Add Image
-                      </button>
-                    </div>
-                    <p style={{ fontSize: '13px', color: '#6B7280' }}>
-                      {state.galleryImages.length} images across {['Restaurant', 'Food', 'Events', 'Kitchen'].map(cat => `${cat}: ${state.galleryImages.filter(g => g.category === cat).length}`).join(' • ')}
-                    </p>
-                  </div>
-
-                  {/* Gallery Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                    {state.isInitialLoading ? (
-                      Array.from({ length: 5 }).map((_, i) => <AdminStatSkeleton key={i} />)
-                    ) : (
-                      <>
-                        {state.galleryImages.map(img => (
-                          <div key={img.id} className="relative bg-white rounded-2xl overflow-hidden shadow-sm group" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                            <div className="relative h-32 overflow-hidden">
-                              <img src={img.url} alt={img.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                              {/* Hover overlay with actions */}
-                              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                                <button
-                                  onClick={() => {
-                                    setEditingGallery({ id: img.id, url: img.url, title: img.title, category: img.category });
-                                    setGalleryForm({ url: img.url, title: img.title, category: img.category });
-                                  }}
-                                  className="w-8 h-8 rounded-full flex items-center justify-center bg-white/90 hover:bg-white transition-colors"
-                                >
-                                  <Edit2 size={12} style={{ color: '#1E40AF' }} />
-                                </button>
-                                {adminRole === 'admin' && (
-                                  <button
-                                    onClick={() => setDeleteConfirm({
-                                      isOpen: true,
-                                      title: 'Delete Image?',
-                                      message: `Are you sure you want to remove this gallery image?`,
-                                      onConfirm: () => {
-                                        dispatch({ type: 'DELETE_GALLERY_IMAGE', payload: img.id });
-                                        setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
-                                        showNotification('Image removed.', 'info');
-                                      }
-                                    })}
-                                    className="w-8 h-8 rounded-full flex items-center justify-center bg-white/90 hover:bg-white transition-colors"
-                                  >
-                                    <Trash2 size={12} style={{ color: '#DC2626' }} />
-                                  </button>
-                                )}
-                              </div>
+                  <>
+                    {state.reservations.map(res => (
+                      <div key={res.id} className="bg-white rounded-2xl p-5 shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                          <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div>
+                              <p style={{ fontSize: '10px', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'var(--font-heading)', marginBottom: '3px' }}>Guest Name</p>
+                              <p style={{ fontWeight: 700, fontSize: '14px', color: '#111', fontFamily: 'var(--font-heading)' }}>{res.name}</p>
+                              <p style={{ fontSize: '11px', color: '#6B7280' }}>{res.email}</p>
                             </div>
-                            <div className="p-2.5">
-                              <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '11px', color: '#111' }} className="line-clamp-1">{img.title}</p>
-                              <span className="inline-block px-1.5 py-0.5 rounded-md text-xs mt-1" style={{ backgroundColor: '#F0EDE8', color: '#6B7280', fontSize: '10px', fontFamily: 'var(--font-heading)' }}>{img.category}</span>
+                            <div>
+                              <p style={{ fontSize: '10px', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'var(--font-heading)', marginBottom: '3px' }}>Date & Time</p>
+                              <p style={{ fontSize: '13px', color: '#374151', fontWeight: 600 }}>{res.date}</p>
+                              <p style={{ fontSize: '12px', color: '#6B7280' }}>{res.time}</p>
+                            </div>
+                            <div>
+                              <p style={{ fontSize: '10px', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'var(--font-heading)', marginBottom: '3px' }}>Guests & Phone</p>
+                              <p style={{ fontSize: '13px', color: '#374151', fontWeight: 600 }}>{res.guests} Guests</p>
+                              <p style={{ fontSize: '12px', color: '#6B7280' }}>{res.phone}</p>
+                            </div>
+                            <div>
+                              <p style={{ fontSize: '10px', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'var(--font-heading)', marginBottom: '3px' }}>Status</p>
+                              <StatusBadge status={res.status} />
+                              {res.specialRequest && <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }} className="line-clamp-1">{res.specialRequest}</p>}
                             </div>
                           </div>
-                        ))}
-                        {state.galleryImages.length === 0 && (
-                          <div className="col-span-full bg-white rounded-2xl py-16 text-center shadow-sm">
-                            <Image size={40} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
-                            <p style={{ color: '#6B7280', fontSize: '14px' }}>No gallery images yet.</p>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Carousel Slides Sub-Tab ── */}
-              {gallerySubTab === 'carousel' && (
-                <div>
-                  <div className="bg-white rounded-2xl p-5 mb-5 shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>Homepage Carousel Slides</h3>
-                        <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '2px' }}>Manage the hero carousel displayed on the homepage</p>
-                      </div>
-                      <button
-                        onClick={() => { setCarouselForm({ url: '', title: '', subtitle: '', description: '', badge: '', link: '' }); setShowAddCarousel(true); }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:shadow-lg"
-                        style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', color: '#0A0A0A', fontFamily: 'var(--font-heading)' }}
-                      >
-                        <Plus size={14} /> Add Slide
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Carousel Slides List */}
-                  <div className="space-y-3">
-                    {state.isInitialLoading ? (
-                      Array.from({ length: 3 }).map((_, i) => <AdminStatSkeleton key={i} />)
-                    ) : (
-                      <>
-                        {state.carouselSlides.map((slide, index) => (
-                          <div key={slide.id} className="bg-white rounded-2xl overflow-hidden shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                            <div className="flex items-stretch gap-0">
-                              {/* Slide preview */}
-                              <div className="relative w-48 h-28 flex-shrink-0">
-                                <img src={optimizeCloudinaryUrl(slide.url, 400)} alt={slide.title} className="w-full h-full object-cover" />
-                                <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(26,0,0,0.6), transparent)' }} />
-                                <span className="absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: 'rgba(0,0,0,0.5)', fontFamily: 'var(--font-heading)' }}>
-                                  {index + 1}
-                                </span>
-                              </div>
-                              {/* Slide info */}
-                              <div className="flex-1 p-4 flex flex-col justify-center">
-                                <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '15px', color: '#111', marginBottom: '2px' }}>{slide.title}</p>
-                                {slide.subtitle && <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>{slide.subtitle}</p>}
-                                {slide.badge && (
-                                  <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold self-start" style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', color: '#0A0A0A', fontFamily: 'var(--font-heading)' }}>
-                                    {slide.badge}
-                                  </span>
-                                )}
-                                {slide.description && <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '4px' }} className="line-clamp-1">{slide.description}</p>}
-                              </div>
-                              {/* Actions */}
-                              <div className="flex flex-col justify-center gap-1.5 px-3 border-l" style={{ borderColor: 'rgba(0,0,0,0.05)', minWidth: '90px' }}>
-                                {/* Move Up / Down row */}
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={() => dispatch({ type: 'REORDER_CAROUSEL_SLIDE', payload: { fromIndex: index, toIndex: index - 1 } })}
-                                    disabled={index === 0}
-                                    className="flex-1 flex items-center justify-center h-7 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-200"
-                                    style={{ backgroundColor: '#F3F4F6', color: '#374151' }}
-                                    title="Move Up"
-                                  >
-                                    <ChevronUp size={13} />
-                                  </button>
-                                  <button
-                                    onClick={() => dispatch({ type: 'REORDER_CAROUSEL_SLIDE', payload: { fromIndex: index, toIndex: index + 1 } })}
-                                    disabled={index === state.carouselSlides.length - 1}
-                                    className="flex-1 flex items-center justify-center h-7 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-200"
-                                    style={{ backgroundColor: '#F3F4F6', color: '#374151' }}
-                                    title="Move Down"
-                                  >
-                                    <ChevronDown size={13} />
-                                  </button>
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    setEditingCarousel(slide);
-                                    setCarouselForm({ url: slide.url, title: slide.title, subtitle: slide.subtitle, description: slide.description, badge: slide.badge, link: slide.link || '' });
-                                  }}
-                                  className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:shadow-sm"
-                                  style={{ backgroundColor: '#DBEAFE', color: '#1E40AF', fontFamily: 'var(--font-heading)' }}
-                                >
-                                  <Edit2 size={10} /> Edit
-                                </button>
-                                {adminRole === 'admin' && (
-                                  <button
-                                    onClick={() => setDeleteConfirm({
-                                      isOpen: true,
-                                      title: 'Delete Slide?',
-                                      message: `Are you sure you want to remove this slide?`,
-                                      onConfirm: () => {
-                                        dispatch({ type: 'DELETE_CAROUSEL_SLIDE', payload: slide.id });
-                                        setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
-                                        showNotification('Slide removed.', 'info');
-                                      }
-                                    })}
-                                    className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:shadow-sm"
-                                    style={{ backgroundColor: '#FEE2E2', color: '#DC2626', fontFamily: 'var(--font-heading)' }}
-                                  >
-                                    <Trash2 size={10} /> Remove
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        {state.carouselSlides.length === 0 && (
-                          <div className="bg-white rounded-2xl py-16 text-center shadow-sm">
-                            <Layers size={40} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
-                            <p style={{ color: '#6B7280', fontSize: '14px' }}>No carousel slides yet. Click "Add Slide" to add one.</p>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ══ PAYMENTS ═══════════════════════════════════ */}
-          {activeTab === 'payments' && (
-            <div className="space-y-5">
-              {/* Revenue Summary Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {[
-                  { label: 'Today', value: todayRevenue, icon: DollarSign, color: '#16A34A', bg: '#DCFCE7', sub: `${allUnifiedOrders.filter(o => o.timestamp >= startOfDay).length} orders` },
-                  { label: 'This Week', value: weeklyRevenue, icon: TrendingUp, color: '#2563EB', bg: '#DBEAFE', sub: `${allUnifiedOrders.filter(o => o.timestamp >= startOfWeek).length} orders` },
-                  { label: 'This Month', value: monthlyRevenue, icon: CreditCard, color: '#7C3AED', bg: '#EDE9FE', sub: `${allUnifiedOrders.filter(o => o.timestamp >= startOfMonth).length} orders` },
-                  { label: 'All Time', value: state.analytics?.totalRevenue || totalRevenue, icon: Wallet, color: '#F9002B', bg: '#FEF9EC', sub: `${state.analytics?.totalCustomers || allUnifiedOrders.length} total orders` },
-                ].map(({ label, value, icon: Icon, color, bg, sub }) => (
-                  <div key={label} className="bg-white p-4 rounded-xl shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.05)' }}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: bg }}>
-                        <Icon size={16} style={{ color }} />
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color, fontFamily: 'var(--font-heading)' }}>{label}</span>
-                    </div>
-                    <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '22px', color, lineHeight: 1 }}>৳{value.toLocaleString()}</p>
-                    <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }}>{sub}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Weekly Bar Chart + Payment Methods */}
-              <div className="grid lg:grid-cols-5 gap-5">
-                {/* Weekly Revenue Bar Chart */}
-                <div className="lg:col-span-3 bg-white rounded-2xl p-5 shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                  <div className="flex items-center justify-between mb-5">
-                    <div>
-                      <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>Weekly Revenue</h3>
-                      <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>Mon–Sun breakdown</p>
-                    </div>
-                    <div className="px-3 py-1.5 rounded-xl" style={{ backgroundColor: '#F0EDE8' }}>
-                      <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#F9002B' }}>৳{weeklyRevenue.toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-end gap-2 h-36">
-                    {weeklyBreakdown.map(({ day, rev }, i) => {
-                      const isToday = i === dayOfWeek;
-                      const pct = maxDayRev > 0 ? (rev / maxDayRev) * 100 : 0;
-                      return (
-                        <div key={day} className="flex-1 flex flex-col items-center gap-1">
-                          {rev > 0 && (
-                            <span style={{ fontSize: '9px', color: '#6B7280', fontFamily: 'var(--font-heading)', fontWeight: 600 }}>
-                              {rev >= 1000 ? `${(rev/1000).toFixed(1)}k` : rev}
-                            </span>
-                          )}
-                          <div className="w-full rounded-t-lg transition-all" style={{
-                            height: `${Math.max(pct, rev > 0 ? 8 : 3)}%`,
-                            background: isToday
-                              ? 'linear-gradient(to top, #F9002B, #F9002B)'
-                              : rev > 0 ? 'linear-gradient(to top, #DBEAFE, #3B82F6)' : '#F3F4F6',
-                            minHeight: '4px',
-                          }} />
-                          <span style={{ fontSize: '10px', color: isToday ? '#F9002B' : '#9CA3AF', fontFamily: 'var(--font-heading)', fontWeight: isToday ? 700 : 400 }}>{day}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Payment Method Breakdown */}
-                <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                  <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111', marginBottom: '16px' }}>Payment Methods</h3>
-                  <div className="space-y-5">
-                    {[
-                      { label: 'bKash', orders: bkashOrders.length, total: bkashTotal, color: '#E2136E', bg: '#FDF0F6', iconBg: 'rgba(226,19,110,0.12)', Icon: Smartphone },
-                      { label: 'Nagad', orders: nagadOrders.length, total: nagadTotal, color: '#F7941D', bg: '#FFF4E8', iconBg: 'rgba(247,148,29,0.12)', Icon: Smartphone },
-                      { label: 'Cash / COD', orders: cashOrders.length, total: cashTotal, color: '#16A34A', bg: '#F0FDF4', iconBg: 'rgba(22,163,74,0.12)', Icon: Banknote },
-                      { label: 'Card', orders: cardOrders.length, total: cardTotal, color: '#2563EB', bg: '#DBEAFE', iconBg: 'rgba(37,99,235,0.12)', Icon: CreditCard },
-                    ].map(({ label, orders, total, color, bg, iconBg, Icon }) => {
-                      const pct = totalRevenue > 0 ? Math.round((total / totalRevenue) * 100) : 0;
-                      return (
-                        <div key={label}>
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: iconBg }}>
-                                <Icon size={15} style={{ color }} />
-                              </div>
-                              <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#1F2937' }}>{label}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{orders} orders</span>
-                              <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color, fontFamily: 'var(--font-heading)' }}>{pct}%</span>
-                            </div>
-                          </div>
-                          <div className="w-full h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: bg }}>
-                            <div className="h-2.5 rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}99, ${color})` }} />
-                          </div>
-                          <div className="flex items-center justify-between mt-1.5">
-                            <p style={{ fontSize: '12px', color, fontFamily: 'var(--font-heading)', fontWeight: 800 }}>৳{total.toLocaleString()}</p>
-                            <p style={{ fontSize: '10px', color: '#9CA3AF' }}>of ৳{totalRevenue.toLocaleString()} total</p>
+                          <div className="flex gap-2 flex-shrink-0">
+                            <button
+                              onClick={() => { dispatch({ type: 'UPDATE_RESERVATION', payload: { id: res.id, status: 'Confirmed' } }); showNotification('Reservation confirmed!', 'success'); }}
+                              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-md"
+                              style={{ backgroundColor: '#D1FAE5', color: '#065F46', fontFamily: 'var(--font-heading)' }}
+                            >
+                              <Check size={12} /> Confirm
+                            </button>
+                            <button
+                              onClick={() => { dispatch({ type: 'UPDATE_RESERVATION', payload: { id: res.id, status: 'Rejected' } }); showNotification('Reservation rejected.', 'info'); }}
+                              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-md"
+                              style={{ backgroundColor: '#FEE2E2', color: '#991B1B', fontFamily: 'var(--font-heading)' }}
+                            >
+                              <X size={12} /> Reject
+                            </button>
+                            {adminRole === 'admin' && (
+                              <button
+                                onClick={() => setDeleteConfirm({
+                                  isOpen: true,
+                                  title: 'Delete Reservation?',
+                                  message: `Are you sure you want to delete reservation for ${res.name}?`,
+                                  onConfirm: () => {
+                                    dispatch({ type: 'DELETE_RESERVATION', payload: res.id });
+                                    setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                                    showNotification('Reservation deleted.', 'info');
+                                  }
+                                })}
+                                className="p-2 rounded-xl hover:bg-gray-100 transition-colors"
+                              >
+                                <Trash2 size={14} style={{ color: '#9CA3AF' }} />
+                              </button>
+                            )}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* All Payment Transactions */}
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
-                <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
-                  <div>
-                    <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>All Payment Transactions</h3>
-                    <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>{allUnifiedOrders.length} total payments received</p>
-                  </div>
-                  <div className="flex gap-2">
-                    {[
-                      { label: 'Pending', count: allUnifiedOrders.filter(o => o.status === 'Pending').length, color: '#92400E', bg: '#FEF3C7' },
-                      { label: 'Delivered', count: allUnifiedOrders.filter(o => o.status === 'Delivered' || o.status === 'Served' || o.status === 'Paid').length, color: '#065F46', bg: '#D1FAE5' },
-                    ].map(({ label, count, color, bg }) => (
-                      <span key={label} className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color, fontFamily: 'var(--font-heading)' }}>
-                        {label}: {count}
-                      </span>
+                      </div>
                     ))}
-                    <button 
-                      onClick={handleExportPayments}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 ml-2"
-                      style={{ backgroundColor: '#F9002B', fontFamily: 'var(--font-heading)' }}
+                    {state.reservations.length === 0 && (
+                      <div className="bg-white rounded-2xl py-20 text-center shadow-sm">
+                        <Calendar size={44} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
+                        <p style={{ color: '#6B7280', fontSize: '15px' }}>No reservations yet.</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ══ INVENTORY ══════════════════════════════════ */}
+            {activeTab === 'inventory' && <InventoryManagement />}
+            {activeTab === 'expense' && <ExpenseManagement />}
+            {activeTab === 'cash-register' && <CashRegisterManagement />}
+
+            {activeTab === 'payroll' && <PayrollManagement />}
+            {activeTab === 'manual-invoice' && <ManualInvoice />}
+            {activeTab === 'printer-settings' && <PrinterSettings />}
+            {activeTab === 'reprint' && <ReprintSystem />}
+            {activeTab === 'roles' && adminRole === 'admin' && <RoleManagement />}
+            {activeTab === 'delivery-settings' && <DeliverySettingsPanel />}
+            {/* ══ TABLE MANAGEMENT ════════════════════════════ */}
+            {activeTab === 'tables' && <TableManagement />}
+
+            {/* ══ MENU MANAGEMENT ════════════════════════════ */}
+            {activeTab === 'menu' && (
+              <div>
+                {/* Toolbar */}
+                <div className="flex items-center justify-between mb-5">
+                  <p style={{ color: '#6B7280', fontSize: '14px', fontFamily: 'var(--font-body)' }}>
+                    <span style={{ fontWeight: 700, color: '#111', fontFamily: 'var(--font-heading)' }}>{state.menuItems.length}</span> menu items
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="relative hidden sm:block">
+                      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9CA3AF' }} />
+                      <input
+                        type="text"
+                        placeholder="Search menu items..."
+                        value={menuSearchTerm}
+                        onChange={(e) => setMenuSearchTerm(e.target.value)}
+                        className="pl-9 pr-4 py-2 rounded-xl border text-sm"
+                        style={{ borderColor: 'rgba(249,0,43,0.15)', outline: 'none', fontFamily: 'var(--font-body)' }}
+                      />
+                    </div>
+                    <button
+                      onClick={() => { setMenuForm(blankMenuForm); setShowAddMenu(true); }}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg hover:-translate-y-0.5"
+                      style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', fontFamily: 'var(--font-heading)' }}
                     >
-                      <Download size={16} />
-                      Export PDF
+                      <Plus size={15} /> Add New Item
                     </button>
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr style={{ backgroundColor: '#FFF5F5', borderBottom: '1px solid rgba(249,0,43,0.08)' }}>
-                        {['#', 'Order No.', 'Customer', 'Amount', 'Method', 'Order Status', 'Date'].map(h => (
-                          <th key={h} className="px-4 py-3 text-left" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '10px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allUnifiedOrders.map((order, idx) => {
-                        const methodColors: Record<string, { color: string; bg: string }> = {
-                          'bKash':             { color: '#E2136E', bg: '#FDF0F6' },
-                          'Nagad':             { color: '#F7941D', bg: '#FFF4E8' },
-                          'Cash on Delivery':  { color: '#16A34A', bg: '#F0FDF4' },
-                          'At Table':          { color: '#2563EB', bg: '#DBEAFE' },
-                          'Cash':              { color: '#16A34A', bg: '#F0FDF4' },
-                          'Card':              { color: '#2563EB', bg: '#DBEAFE' },
-                          'Split':             { color: '#7C3AED', bg: '#F5F3FF' },
-                        };
-                        const mc = methodColors[order.paymentMethod] || { color: '#6B7280', bg: '#F3F4F6' };
-                        return (
-                          <tr key={order.id} className="border-b hover:bg-amber-50/20 transition-colors" style={{ borderColor: 'rgba(0,0,0,0.04)' }}>
-                            <td className="px-4 py-3" style={{ fontSize: '12px', color: '#9CA3AF' }}>{allUnifiedOrders.length - idx}</td>
-                            <td className="px-4 py-3">
-                              <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#F9002B' }}>#{order.orderNumber}</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <p style={{ fontSize: '13px', fontWeight: 600, color: '#111', fontFamily: 'var(--font-heading)' }}>{order.displayTitle}</p>
-                              <p style={{ fontSize: '11px', color: '#9CA3AF' }}>{order.displayPhone}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '14px', color: '#16A34A' }}>৳{order.total.toLocaleString()}</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              {order.splitPayments && order.splitPayments.length > 0 ? (
-                                <div className="flex flex-col gap-1 items-start">
-                                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-700" style={{ fontFamily: 'var(--font-heading)' }}>
-                                    Split Payment
-                                  </span>
-                                  <div className="flex flex-wrap gap-1 text-[10px]">
-                                    {order.splitPayments.map((sp: any, i: number) => (
-                                      <span key={i} className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-bold border border-gray-200">
-                                        {sp.method}: ৳{sp.amount}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: mc.bg, color: mc.color, fontFamily: 'var(--font-heading)' }}>
-                                  {order.paymentMethod}
-                                </span>
+
+                {/* Menu Items Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {state.isInitialLoading ? (
+                    Array.from({ length: 8 }).map((_, i) => <POSCardSkeleton key={i} />)
+                  ) : (
+                    state.menuItems
+                      .filter(item =>
+                        item.name.toLowerCase().includes(menuSearchTerm.toLowerCase()) ||
+                        item.category.toLowerCase().includes(menuSearchTerm.toLowerCase())
+                      )
+                      .map(item => (
+                        <div key={item.id} className="bg-white rounded-2xl overflow-hidden shadow-sm group" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+                          <div className="relative h-44 overflow-hidden">
+                            <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)' }} />
+                            <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
+                              {item.isPopular && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#F9002B', color: '#0A0A0A', fontFamily: 'var(--font-heading)' }}>Popular</span>
                               )}
-                            </td>
-                            <td className="px-4 py-3">
-                              <StatusBadge status={order.status} />
-                            </td>
-                            <td className="px-4 py-3" style={{ fontSize: '12px', color: '#6B7280' }}>
-                              {new Date(order.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', timeZone: 'Asia/Dhaka' })}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  {(!state.isInitialLoading && allUnifiedOrders.length === 0) && (
-                    <div className="py-20 text-center">
-                      <CreditCard size={40} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
-                      <p style={{ color: '#6B7280', fontSize: '15px' }}>No payment records yet.</p>
-                      <p style={{ color: '#9CA3AF', fontSize: '13px', marginTop: '4px' }}>Payments will appear here once customers place orders.</p>
-                    </div>
+                              {item.isVeg && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: '#16A34A', color: 'white', fontFamily: 'var(--font-heading)' }}>Veg</span>
+                              )}
+                            </div>
+                            <div className="absolute bottom-2 right-2">
+                              <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '16px', color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>৳{item.price}</span>
+                            </div>
+                          </div>
+                          <div className="p-3.5">
+                            <div className="mb-1">
+                              <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#111' }} className="line-clamp-1">{item.name}</h3>
+                              <p style={{ fontSize: '11px', color: '#6B7280' }}>{item.category} • {item.spiceLevel}</p>
+                            </div>
+                            <div className="flex items-center gap-1 mb-3">
+                              <Star size={10} fill="#F9002B" style={{ color: '#F9002B' }} />
+                              <span style={{ fontSize: '11px', color: '#6B7280' }}>{item.rating} ({item.reviewCount})</span>
+                            </div>
+                            {/* Action Buttons */}
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setEditingMenuItem(item);
+                                  setMenuForm(menuItemToForm(item));
+                                }}
+                                className="flex flex-col items-center gap-1 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-sm"
+                                style={{ backgroundColor: '#DBEAFE', color: '#1E40AF', fontFamily: 'var(--font-heading)' }}
+                              >
+                                <Edit2 size={11} />
+                                <span style={{ fontSize: '10px' }}>Edit</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  dispatch({ type: 'UPDATE_MENU_ITEM', payload: { ...item, isPopular: !item.isPopular } });
+                                  showNotification(`${item.name} ${item.isPopular ? 'unfeatured' : 'featured'}!`, 'success');
+                                }}
+                                className="flex flex-col items-center gap-1 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-sm"
+                                style={{ backgroundColor: item.isPopular ? 'rgba(249,0,43,0.2)' : '#F3F4F6', color: item.isPopular ? '#C8001F' : '#6B7280', fontFamily: 'var(--font-heading)' }}
+                              >
+                                <Star size={11} fill={item.isPopular ? '#F9002B' : 'none'} style={{ color: item.isPopular ? '#F9002B' : '#6B7280' }} />
+                                <span style={{ fontSize: '10px' }}>{item.isPopular ? 'Unfeature' : 'Feature'}</span>
+                              </button>
+                              {adminRole === 'admin' && (
+                                <button
+                                  onClick={() => setDeleteConfirm({
+                                    isOpen: true,
+                                    title: 'Delete Menu Item?',
+                                    message: `Are you sure you want to delete ${item.name}?`,
+                                    onConfirm: () => {
+                                      dispatch({ type: 'DELETE_MENU_ITEM', payload: item.id });
+                                      setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                                      showNotification(`${item.name} deleted.`, 'info');
+                                    }
+                                  })}
+                                  className="flex flex-col items-center gap-1 py-2 rounded-xl text-xs font-semibold transition-all hover:shadow-sm"
+                                  style={{ backgroundColor: '#FEE2E2', color: '#DC2626', fontFamily: 'var(--font-heading)' }}
+                                >
+                                  <Trash2 size={11} />
+                                  <span style={{ fontSize: '10px' }}>Delete</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
                   )}
                 </div>
-              </div>
-            </div>
-          )}
 
-          {/* ══ MESSAGES ═══════════════════════════════════ */}
-          {activeTab === 'messages' && (
-            <div className="space-y-4">
-              {state.isInitialLoading ? (
-                Array.from({ length: 4 }).map((_, i) => <AdminStatSkeleton key={i} />)
-              ) : (
-                <>
-                  {state.messages.map(msg => (
-                    <div
-                  key={msg.id}
-                  className="bg-white rounded-2xl p-5 shadow-sm"
-                  style={{ border: `1px solid ${!msg.isRead ? 'rgba(249,0,43,0.2)' : 'rgba(0,0,0,0.04)'}`, backgroundColor: !msg.isRead ? '#FFFAF7' : 'white' }}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow" style={{ background: 'linear-gradient(135deg, #F9002B, #F9002B)', fontFamily: 'var(--font-heading)', fontSize: '16px' }}>
-                        {msg.name.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '14px', color: '#111' }}>{msg.name}</p>
-                          {!msg.isRead && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: '#F9002B' }} />}
-                        </div>
-                        <p style={{ fontSize: '12px', color: '#6B7280' }}>{msg.email} • {msg.phone}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{new Date(msg.createdAt).toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka' })}</span>
-                      <button onClick={() => dispatch({ type: 'READ_MESSAGE', payload: msg.id })} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="Mark as read">
-                        <Eye size={14} style={{ color: '#6B7280' }} />
-                      </button>
-                      <button
-                        onClick={() => setReplyingTo({ id: msg.id, name: msg.name })}
-                        className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-                        title="Reply"
-                      >
-                        <Send size={14} style={{ color: '#2563EB' }} />
-                      </button>
-                      {adminRole === 'admin' && (
-                        <button onClick={() => setDeleteConfirm({
-                          isOpen: true,
-                          title: 'Delete Message?',
-                          message: `Are you sure you want to delete this message?`,
-                          onConfirm: () => {
-                            dispatch({ type: 'DELETE_MESSAGE', payload: msg.id });
-                            setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
-                            showNotification('Message deleted.', 'info');
-                          }
-                        })} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Delete">
-                          <Trash2 size={14} style={{ color: '#DC2626' }} />
+                {(!state.isInitialLoading && state.menuItems.length === 0) && (
+                  <div className="bg-white rounded-2xl py-20 text-center shadow-sm mt-4">
+                    <UtensilsCrossed size={44} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
+                    <p style={{ color: '#6B7280', fontSize: '15px' }}>No menu items. Click "Add New Item" to get started.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ══ CHEF MANAGEMENT ════════════════════════════ */}
+            {activeTab === 'chefs' && <ChefManagement />}
+
+            {/* ══ GALLERY MANAGEMENT ═════════════════════════ */}
+            {activeTab === 'gallery' && (
+              <div>
+                {/* Sub-Tabs */}
+                <div className="flex gap-2 mb-6">
+                  {([
+                    { id: 'gallery', label: 'Gallery Images', icon: Image, count: state.galleryImages.length },
+                    { id: 'carousel', label: 'Carousel Slides', icon: Layers, count: state.carouselSlides.length },
+                  ] as const).map(({ id, label, icon: Icon, count }) => (
+                    <button
+                      key={id}
+                      onClick={() => setGallerySubTab(id)}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                      style={{
+                        background: gallerySubTab === id ? 'linear-gradient(135deg, #F9002B, #C8001F)' : 'white',
+                        color: gallerySubTab === id ? '#fff' : '#6B7280',
+                        border: '1px solid',
+                        borderColor: gallerySubTab === id ? 'transparent' : 'rgba(249,0,43,0.15)',
+                        fontFamily: 'var(--font-heading)',
+                        boxShadow: gallerySubTab === id ? '0 4px 12px rgba(249,0,43,0.3)' : 'none',
+                      }}
+                    >
+                      <Icon size={14} />
+                      {label}
+                      <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: gallerySubTab === id ? 'rgba(255,255,255,0.2)' : 'rgba(249,0,43,0.08)', color: gallerySubTab === id ? '#fff' : '#F9002B', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                        {count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* ── Gallery Images Sub-Tab ── */}
+                {gallerySubTab === 'gallery' && (
+                  <div>
+                    {/* Add Gallery Form */}
+                    <div className="bg-white rounded-2xl p-5 mb-5 shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>Add New Gallery Image</h3>
+                        <button
+                          onClick={() => { setGalleryForm({ url: '', title: '', category: 'Food' }); setShowAddGallery(true); }}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg"
+                          style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', fontFamily: 'var(--font-heading)' }}
+                        >
+                          <Plus size={14} /> Add Image
                         </button>
+                      </div>
+                      <p style={{ fontSize: '13px', color: '#6B7280' }}>
+                        {state.galleryImages.length} images across {['Restaurant', 'Food', 'Events', 'Kitchen'].map(cat => `${cat}: ${state.galleryImages.filter(g => g.category === cat).length}`).join(' • ')}
+                      </p>
+                    </div>
+
+                    {/* Gallery Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                      {state.isInitialLoading ? (
+                        Array.from({ length: 5 }).map((_, i) => <AdminStatSkeleton key={i} />)
+                      ) : (
+                        <>
+                          {state.galleryImages.map(img => (
+                            <div key={img.id} className="relative bg-white rounded-2xl overflow-hidden shadow-sm group" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+                              <div className="relative h-32 overflow-hidden">
+                                <img src={img.url} alt={img.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                {/* Hover overlay with actions */}
+                                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                                  <button
+                                    onClick={() => {
+                                      setEditingGallery({ id: img.id, url: img.url, title: img.title, category: img.category });
+                                      setGalleryForm({ url: img.url, title: img.title, category: img.category });
+                                    }}
+                                    className="w-8 h-8 rounded-full flex items-center justify-center bg-white/90 hover:bg-white transition-colors"
+                                  >
+                                    <Edit2 size={12} style={{ color: '#1E40AF' }} />
+                                  </button>
+                                  {adminRole === 'admin' && (
+                                    <button
+                                      onClick={() => setDeleteConfirm({
+                                        isOpen: true,
+                                        title: 'Delete Image?',
+                                        message: `Are you sure you want to remove this gallery image?`,
+                                        onConfirm: () => {
+                                          dispatch({ type: 'DELETE_GALLERY_IMAGE', payload: img.id });
+                                          setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                                          showNotification('Image removed.', 'info');
+                                        }
+                                      })}
+                                      className="w-8 h-8 rounded-full flex items-center justify-center bg-white/90 hover:bg-white transition-colors"
+                                    >
+                                      <Trash2 size={12} style={{ color: '#DC2626' }} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="p-2.5">
+                                <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '11px', color: '#111' }} className="line-clamp-1">{img.title}</p>
+                                <span className="inline-block px-1.5 py-0.5 rounded-md text-xs mt-1" style={{ backgroundColor: '#F0EDE8', color: '#6B7280', fontSize: '10px', fontFamily: 'var(--font-heading)' }}>{img.category}</span>
+                              </div>
+                            </div>
+                          ))}
+                          {state.galleryImages.length === 0 && (
+                            <div className="col-span-full bg-white rounded-2xl py-16 text-center shadow-sm">
+                              <Image size={40} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
+                              <p style={{ color: '#6B7280', fontSize: '14px' }}>No gallery images yet.</p>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
-                  {msg.subject && (
-                    <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '13px', color: '#374151', marginBottom: '6px' }}>
-                      Subject: {msg.subject}
-                    </p>
-                  )}
-                  <div className="p-3.5 rounded-xl" style={{ backgroundColor: '#F9F5F0' }}>
-                    <p style={{ fontSize: '14px', color: '#374151', lineHeight: '1.6' }}>{msg.message}</p>
-                  </div>
-                  {msg.reply && (
-                    <div className="mt-3 p-3.5 rounded-xl flex gap-3" style={{ backgroundColor: 'rgba(249,0,43,0.05)', border: '1px solid rgba(249,0,43,0.1)' }}>
-                      <Send size={14} style={{ color: '#F9002B', marginTop: '2px', flexShrink: 0 }} />
-                      <div>
-                        <p style={{ fontSize: '11px', color: '#F9002B', fontWeight: 700, marginBottom: '3px', fontFamily: 'var(--font-heading)' }}>Your Reply</p>
-                        <p style={{ fontSize: '13px', color: '#374151' }}>{msg.reply}</p>
+                )}
+
+                {/* ── Carousel Slides Sub-Tab ── */}
+                {gallerySubTab === 'carousel' && (
+                  <div>
+                    <div className="bg-white rounded-2xl p-5 mb-5 shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>Homepage Carousel Slides</h3>
+                          <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '2px' }}>Manage the hero carousel displayed on the homepage</p>
+                        </div>
+                        <button
+                          onClick={() => { setCarouselForm({ url: '', title: '', subtitle: '', description: '', badge: '', link: '' }); setShowAddCarousel(true); }}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:shadow-lg"
+                          style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', color: '#0A0A0A', fontFamily: 'var(--font-heading)' }}
+                        >
+                          <Plus size={14} /> Add Slide
+                        </button>
                       </div>
                     </div>
-                  )}
+
+                    {/* Carousel Slides List */}
+                    <div className="space-y-3">
+                      {state.isInitialLoading ? (
+                        Array.from({ length: 3 }).map((_, i) => <AdminStatSkeleton key={i} />)
+                      ) : (
+                        <>
+                          {state.carouselSlides.map((slide, index) => (
+                            <div key={slide.id} className="bg-white rounded-2xl overflow-hidden shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+                              <div className="flex items-stretch gap-0">
+                                {/* Slide preview */}
+                                <div className="relative w-48 h-28 flex-shrink-0">
+                                  <img src={optimizeCloudinaryUrl(slide.url, 400)} alt={slide.title} className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(26,0,0,0.6), transparent)' }} />
+                                  <span className="absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: 'rgba(0,0,0,0.5)', fontFamily: 'var(--font-heading)' }}>
+                                    {index + 1}
+                                  </span>
+                                </div>
+                                {/* Slide info */}
+                                <div className="flex-1 p-4 flex flex-col justify-center">
+                                  <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '15px', color: '#111', marginBottom: '2px' }}>{slide.title}</p>
+                                  {slide.subtitle && <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>{slide.subtitle}</p>}
+                                  {slide.badge && (
+                                    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold self-start" style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', color: '#0A0A0A', fontFamily: 'var(--font-heading)' }}>
+                                      {slide.badge}
+                                    </span>
+                                  )}
+                                  {slide.description && <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '4px' }} className="line-clamp-1">{slide.description}</p>}
+                                </div>
+                                {/* Actions */}
+                                <div className="flex flex-col justify-center gap-1.5 px-3 border-l" style={{ borderColor: 'rgba(0,0,0,0.05)', minWidth: '90px' }}>
+                                  {/* Move Up / Down row */}
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={() => dispatch({ type: 'REORDER_CAROUSEL_SLIDE', payload: { fromIndex: index, toIndex: index - 1 } })}
+                                      disabled={index === 0}
+                                      className="flex-1 flex items-center justify-center h-7 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-200"
+                                      style={{ backgroundColor: '#F3F4F6', color: '#374151' }}
+                                      title="Move Up"
+                                    >
+                                      <ChevronUp size={13} />
+                                    </button>
+                                    <button
+                                      onClick={() => dispatch({ type: 'REORDER_CAROUSEL_SLIDE', payload: { fromIndex: index, toIndex: index + 1 } })}
+                                      disabled={index === state.carouselSlides.length - 1}
+                                      className="flex-1 flex items-center justify-center h-7 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-200"
+                                      style={{ backgroundColor: '#F3F4F6', color: '#374151' }}
+                                      title="Move Down"
+                                    >
+                                      <ChevronDown size={13} />
+                                    </button>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      setEditingCarousel(slide);
+                                      setCarouselForm({ url: slide.url, title: slide.title, subtitle: slide.subtitle, description: slide.description, badge: slide.badge, link: slide.link || '' });
+                                    }}
+                                    className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:shadow-sm"
+                                    style={{ backgroundColor: '#DBEAFE', color: '#1E40AF', fontFamily: 'var(--font-heading)' }}
+                                  >
+                                    <Edit2 size={10} /> Edit
+                                  </button>
+                                  {adminRole === 'admin' && (
+                                    <button
+                                      onClick={() => setDeleteConfirm({
+                                        isOpen: true,
+                                        title: 'Delete Slide?',
+                                        message: `Are you sure you want to remove this slide?`,
+                                        onConfirm: () => {
+                                          dispatch({ type: 'DELETE_CAROUSEL_SLIDE', payload: slide.id });
+                                          setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                                          showNotification('Slide removed.', 'info');
+                                        }
+                                      })}
+                                      className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all hover:shadow-sm"
+                                      style={{ backgroundColor: '#FEE2E2', color: '#DC2626', fontFamily: 'var(--font-heading)' }}
+                                    >
+                                      <Trash2 size={10} /> Remove
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {state.carouselSlides.length === 0 && (
+                            <div className="bg-white rounded-2xl py-16 text-center shadow-sm">
+                              <Layers size={40} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
+                              <p style={{ color: '#6B7280', fontSize: '14px' }}>No carousel slides yet. Click "Add Slide" to add one.</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ══ PAYMENTS ═══════════════════════════════════ */}
+            {activeTab === 'payments' && (
+              <div className="space-y-5">
+                {/* Revenue Summary Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Today', value: todayRevenue, icon: DollarSign, color: '#16A34A', bg: '#DCFCE7', sub: `${allUnifiedOrders.filter(o => o.timestamp >= startOfDay).length} orders` },
+                    { label: 'This Week', value: weeklyRevenue, icon: TrendingUp, color: '#2563EB', bg: '#DBEAFE', sub: `${allUnifiedOrders.filter(o => o.timestamp >= startOfWeek).length} orders` },
+                    { label: 'This Month', value: monthlyRevenue, icon: CreditCard, color: '#7C3AED', bg: '#EDE9FE', sub: `${allUnifiedOrders.filter(o => o.timestamp >= startOfMonth).length} orders` },
+                    { label: 'All Time', value: state.analytics?.totalRevenue || totalRevenue, icon: Wallet, color: '#F9002B', bg: '#FEF9EC', sub: `${state.analytics?.totalCustomers || allUnifiedOrders.length} total orders` },
+                  ].map(({ label, value, icon: Icon, color, bg, sub }) => (
+                    <div key={label} className="bg-white p-4 rounded-xl shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.05)' }}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: bg }}>
+                          <Icon size={16} style={{ color }} />
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color, fontFamily: 'var(--font-heading)' }}>{label}</span>
+                      </div>
+                      <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '22px', color, lineHeight: 1 }}>৳{value.toLocaleString()}</p>
+                      <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }}>{sub}</p>
                     </div>
                   ))}
-                  {state.messages.length === 0 && (
-                    <div className="bg-white rounded-2xl py-20 text-center shadow-sm">
-                      <MessageSquare size={44} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
-                      <p style={{ color: '#6B7280', fontSize: '15px' }}>No messages yet.</p>
+                </div>
+
+                {/* Weekly Bar Chart + Payment Methods */}
+                <div className="grid lg:grid-cols-5 gap-5">
+                  {/* Weekly Revenue Bar Chart */}
+                  <div className="lg:col-span-3 bg-white rounded-2xl p-5 shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+                    <div className="flex items-center justify-between mb-5">
+                      <div>
+                        <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>Weekly Revenue</h3>
+                        <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>Mon–Sun breakdown</p>
+                      </div>
+                      <div className="px-3 py-1.5 rounded-xl" style={{ backgroundColor: '#F0EDE8' }}>
+                        <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#F9002B' }}>৳{weeklyRevenue.toLocaleString()}</span>
+                      </div>
                     </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-        </div>
-      </div>
-
-      {/* ── Modals ─────────────────────────────────────── */}
-
-      {/* Add Menu Item Modal */}
-      {showAddMenu && (
-        <MenuItemModal
-          title="Add New Menu Item"
-          form={menuForm}
-          setForm={setMenuForm}
-          onSave={handleSaveMenuItem}
-          onClose={() => { setShowAddMenu(false); setMenuForm(blankMenuForm); }}
-          categories={menuCategories}
-        />
-      )}
-
-      {/* Edit Menu Item Modal */}
-      {editingMenuItem && (
-        <MenuItemModal
-          title={`Edit: ${editingMenuItem.name}`}
-          form={menuForm}
-          setForm={setMenuForm}
-          onSave={handleSaveMenuItem}
-          onClose={() => { setEditingMenuItem(null); setMenuForm(blankMenuForm); }}
-          categories={menuCategories}
-        />
-      )}
-
-      {/* Add Gallery Image Modal */}
-      {showAddGallery && (
-        <GalleryEditModal
-          title="Add Gallery Image"
-          form={galleryForm}
-          setForm={setGalleryForm}
-          onSave={handleSaveGallery}
-          onClose={() => { setShowAddGallery(false); setGalleryForm({ url: '', title: '', category: 'Food' }); }}
-        />
-      )}
-
-      {/* Edit Gallery Image Modal */}
-      {editingGallery && (
-        <GalleryEditModal
-          title="Edit Gallery Image"
-          form={galleryForm}
-          setForm={setGalleryForm}
-          onSave={handleSaveGallery}
-          onClose={() => { setEditingGallery(null); setGalleryForm({ url: '', title: '', category: 'Food' }); }}
-        />
-      )}
-
-      {/* Add Carousel Slide Modal */}
-      {showAddCarousel && (
-        <CarouselSlideModal
-          title="Add Carousel Slide"
-          form={carouselForm}
-          setForm={setCarouselForm}
-          onSave={handleSaveCarousel}
-          onClose={() => { setShowAddCarousel(false); setCarouselForm({ url: '', title: '', subtitle: '', description: '', badge: '', link: '' }); }}
-        />
-      )}
-
-      {/* Edit Carousel Slide Modal */}
-      {editingCarousel && (
-        <CarouselSlideModal
-          title="Edit Carousel Slide"
-          form={carouselForm}
-          setForm={setCarouselForm}
-          onSave={handleSaveCarousel}
-          onClose={() => { setEditingCarousel(null); setCarouselForm({ url: '', title: '', subtitle: '', description: '', badge: '', link: '' }); }}
-        />
-      )}
-
-      {/* Reply Modal */}
-      {replyingTo && (
-        <ReplyModal
-          msgId={replyingTo.id}
-          msgName={replyingTo.name}
-          onSend={(id, reply) => {
-            dispatch({ type: 'REPLY_MESSAGE', payload: { id, reply } });
-            showNotification('Reply saved!', 'success');
-          }}
-          onClose={() => setReplyingTo(null)}
-        />
-      )}
-    </div>
-
-    {/* ══ VIEW ORDER DETAILS MODAL ═════════════════════════════════════ */}
-    {viewOrderDetails && (
-      <ModalOverlay onClose={() => setViewOrderDetails(null)}>
-        <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl relative" onClick={e => e.stopPropagation()}>
-          <button onClick={() => setViewOrderDetails(null)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-          </button>
-          
-          <div className="mb-6">
-            <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '24px', color: '#111' }}>
-              Order #{viewOrderDetails.orderNumber || viewOrderDetails.id?.substring(0,6)}
-            </h2>
-            <div className="flex justify-between items-center mt-2">
-              <p style={{ fontSize: '14px', color: '#6B7280' }}>{new Date(viewOrderDetails.timestamp || viewOrderDetails.createdAt).toLocaleString()}</p>
-              <StatusBadge status={viewOrderDetails.status} />
-            </div>
-          </div>
-
-          <div className="space-y-4 mb-6">
-            <div>
-              <label style={labelStyle}>Customer Info</label>
-              <p style={{ fontSize: '15px', color: '#111', fontWeight: 600 }}>{viewOrderDetails.displayTitle || viewOrderDetails.customerName}</p>
-              <p style={{ fontSize: '14px', color: '#4B5563' }}>{viewOrderDetails.displayPhone || viewOrderDetails.phone}</p>
-              {viewOrderDetails.address && <p style={{ fontSize: '14px', color: '#4B5563', marginTop: '2px' }}>{viewOrderDetails.address}</p>}
-            </div>
-            
-            <div>
-              <label style={labelStyle}>Payment Method</label>
-              {viewOrderDetails.splitPayments && viewOrderDetails.splitPayments.length > 0 ? (
-                <div className="mt-1 p-3 rounded-2xl bg-purple-50/80 border border-purple-200 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-purple-900" style={{ fontFamily: 'var(--font-heading)' }}>
-                    <span>Divide / Split Payment:</span>
-                    <span className="text-purple-700">Total: ৳{viewOrderDetails.total?.toFixed(2)}</span>
+                    <div className="flex items-end gap-2 h-36">
+                      {weeklyBreakdown.map(({ day, rev }, i) => {
+                        const isToday = i === dayOfWeek;
+                        const pct = maxDayRev > 0 ? (rev / maxDayRev) * 100 : 0;
+                        return (
+                          <div key={day} className="flex-1 flex flex-col items-center gap-1">
+                            {rev > 0 && (
+                              <span style={{ fontSize: '9px', color: '#6B7280', fontFamily: 'var(--font-heading)', fontWeight: 600 }}>
+                                {rev >= 1000 ? `${(rev / 1000).toFixed(1)}k` : rev}
+                              </span>
+                            )}
+                            <div className="w-full rounded-t-lg transition-all" style={{
+                              height: `${Math.max(pct, rev > 0 ? 8 : 3)}%`,
+                              background: isToday
+                                ? 'linear-gradient(to top, #F9002B, #F9002B)'
+                                : rev > 0 ? 'linear-gradient(to top, #DBEAFE, #3B82F6)' : '#F3F4F6',
+                              minHeight: '4px',
+                            }} />
+                            <span style={{ fontSize: '10px', color: isToday ? '#F9002B' : '#9CA3AF', fontFamily: 'var(--font-heading)', fontWeight: isToday ? 700 : 400 }}>{day}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {viewOrderDetails.splitPayments.map((sp: any, i: number) => {
-                      const color =
-                        sp.method === 'bKash' ? '#E2136E' :
-                        sp.method === 'Nagad' ? '#F7941D' :
-                        sp.method === 'Card' ? '#0284C7' : '#16A34A';
-                      const bg =
-                        sp.method === 'bKash' ? '#FDF2F8' :
-                        sp.method === 'Nagad' ? '#FFF7ED' :
-                        sp.method === 'Card' ? '#F0F9FF' : '#F0FDF4';
 
-                      return (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between p-2 rounded-xl border text-xs font-bold"
-                          style={{ backgroundColor: bg, borderColor: `${color}33` }}
-                        >
-                          <span style={{ color, fontFamily: 'var(--font-heading)' }}>{sp.method}</span>
-                          <span className="text-gray-900 font-extrabold">৳{Number(sp.amount).toFixed(2)}</span>
-                        </div>
-                      );
-                    })}
+                  {/* Payment Method Breakdown */}
+                  <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+                    <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111', marginBottom: '16px' }}>Payment Methods</h3>
+                    <div className="space-y-5">
+                      {[
+                        { label: 'bKash', orders: bkashOrders.length, total: bkashTotal, color: '#E2136E', bg: '#FDF0F6', iconBg: 'rgba(226,19,110,0.12)', Icon: Smartphone },
+                        { label: 'Nagad', orders: nagadOrders.length, total: nagadTotal, color: '#F7941D', bg: '#FFF4E8', iconBg: 'rgba(247,148,29,0.12)', Icon: Smartphone },
+                        { label: 'Cash / COD', orders: cashOrders.length, total: cashTotal, color: '#16A34A', bg: '#F0FDF4', iconBg: 'rgba(22,163,74,0.12)', Icon: Banknote },
+                        { label: 'Card', orders: cardOrders.length, total: cardTotal, color: '#2563EB', bg: '#DBEAFE', iconBg: 'rgba(37,99,235,0.12)', Icon: CreditCard },
+                      ].map(({ label, orders, total, color, bg, iconBg, Icon }) => {
+                        const pct = totalRevenue > 0 ? Math.round((total / totalRevenue) * 100) : 0;
+                        return (
+                          <div key={label}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: iconBg }}>
+                                  <Icon size={15} style={{ color }} />
+                                </div>
+                                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#1F2937' }}>{label}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{orders} orders</span>
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color, fontFamily: 'var(--font-heading)' }}>{pct}%</span>
+                              </div>
+                            </div>
+                            <div className="w-full h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: bg }}>
+                              <div className="h-2.5 rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}99, ${color})` }} />
+                            </div>
+                            <div className="flex items-center justify-between mt-1.5">
+                              <p style={{ fontSize: '12px', color, fontFamily: 'var(--font-heading)', fontWeight: 800 }}>৳{total.toLocaleString()}</p>
+                              <p style={{ fontSize: '10px', color: '#9CA3AF' }}>of ৳{totalRevenue.toLocaleString()} total</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <p style={{ fontSize: '14px', color: '#4B5563', fontWeight: 600 }}>{viewOrderDetails.paymentMethod}</p>
-              )}
-            </div>
 
-            <div>
-              <label style={labelStyle}>Order Items ({viewOrderDetails.items?.length || 0})</label>
-              <div className="bg-gray-50 rounded-xl p-4 space-y-3 mt-1 max-h-60 overflow-y-auto">
-                {viewOrderDetails.items?.map((cartItem: any, idx: number) => (
-                  <div key={idx} className="flex justify-between items-start border-b border-gray-200 pb-3 last:border-0 last:pb-0">
+                {/* All Payment Transactions */}
+                <div className="bg-white rounded-2xl shadow-sm overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.04)' }}>
+                  <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
                     <div>
-                      <p style={{ fontSize: '14px', fontWeight: 700, color: '#111', fontFamily: 'var(--font-heading)' }}>
-                        {cartItem.quantity}x {cartItem.item?.name || cartItem.name}
-                      </p>
-                      {cartItem.specialRequest && (
-                        <p style={{ fontSize: '12px', color: '#F9002B', marginTop: '2px', fontWeight: 600 }}>
-                          Note: {cartItem.specialRequest}
-                        </p>
-                      )}
+                      <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', color: '#111' }}>All Payment Transactions</h3>
+                      <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>{allUnifiedOrders.length} total payments received</p>
                     </div>
-                    <p style={{ fontSize: '14px', fontWeight: 700, color: '#111' }}>
-                      ৳{((cartItem.item?.price || cartItem.price || 0) * cartItem.quantity).toFixed(2)}
-                    </p>
+                    <div className="flex gap-2">
+                      {[
+                        { label: 'Pending', count: allUnifiedOrders.filter(o => o.status === 'Pending').length, color: '#92400E', bg: '#FEF3C7' },
+                        { label: 'Delivered', count: allUnifiedOrders.filter(o => o.status === 'Delivered' || o.status === 'Served' || o.status === 'Paid').length, color: '#065F46', bg: '#D1FAE5' },
+                      ].map(({ label, count, color, bg }) => (
+                        <span key={label} className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: bg, color, fontFamily: 'var(--font-heading)' }}>
+                          {label}: {count}
+                        </span>
+                      ))}
+                      <button
+                        onClick={handleExportPayments}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 ml-2"
+                        style={{ backgroundColor: '#F9002B', fontFamily: 'var(--font-heading)' }}
+                      >
+                        <Download size={16} />
+                        Export PDF
+                      </button>
+                    </div>
                   </div>
-                ))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr style={{ backgroundColor: '#FFF5F5', borderBottom: '1px solid rgba(249,0,43,0.08)' }}>
+                          {['#', 'Order No.', 'Customer', 'Amount', 'Method', 'Order Status', 'Date'].map(h => (
+                            <th key={h} className="px-4 py-3 text-left" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '10px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allUnifiedOrders.map((order, idx) => {
+                          const methodColors: Record<string, { color: string; bg: string }> = {
+                            'bKash': { color: '#E2136E', bg: '#FDF0F6' },
+                            'Nagad': { color: '#F7941D', bg: '#FFF4E8' },
+                            'Cash on Delivery': { color: '#16A34A', bg: '#F0FDF4' },
+                            'At Table': { color: '#2563EB', bg: '#DBEAFE' },
+                            'Cash': { color: '#16A34A', bg: '#F0FDF4' },
+                            'Card': { color: '#2563EB', bg: '#DBEAFE' },
+                            'Split': { color: '#7C3AED', bg: '#F5F3FF' },
+                          };
+                          const mc = methodColors[order.paymentMethod] || { color: '#6B7280', bg: '#F3F4F6' };
+                          return (
+                            <tr key={order.id} className="border-b hover:bg-amber-50/20 transition-colors" style={{ borderColor: 'rgba(0,0,0,0.04)' }}>
+                              <td className="px-4 py-3" style={{ fontSize: '12px', color: '#9CA3AF' }}>{allUnifiedOrders.length - idx}</td>
+                              <td className="px-4 py-3">
+                                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '13px', color: '#F9002B' }}>#{order.orderNumber}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p style={{ fontSize: '13px', fontWeight: 600, color: '#111', fontFamily: 'var(--font-heading)' }}>{order.displayTitle}</p>
+                                <p style={{ fontSize: '11px', color: '#9CA3AF' }}>{order.displayPhone}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '14px', color: '#16A34A' }}>৳{order.total.toLocaleString()}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                {order.splitPayments && order.splitPayments.length > 0 ? (
+                                  <div className="flex flex-col gap-1 items-start">
+                                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-700" style={{ fontFamily: 'var(--font-heading)' }}>
+                                      Split Payment
+                                    </span>
+                                    <div className="flex flex-wrap gap-1 text-[10px]">
+                                      {order.splitPayments.map((sp: any, i: number) => (
+                                        <span key={i} className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-bold border border-gray-200">
+                                          {sp.method}: ৳{sp.amount}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: mc.bg, color: mc.color, fontFamily: 'var(--font-heading)' }}>
+                                    {order.paymentMethod}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <StatusBadge status={order.status} />
+                              </td>
+                              <td className="px-4 py-3" style={{ fontSize: '12px', color: '#6B7280' }}>
+                                {new Date(order.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', timeZone: 'Asia/Dhaka' })}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {(!state.isInitialLoading && allUnifiedOrders.length === 0) && (
+                      <div className="py-20 text-center">
+                        <CreditCard size={40} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
+                        <p style={{ color: '#6B7280', fontSize: '15px' }}>No payment records yet.</p>
+                        <p style={{ color: '#9CA3AF', fontSize: '13px', marginTop: '4px' }}>Payments will appear here once customers place orders.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ══ MESSAGES ═══════════════════════════════════ */}
+            {activeTab === 'messages' && (
+              <div className="space-y-4">
+                {state.isInitialLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => <AdminStatSkeleton key={i} />)
+                ) : (
+                  <>
+                    {state.messages.map(msg => (
+                      <div
+                        key={msg.id}
+                        className="bg-white rounded-2xl p-5 shadow-sm"
+                        style={{ border: `1px solid ${!msg.isRead ? 'rgba(249,0,43,0.2)' : 'rgba(0,0,0,0.04)'}`, backgroundColor: !msg.isRead ? '#FFFAF7' : 'white' }}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow" style={{ background: 'linear-gradient(135deg, #F9002B, #F9002B)', fontFamily: 'var(--font-heading)', fontSize: '16px' }}>
+                              {msg.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '14px', color: '#111' }}>{msg.name}</p>
+                                {!msg.isRead && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: '#F9002B' }} />}
+                              </div>
+                              <p style={{ fontSize: '12px', color: '#6B7280' }}>{msg.email} • {msg.phone}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{new Date(msg.createdAt).toLocaleDateString('en-US', { timeZone: 'Asia/Dhaka' })}</span>
+                            <button onClick={() => dispatch({ type: 'READ_MESSAGE', payload: msg.id })} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="Mark as read">
+                              <Eye size={14} style={{ color: '#6B7280' }} />
+                            </button>
+                            <button
+                              onClick={() => setReplyingTo({ id: msg.id, name: msg.name })}
+                              className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                              title="Reply"
+                            >
+                              <Send size={14} style={{ color: '#2563EB' }} />
+                            </button>
+                            {adminRole === 'admin' && (
+                              <button onClick={() => setDeleteConfirm({
+                                isOpen: true,
+                                title: 'Delete Message?',
+                                message: `Are you sure you want to delete this message?`,
+                                onConfirm: () => {
+                                  dispatch({ type: 'DELETE_MESSAGE', payload: msg.id });
+                                  setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+                                  showNotification('Message deleted.', 'info');
+                                }
+                              })} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Delete">
+                                <Trash2 size={14} style={{ color: '#DC2626' }} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {msg.subject && (
+                          <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '13px', color: '#374151', marginBottom: '6px' }}>
+                            Subject: {msg.subject}
+                          </p>
+                        )}
+                        <div className="p-3.5 rounded-xl" style={{ backgroundColor: '#F9F5F0' }}>
+                          <p style={{ fontSize: '14px', color: '#374151', lineHeight: '1.6' }}>{msg.message}</p>
+                        </div>
+                        {msg.reply && (
+                          <div className="mt-3 p-3.5 rounded-xl flex gap-3" style={{ backgroundColor: 'rgba(249,0,43,0.05)', border: '1px solid rgba(249,0,43,0.1)' }}>
+                            <Send size={14} style={{ color: '#F9002B', marginTop: '2px', flexShrink: 0 }} />
+                            <div>
+                              <p style={{ fontSize: '11px', color: '#F9002B', fontWeight: 700, marginBottom: '3px', fontFamily: 'var(--font-heading)' }}>Your Reply</p>
+                              <p style={{ fontSize: '13px', color: '#374151' }}>{msg.reply}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {state.messages.length === 0 && (
+                      <div className="bg-white rounded-2xl py-20 text-center shadow-sm">
+                        <MessageSquare size={44} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
+                        <p style={{ color: '#6B7280', fontSize: '15px' }}>No messages yet.</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* ── Modals ─────────────────────────────────────── */}
+
+        {/* Add Menu Item Modal */}
+        {showAddMenu && (
+          <MenuItemModal
+            title="Add New Menu Item"
+            form={menuForm}
+            setForm={setMenuForm}
+            onSave={handleSaveMenuItem}
+            onClose={() => { setShowAddMenu(false); setMenuForm(blankMenuForm); }}
+            categories={menuCategories}
+          />
+        )}
+
+        {/* Edit Menu Item Modal */}
+        {editingMenuItem && (
+          <MenuItemModal
+            title={`Edit: ${editingMenuItem.name}`}
+            form={menuForm}
+            setForm={setMenuForm}
+            onSave={handleSaveMenuItem}
+            onClose={() => { setEditingMenuItem(null); setMenuForm(blankMenuForm); }}
+            categories={menuCategories}
+          />
+        )}
+
+        {/* Add Gallery Image Modal */}
+        {showAddGallery && (
+          <GalleryEditModal
+            title="Add Gallery Image"
+            form={galleryForm}
+            setForm={setGalleryForm}
+            onSave={handleSaveGallery}
+            onClose={() => { setShowAddGallery(false); setGalleryForm({ url: '', title: '', category: 'Food' }); }}
+          />
+        )}
+
+        {/* Edit Gallery Image Modal */}
+        {editingGallery && (
+          <GalleryEditModal
+            title="Edit Gallery Image"
+            form={galleryForm}
+            setForm={setGalleryForm}
+            onSave={handleSaveGallery}
+            onClose={() => { setEditingGallery(null); setGalleryForm({ url: '', title: '', category: 'Food' }); }}
+          />
+        )}
+
+        {/* Add Carousel Slide Modal */}
+        {showAddCarousel && (
+          <CarouselSlideModal
+            title="Add Carousel Slide"
+            form={carouselForm}
+            setForm={setCarouselForm}
+            onSave={handleSaveCarousel}
+            onClose={() => { setShowAddCarousel(false); setCarouselForm({ url: '', title: '', subtitle: '', description: '', badge: '', link: '' }); }}
+          />
+        )}
+
+        {/* Edit Carousel Slide Modal */}
+        {editingCarousel && (
+          <CarouselSlideModal
+            title="Edit Carousel Slide"
+            form={carouselForm}
+            setForm={setCarouselForm}
+            onSave={handleSaveCarousel}
+            onClose={() => { setEditingCarousel(null); setCarouselForm({ url: '', title: '', subtitle: '', description: '', badge: '', link: '' }); }}
+          />
+        )}
+
+        {/* Reply Modal */}
+        {replyingTo && (
+          <ReplyModal
+            msgId={replyingTo.id}
+            msgName={replyingTo.name}
+            onSend={(id, reply) => {
+              dispatch({ type: 'REPLY_MESSAGE', payload: { id, reply } });
+              showNotification('Reply saved!', 'success');
+            }}
+            onClose={() => setReplyingTo(null)}
+          />
+        )}
+      </div>
+
+      {/* ══ VIEW ORDER DETAILS MODAL ═════════════════════════════════════ */}
+      {viewOrderDetails && (
+        <ModalOverlay onClose={() => setViewOrderDetails(null)}>
+          <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setViewOrderDetails(null)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+            </button>
+
+            <div className="mb-6">
+              <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '24px', color: '#111' }}>
+                Order #{viewOrderDetails.orderNumber || viewOrderDetails.id?.substring(0, 6)}
+              </h2>
+              <div className="flex justify-between items-center mt-2">
+                <p style={{ fontSize: '14px', color: '#6B7280' }}>{new Date(viewOrderDetails.timestamp || viewOrderDetails.createdAt).toLocaleString()}</p>
+                <StatusBadge status={viewOrderDetails.status} />
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 pt-4 border-t border-gray-200">
-              {(viewOrderDetails.discount || 0) > 0 && (
-                <>
-                  <div className="flex justify-between items-center text-gray-500">
-                    <span style={{ fontSize: '14px', fontWeight: 600 }}>Subtotal</span>
-                    <span style={{ fontSize: '14px', fontWeight: 600 }}>৳{(viewOrderDetails.subtotal || 0).toFixed(2)}</span>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label style={labelStyle}>Customer Info</label>
+                <p style={{ fontSize: '15px', color: '#111', fontWeight: 600 }}>{viewOrderDetails.displayTitle || viewOrderDetails.customerName}</p>
+                <p style={{ fontSize: '14px', color: '#4B5563' }}>{viewOrderDetails.displayPhone || viewOrderDetails.phone}</p>
+                {viewOrderDetails.address && <p style={{ fontSize: '14px', color: '#4B5563', marginTop: '2px' }}>{viewOrderDetails.address}</p>}
+              </div>
+
+              <div>
+                <label style={labelStyle}>Payment Method</label>
+                {viewOrderDetails.splitPayments && viewOrderDetails.splitPayments.length > 0 ? (
+                  <div className="mt-1 p-3 rounded-2xl bg-purple-50/80 border border-purple-200 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-purple-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                      <span>Divide / Split Payment:</span>
+                      <span className="text-purple-700">Total: ৳{viewOrderDetails.total?.toFixed(2)}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {viewOrderDetails.splitPayments.map((sp: any, i: number) => {
+                        const color =
+                          sp.method === 'bKash' ? '#E2136E' :
+                            sp.method === 'Nagad' ? '#F7941D' :
+                              sp.method === 'Card' ? '#0284C7' : '#16A34A';
+                        const bg =
+                          sp.method === 'bKash' ? '#FDF2F8' :
+                            sp.method === 'Nagad' ? '#FFF7ED' :
+                              sp.method === 'Card' ? '#F0F9FF' : '#F0FDF4';
+
+                        return (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between p-2 rounded-xl border text-xs font-bold"
+                            style={{ backgroundColor: bg, borderColor: `${color}33` }}
+                          >
+                            <span style={{ color, fontFamily: 'var(--font-heading)' }}>{sp.method}</span>
+                            <span className="text-gray-900 font-extrabold">৳{Number(sp.amount).toFixed(2)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center text-green-600 mb-2">
-                    <span style={{ fontSize: '14px', fontWeight: 600 }}>Discount</span>
-                    <span style={{ fontSize: '14px', fontWeight: 600 }}>-৳{(viewOrderDetails.discount || 0).toFixed(2)}</span>
-                  </div>
-                </>
-              )}
-              <div className="flex justify-between items-center">
-                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '16px', color: '#111' }}>Total Amount</span>
-                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '20px', color: '#F9002B' }}>
-                ৳{viewOrderDetails.total?.toFixed(2)}
-              </span>
-            </div>
+                ) : (
+                  <p style={{ fontSize: '14px', color: '#4B5563', fontWeight: 600 }}>{viewOrderDetails.paymentMethod}</p>
+                )}
+              </div>
+
+              <div>
+                <label style={labelStyle}>Order Items ({viewOrderDetails.items?.length || 0})</label>
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3 mt-1 max-h-60 overflow-y-auto">
+                  {viewOrderDetails.items?.map((cartItem: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-start border-b border-gray-200 pb-3 last:border-0 last:pb-0">
+                      <div>
+                        <p style={{ fontSize: '14px', fontWeight: 700, color: '#111', fontFamily: 'var(--font-heading)' }}>
+                          {cartItem.quantity}x {cartItem.item?.name || cartItem.name}
+                        </p>
+                        {cartItem.specialRequest && (
+                          <p style={{ fontSize: '12px', color: '#F9002B', marginTop: '2px', fontWeight: 600 }}>
+                            Note: {cartItem.specialRequest}
+                          </p>
+                        )}
+                      </div>
+                      <p style={{ fontSize: '14px', fontWeight: 700, color: '#111' }}>
+                        ৳{((cartItem.item?.price || cartItem.price || 0) * cartItem.quantity).toFixed(2)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-4 border-t border-gray-200">
+                {(viewOrderDetails.discount || 0) > 0 && (
+                  <>
+                    <div className="flex justify-between items-center text-gray-500">
+                      <span style={{ fontSize: '14px', fontWeight: 600 }}>Subtotal</span>
+                      <span style={{ fontSize: '14px', fontWeight: 600 }}>৳{(viewOrderDetails.subtotal || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-green-600 mb-2">
+                      <span style={{ fontSize: '14px', fontWeight: 600 }}>Discount</span>
+                      <span style={{ fontSize: '14px', fontWeight: 600 }}>-৳{(viewOrderDetails.discount || 0).toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between items-center">
+                  <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '16px', color: '#111' }}>Total Amount</span>
+                  <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '20px', color: '#F9002B' }}>
+                    ৳{viewOrderDetails.total?.toFixed(2)}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </ModalOverlay>
-    )}
+        </ModalOverlay>
+      )}
 
 
-    {/* ── PRINT ONLY: THERMAL RECEIPT ─────────────────────────────────────── */}
+      {/* ── PRINT ONLY: THERMAL RECEIPT ─────────────────────────────────────── */}
       {/* Generic Delete Confirmation Modal */}
       {deleteConfirm.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -3430,157 +3355,157 @@ export function Admin() {
       )}
 
       {/* Hidden print area for thermal printer */}
-    <div id="thermal-print-area" style={{ display: 'none' }}>
-      {printOrder && (() => {
-        const isTable = printOrder.isTableOrder;
-        const subtotal = printOrder.items.reduce((sum: number, ci: any) => {
-          const price = isTable ? ci.price : ci.item?.price;
-          return sum + (price || 0) * ci.quantity;
-        }, 0);
-        const deliveryFee = printOrder.total - subtotal;
-        return (
-          <div style={{
-            width: '80mm',
-            margin: '0 auto',
-            padding: '4mm 3mm',
-            fontFamily: "'Courier New', Courier, monospace",
-            fontSize: '11px',
-            color: '#000',
-            background: '#fff',
-            lineHeight: '1.4',
-          }}>
-            {/* Header */}
-            <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-              <div style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '3px', lineHeight: '1.1' }}>
-                PIZZORA
+      <div id="thermal-print-area" style={{ display: 'none' }}>
+        {printOrder && (() => {
+          const isTable = printOrder.isTableOrder;
+          const subtotal = printOrder.items.reduce((sum: number, ci: any) => {
+            const price = isTable ? ci.price : ci.item?.price;
+            return sum + (price || 0) * ci.quantity;
+          }, 0);
+          const deliveryFee = printOrder.total - subtotal;
+          return (
+            <div style={{
+              width: '80mm',
+              margin: '0 auto',
+              padding: '4mm 3mm',
+              fontFamily: "'Courier New', Courier, monospace",
+              fontSize: '11px',
+              color: '#000',
+              background: '#fff',
+              lineHeight: '1.4',
+            }}>
+              {/* Header */}
+              <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+                <div style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '3px', lineHeight: '1.1' }}>
+                  PIZZORA
+                </div>
+                <div style={{ fontSize: '10px', marginTop: '2px', color: '#333' }}>Authentic Pizza & Dining Experience</div>
+                <div style={{ fontSize: '10px', color: '#333' }}>📞 +8801620026649</div>
+                <div style={{ fontSize: '10px', color: '#333' }}>🌐 pizzora.bd</div>
+                <div style={{ borderBottom: '1px dashed #000', margin: '6px 0' }}></div>
               </div>
-              <div style={{ fontSize: '10px', marginTop: '2px', color: '#333' }}>Authentic Pizza & Dining Experience</div>
-              <div style={{ fontSize: '10px', color: '#333' }}>📞 +8801620026649</div>
-              <div style={{ fontSize: '10px', color: '#333' }}>🌐 pizzora.bd</div>
-              <div style={{ borderBottom: '1px dashed #000', margin: '6px 0' }}></div>
-            </div>
 
-            {/* Order Type Badge */}
-            <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-              <span style={{
-                display: 'inline-block',
-                border: '1px solid #000',
-                padding: '1px 8px',
-                fontSize: '10px',
-                fontWeight: 'bold',
-                letterSpacing: '1px',
-              }}>
-                {isTable ? 'DINE-IN ORDER' : 'DELIVERY ORDER'}
-              </span>
-            </div>
-
-            {/* Order Meta */}
-            <div style={{ borderBottom: '1px dashed #000', paddingBottom: '4px', marginBottom: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Order #</span>
-                <span style={{ fontWeight: 'bold' }}>
-                  {isTable ? printOrder.id?.slice(-8).toUpperCase() : printOrder.orderNumber}
+              {/* Order Type Badge */}
+              <div style={{ textAlign: 'center', marginBottom: '4px' }}>
+                <span style={{
+                  display: 'inline-block',
+                  border: '1px solid #000',
+                  padding: '1px 8px',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  letterSpacing: '1px',
+                }}>
+                  {isTable ? 'DINE-IN ORDER' : 'DELIVERY ORDER'}
                 </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Date</span>
-                <span>{new Date(printOrder.isTableOrder ? printOrder.createdAt : printOrder.createdAt).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit' })}</span>
-              </div>
-              {isTable ? (
+
+              {/* Order Meta */}
+              <div style={{ borderBottom: '1px dashed #000', paddingBottom: '4px', marginBottom: '4px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Table</span>
-                  <span style={{ fontWeight: 'bold' }}>#{printOrder.tableNumber}</span>
+                  <span>Order #</span>
+                  <span style={{ fontWeight: 'bold' }}>
+                    {isTable ? printOrder.id?.slice(-8).toUpperCase() : printOrder.orderNumber}
+                  </span>
                 </div>
-              ) : (
-                <>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Date</span>
+                  <span>{new Date(printOrder.isTableOrder ? printOrder.createdAt : printOrder.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                {isTable ? (
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Customer</span>
-                    <span>{printOrder.displayTitle}</span>
+                    <span>Table</span>
+                    <span style={{ fontWeight: 'bold' }}>#{printOrder.tableNumber}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Phone</span>
-                    <span>{printOrder.displayPhone}</span>
-                  </div>
-                  {printOrder.address && (
-                    <div>
-                      <span>Address: </span>
-                      <span>{printOrder.address}</span>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Customer</span>
+                      <span>{printOrder.displayTitle}</span>
                     </div>
-                  )}
-                </>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Payment</span>
-                <span>
-                  {printOrder.splitPayments && printOrder.splitPayments.length > 0
-                    ? `Split (${printOrder.splitPayments.map((p: any) => `${p.method} ৳${p.amount}`).join(' + ')})`
-                    : printOrder.paymentMethod}
-                </span>
-              </div>
-            </div>
-
-            {/* Items Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', borderBottom: '1px solid #000', paddingBottom: '2px', marginBottom: '3px', fontSize: '10px' }}>
-              <span style={{ flex: 3 }}>ITEM</span>
-              <span style={{ flex: 1, textAlign: 'center' }}>QTY</span>
-              <span style={{ flex: 1, textAlign: 'right' }}>PRICE</span>
-              <span style={{ flex: 1, textAlign: 'right' }}>TOTAL</span>
-            </div>
-
-            {/* Items */}
-            {printOrder.items.map((ci: any, idx: number) => {
-              const itemName = isTable ? ci.name : ci.item?.name;
-              const itemPrice = isTable ? ci.price : ci.item?.price;
-              const note = isTable ? ci.note : ci.specialRequest;
-              return (
-                <div key={idx} style={{ marginBottom: '4px', paddingBottom: '4px', borderBottom: '1px dotted #ccc' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <span style={{ flex: 3, wordBreak: 'break-word', paddingRight: '4px' }}>{itemName}</span>
-                    <span style={{ flex: 1, textAlign: 'center' }}>x{ci.quantity}</span>
-                    <span style={{ flex: 1, textAlign: 'right' }}>৳{itemPrice}</span>
-                    <span style={{ flex: 1, textAlign: 'right', fontWeight: 'bold' }}>৳{(itemPrice || 0) * ci.quantity}</span>
-                  </div>
-                  {note && (
-                    <div style={{ fontSize: '9px', color: '#555', paddingLeft: '4px' }}>↳ Note: {note}</div>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* Totals */}
-            <div style={{ borderTop: '1px dashed #000', marginTop: '4px', paddingTop: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Subtotal</span>
-                <span>৳{subtotal.toFixed(0)}</span>
-              </div>
-              {!isTable && deliveryFee > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Phone</span>
+                      <span>{printOrder.displayPhone}</span>
+                    </div>
+                    {printOrder.address && (
+                      <div>
+                        <span>Address: </span>
+                        <span>{printOrder.address}</span>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Delivery Fee</span>
-                  <span>৳{deliveryFee.toFixed(0)}</span>
+                  <span>Payment</span>
+                  <span>
+                    {printOrder.splitPayments && printOrder.splitPayments.length > 0
+                      ? `Split (${printOrder.splitPayments.map((p: any) => `${p.method} ৳${p.amount}`).join(' + ')})`
+                      : printOrder.paymentMethod}
+                  </span>
                 </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '15px', borderTop: '1px solid #000', marginTop: '4px', paddingTop: '4px' }}>
-                <span>TOTAL</span>
-                <span>৳{printOrder.total}</span>
+              </div>
+
+              {/* Items Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', borderBottom: '1px solid #000', paddingBottom: '2px', marginBottom: '3px', fontSize: '10px' }}>
+                <span style={{ flex: 3 }}>ITEM</span>
+                <span style={{ flex: 1, textAlign: 'center' }}>QTY</span>
+                <span style={{ flex: 1, textAlign: 'right' }}>PRICE</span>
+                <span style={{ flex: 1, textAlign: 'right' }}>TOTAL</span>
+              </div>
+
+              {/* Items */}
+              {printOrder.items.map((ci: any, idx: number) => {
+                const itemName = isTable ? ci.name : ci.item?.name;
+                const itemPrice = isTable ? ci.price : ci.item?.price;
+                const note = isTable ? ci.note : ci.specialRequest;
+                return (
+                  <div key={idx} style={{ marginBottom: '4px', paddingBottom: '4px', borderBottom: '1px dotted #ccc' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <span style={{ flex: 3, wordBreak: 'break-word', paddingRight: '4px' }}>{itemName}</span>
+                      <span style={{ flex: 1, textAlign: 'center' }}>x{ci.quantity}</span>
+                      <span style={{ flex: 1, textAlign: 'right' }}>৳{itemPrice}</span>
+                      <span style={{ flex: 1, textAlign: 'right', fontWeight: 'bold' }}>৳{(itemPrice || 0) * ci.quantity}</span>
+                    </div>
+                    {note && (
+                      <div style={{ fontSize: '9px', color: '#555', paddingLeft: '4px' }}>↳ Note: {note}</div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Totals */}
+              <div style={{ borderTop: '1px dashed #000', marginTop: '4px', paddingTop: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Subtotal</span>
+                  <span>৳{subtotal.toFixed(0)}</span>
+                </div>
+                {!isTable && deliveryFee > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Delivery Fee</span>
+                    <span>৳{deliveryFee.toFixed(0)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '15px', borderTop: '1px solid #000', marginTop: '4px', paddingTop: '4px' }}>
+                  <span>TOTAL</span>
+                  <span>৳{printOrder.total}</span>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={{ borderTop: '1px dashed #000', marginTop: '8px', paddingTop: '6px', textAlign: 'center' }}>
+                <div style={{ fontSize: '10px', marginBottom: '2px' }}>★★★ Thank you for choosing Pizzora! ★★★</div>
+                <div style={{ fontSize: '9px', color: '#444' }}>Please come again!</div>
+                <div style={{ fontSize: '8px', color: '#888', marginTop: '4px' }}>
+                  Status: <strong>{printOrder.status}</strong>
+                </div>
+                <div style={{ fontSize: '8px', color: '#888' }}>pizzora.bd</div>
               </div>
             </div>
+          );
+        })()}
+      </div>
 
-            {/* Footer */}
-            <div style={{ borderTop: '1px dashed #000', marginTop: '8px', paddingTop: '6px', textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', marginBottom: '2px' }}>★★★ Thank you for choosing Pizzora! ★★★</div>
-              <div style={{ fontSize: '9px', color: '#444' }}>Please come again!</div>
-              <div style={{ fontSize: '8px', color: '#888', marginTop: '4px' }}>
-                Status: <strong>{printOrder.status}</strong>
-              </div>
-              <div style={{ fontSize: '8px', color: '#888' }}>pizzora.bd</div>
-            </div>
-          </div>
-        );
-      })()}
-    </div>
-
-    {printOrder && (
-      <style>{`
+      {printOrder && (
+        <style>{`
         @media print {
           @page {
             size: 80mm auto;
@@ -3602,7 +3527,7 @@ export function Admin() {
           #expense-print-area { display: none !important; }
         }
       `}</style>
-    )}
+      )}
     </>
   );
 }
