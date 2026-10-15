@@ -147,7 +147,7 @@ export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementPro
 
   const delGrandTotal = delSubtotal + Number(delFee || 0);
 
-  const handleCreateDeliveryOrder = async (initialStatus: 'Confirmed' | 'Preparing' | 'Pending') => {
+  const handleCreateDeliveryOrder = async (initialStatus: OrderStatus) => {
     if (!delPhone.trim()) {
       showNotification('Customer phone number is required for delivery.', 'error');
       return;
@@ -1272,7 +1272,7 @@ export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementPro
               {/* Left Column: Customer & Delivery Destination (5 cols) */}
               <div className="lg:col-span-5 space-y-4">
                 <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200/80 space-y-3">
-                  <span className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider block flex items-center gap-1.5">
+                  <span className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
                     <User size={13} className="text-emerald-600" /> Customer Details
                   </span>
 
@@ -1305,7 +1305,7 @@ export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementPro
                 </div>
 
                 <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200/80 space-y-3">
-                  <span className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider block flex items-center gap-1.5">
+                  <span className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
                     <MapPin size={13} className="text-red-500" /> Delivery Address
                   </span>
 
@@ -1560,7 +1560,7 @@ export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementPro
                 <button
                   type="button"
                   disabled={isSubmittingDelivery}
-                  onClick={() => handleCreateDeliveryOrder('Confirmed')}
+                  onClick={() => handleCreateDeliveryOrder('Preparing')}
                   className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs font-black text-white shadow-md hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-1.5"
                   style={{ background: 'linear-gradient(135deg, #16A34A, #15803D)', fontFamily: 'var(--font-heading)' }}
                 >
