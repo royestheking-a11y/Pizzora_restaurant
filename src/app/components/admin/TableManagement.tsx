@@ -44,6 +44,15 @@ const statusConfig: Record<TableStatus, { label: string; bg: string; text: strin
 
 const areas: TableArea[] = ['Dining'];
 
+export const formatTableTitle = (num: string): string => {
+  const trimmed = (num || '').trim();
+  if (!trimmed) return 'Table';
+  if (/^table\s+/i.test(trimmed)) {
+    return trimmed;
+  }
+  return `Table ${trimmed}`;
+};
+
 const areaConfig: Record<TableArea, { color: string; bg: string; borderColor: string; Icon: typeof Utensils; label: string }> = {
   Dining: { color: '#F9002B', bg: '#FFF5F5', borderColor: 'rgba(249,0,43,0.12)', Icon: Utensils, label: 'Dining Area' },
   VIP: { color: '#EA580C', bg: '#FFF7ED', borderColor: 'rgba(234,88,12,0.12)', Icon: Crown, label: 'VIP Lounge' },
@@ -219,12 +228,18 @@ function QRModal({ table, onClose }: { table: RestaurantTable; onClose: () => vo
               <X size={14} style={{ color: 'rgba(255,255,255,0.7)' }} />
             </button>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold" style={{ background: '#fff', color: '#F9002B' }}>
-              {table.tableNumber}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold flex-shrink-0 overflow-hidden shadow-sm" style={{ background: '#fff', color: '#F9002B' }}>
+              {table.tableNumber.length <= 4 ? (
+                <span className="text-sm font-black">{table.tableNumber}</span>
+              ) : (
+                <Utensils size={18} className="text-red-600" />
+              )}
             </div>
-            <div>
-              <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '20px', color: '#fff', lineHeight: 1 }}>Table {table.tableNumber}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate" style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '20px', color: '#fff', lineHeight: 1.2 }}>
+                {formatTableTitle(table.tableNumber)}
+              </p>
               <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px', marginTop: '3px' }}>
                 <areaCfg.Icon size={11} style={{ display: 'inline', marginRight: '4px' }} />
                 {table.area} Area · {table.seats} Seats
@@ -1165,9 +1180,9 @@ function TableCard({
             <div className="flex items-center gap-2">
               <h3
                 style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '22px', color: '#111', letterSpacing: '-0.5px' }}
-                className="group-hover:text-red-600 transition-colors"
+                className="group-hover:text-red-600 transition-colors truncate"
               >
-                Table {table.tableNumber}
+                {formatTableTitle(table.tableNumber)}
               </h3>
               <span className="px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ backgroundColor: `${areaConfig[table.area].color}15`, color: areaConfig[table.area].color }}>
                 {table.area}
@@ -1985,29 +2000,7 @@ export function TableManagement() {
     });
   };
 
-  // 1-click prune to 5 tables
-  const handlePruneToFiveTables = () => {
-    const valid5 = ['1', '2', '3', '4', '5', 'T01', 'T02', 'T03', 'T04', 'T05'];
-    const extraTables = tables.filter(t => !valid5.includes(t.tableNumber));
-    if (extraTables.length === 0) {
-      showNotification('You already have only the 5 main dining tables (Tables 1 - 5).', 'info');
-      return;
-    }
 
-    setDeleteConfirm({
-      isOpen: true,
-      title: `Keep Only 5 Active Tables?`,
-      message: `You currently have ${tables.length} tables. Do you want to remove the ${extraTables.length} extra tables (${extraTables.map(t => t.tableNumber).join(', ')}) and keep only your 5 active dining tables?`,
-      onConfirm: () => {
-        extraTables.forEach(t => {
-          dispatch({ type: 'DELETE_TABLE', payload: t.id });
-        });
-        showNotification(`Removed ${extraTables.length} extra tables. 5 dining tables remain.`, 'success');
-        setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
-        if (tables[0]) setSelectedTableId(tables[0].id);
-      }
-    });
-  };
 
   // Filtered menu
   const filteredMenuItems = useMemo(() => {
@@ -2206,34 +2199,6 @@ export function TableManagement() {
       ──────────────────────────────────────────────────────────────────────── */}
       {viewMode === 'floor' && (
         <div className="space-y-6 animate-fade-in">
-          {/* Notice banner when more than 5 tables exist */}
-          {tables.length > 5 && (
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
-                  <AlertTriangle size={20} />
-                </div>
-                <div>
-                  <p className="text-xs font-black text-amber-900" style={{ fontFamily: 'var(--font-heading)' }}>
-                    {tables.length} Tables in System (Active Restaurant Floor has 5 Tables)
-                  </p>
-                  <p className="text-[11px] text-amber-700">
-                    Your restaurant has 5 physical tables (T01 - T05). Clean up demo tables in one click.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handlePruneToFiveTables}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition-all shadow-sm flex items-center gap-1.5 self-start sm:self-auto flex-shrink-0"
-                style={{ fontFamily: 'var(--font-heading)' }}
-              >
-                <Trash2 size={13} />
-                Keep Only 5 Tables (T01 - T05)
-              </button>
-            </div>
-          )}
-
           {/* Filter Bar */}
           <div className="flex items-center justify-between gap-3 flex-wrap bg-white p-3.5 rounded-2xl border border-gray-200 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
@@ -2449,16 +2414,20 @@ export function TableManagement() {
 
             {/* Table POS Header Banner */}
             <div className="p-5 text-white" style={{ background: 'linear-gradient(135deg, #1A0000, #C8001F)' }}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-white text-red-600 font-black text-lg flex items-center justify-center shadow-lg">
-                    {currentTable.tableNumber}
+              <div className="flex items-center justify-between mb-3 gap-2">
+                <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+                  <div className="w-12 h-12 rounded-2xl bg-white text-red-600 font-black flex items-center justify-center shadow-lg flex-shrink-0 overflow-hidden p-1">
+                    {currentTable.tableNumber.length <= 4 ? (
+                      <span className="text-base font-black leading-none">{currentTable.tableNumber}</span>
+                    ) : (
+                      <Utensils size={20} className="text-red-600" />
+                    )}
                   </div>
-                  <div>
-                    <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '20px' }}>
-                      Table {currentTable.tableNumber}
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate" style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '20px' }}>
+                      {formatTableTitle(currentTable.tableNumber)}
                     </h3>
-                    <p className="text-xs text-white/70">
+                    <p className="text-xs text-white/70 truncate">
                       {currentTable.area} Area · {currentTable.seats} Seats Capacity
                     </p>
                   </div>

@@ -41,21 +41,8 @@ const OrderSchema = new mongoose.Schema({
   status: String,
   paymentMethod: String,
   splitPayments: Array,
-  compDetails: {
-    guestName: String,
-    reason: String,
-    authorizedBy: String,
-    notes: String,
-  },
-  staffTabDetails: {
-    staffId: String,
-    staffName: String,
-    isSettled: { type: Boolean, default: false },
-    settledAt: String,
-    settledMethod: String,
-    settledBy: String,
-    notes: String,
-  },
+  compDetails: { type: mongoose.Schema.Types.Mixed, default: undefined },
+  staffTabDetails: { type: mongoose.Schema.Types.Mixed, default: undefined },
   customerName: String,
   phone: String,
   address: String,
@@ -153,21 +140,8 @@ const TableOrderSchema = new mongoose.Schema({
   invoiceNumber: String,
   paymentMethod: String,
   splitPayments: Array,
-  compDetails: {
-    guestName: String,
-    reason: String,
-    authorizedBy: String,
-    notes: String,
-  },
-  staffTabDetails: {
-    staffId: String,
-    staffName: String,
-    isSettled: { type: Boolean, default: false },
-    settledAt: String,
-    settledMethod: String,
-    settledBy: String,
-    notes: String,
-  },
+  compDetails: { type: mongoose.Schema.Types.Mixed, default: undefined },
+  staffTabDetails: { type: mongoose.Schema.Types.Mixed, default: undefined },
 }, { strict: false });
 
 TableOrderSchema.index({ tableId: 1, status: 1 });

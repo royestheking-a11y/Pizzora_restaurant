@@ -37,19 +37,33 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
     }
   }, [isOpen, initialTab]);
 
-  // Extract all Staff Tab Orders
+  // Extract all Staff Tab Orders (strictly only real Staff Tab payment method or valid staff member tab)
   const staffTabOrders = useMemo(() => {
     return (state.orders || []).filter(o => {
-      const pm = (o.paymentMethod || '').toLowerCase();
-      return pm === 'staff tab' || !!o.staffTabDetails;
+      const pm = (o.paymentMethod || '').trim().toLowerCase();
+      if (pm === 'staff tab') return true;
+      if (o.staffTabDetails?.staffName && o.staffTabDetails.staffName.trim() !== '') {
+        const nonStaffPms = ['cash', 'card', 'bkash', 'nagad', 'split', 'cash on delivery', 'table check', 'pos'];
+        if (!nonStaffPms.includes(pm)) {
+          return true;
+        }
+      }
+      return false;
     }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [state.orders]);
 
-  // Extract all Complimentary Orders
+  // Extract all Complimentary Orders (strictly only real Complimentary payment method or valid guest comp)
   const compOrders = useMemo(() => {
     return (state.orders || []).filter(o => {
-      const pm = (o.paymentMethod || '').toLowerCase();
-      return pm === 'complimentary' || !!o.compDetails;
+      const pm = (o.paymentMethod || '').trim().toLowerCase();
+      if (pm === 'complimentary') return true;
+      if (o.compDetails?.guestName || o.compDetails?.reason) {
+        const nonCompPms = ['cash', 'card', 'bkash', 'nagad', 'split', 'cash on delivery', 'table check', 'pos'];
+        if (!nonCompPms.includes(pm)) {
+          return true;
+        }
+      }
+      return false;
     }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [state.orders]);
 
@@ -62,7 +76,7 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
 
       if (staffSearch.trim()) {
         const q = staffSearch.toLowerCase();
-        const staffName = (o.staffTabDetails?.staffName || o.customerName || '').toLowerCase();
+        const staffName = (o.staffTabDetails?.staffName || 'Staff Member').toLowerCase();
         const inv = (o.orderNumber || o.id || '').toLowerCase();
         const items = o.items.map(i => i.item.name).join(' ').toLowerCase();
         if (!staffName.includes(q) && !inv.includes(q) && !items.includes(q)) return false;
@@ -79,7 +93,7 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
 
       if (compSearch.trim()) {
         const q = compSearch.toLowerCase();
-        const guest = (o.compDetails?.guestName || o.customerName || '').toLowerCase();
+        const guest = (o.compDetails?.guestName || o.customerName || 'VIP Guest').toLowerCase();
         const auth = (o.compDetails?.authorizedBy || '').toLowerCase();
         const inv = (o.orderNumber || o.id || '').toLowerCase();
         const items = o.items.map(i => i.item.name).join(' ').toLowerCase();
@@ -93,7 +107,7 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
   const staffMetrics = useMemo(() => {
     const pendingOrders = staffTabOrders.filter(o => !(o.staffTabDetails?.isSettled));
     const totalPendingAmount = pendingOrders.reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
-    const uniquePendingStaff = new Set(pendingOrders.map(o => o.staffTabDetails?.staffName || o.customerName)).size;
+    const uniquePendingStaff = new Set(pendingOrders.map(o => o.staffTabDetails?.staffName?.trim() || 'Staff Member')).size;
 
     const currentMonth = new Date().toISOString().slice(0, 7);
     const settledThisMonth = staffTabOrders.filter(o => {
@@ -107,7 +121,7 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
   const staffGroupedPending = useMemo(() => {
     const groups: Record<string, { staffName: string; staffId?: string; orders: Order[]; totalDue: number }> = {};
     staffTabOrders.filter(o => !(o.staffTabDetails?.isSettled)).forEach(o => {
-      const key = o.staffTabDetails?.staffName || o.customerName || 'Unknown Staff';
+      const key = o.staffTabDetails?.staffName?.trim() || 'Staff Member';
       if (!groups[key]) {
         groups[key] = {
           staffName: key,
@@ -169,7 +183,7 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
   // Handle batch settlement for all orders of a staff member
   const handleConfirmAllStaffSettlement = (staffName: string) => {
     const ordersToSettle = staffTabOrders.filter(
-      o => (o.staffTabDetails?.staffName || o.customerName) === staffName && !o.staffTabDetails?.isSettled
+      o => (o.staffTabDetails?.staffName || 'Staff Member') === staffName && !o.staffTabDetails?.isSettled
     );
 
     const adminName = sessionStorage.getItem('pizzora_admin_name') || 'Admin';
@@ -433,7 +447,7 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
                       <tbody className="divide-y divide-gray-100">
                         {filteredStaffOrders.map(order => {
                           const isSettled = order.staffTabDetails?.isSettled ?? false;
-                          const staffName = order.staffTabDetails?.staffName || order.customerName || 'Staff';
+                          const staffName = order.staffTabDetails?.staffName || 'Staff Member';
                           const orderAmt = order.subtotal || order.total || 0;
 
                           return (
@@ -729,7 +743,7 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
                   Settle Staff Tab
                 </h4>
                 <p className="text-xs text-gray-500">
-                  Order #{settleOrder.orderNumber || settleOrder.id.slice(-6)} • {settleOrder.staffTabDetails?.staffName || settleOrder.customerName}
+                  Order #{settleOrder.orderNumber || settleOrder.id.slice(-6)} • {settleOrder.staffTabDetails?.staffName || 'Staff Member'}
                 </p>
               </div>
               <button onClick={() => setSettleOrder(null)} className="text-gray-400 hover:text-gray-600">

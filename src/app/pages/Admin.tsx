@@ -1212,9 +1212,7 @@ export function Admin() {
           {/* Subtle warm red glow top-right */}
           <div className="absolute top-[-25%] right-[-10%] w-[70vw] h-[70vw] rounded-full" style={{ background: 'radial-gradient(circle, rgba(249,0,43,0.06) 0%, transparent 70%)' }} />
           {/* Warm cream glow bottom-left */}
-          <div className="absolute bottom-[-20%] left-[-10%] w-[55vw] h-[55vw] rounded-full" style={{ background: 'radial-gradient(circle, rgba(248,239,220,0.4) 0%, transparent 70%)' }} />
-          {/* Subtle grid pattern */}
-          <div className="absolute inset-0 opacity-[0.4]" style={{ backgroundImage: 'linear-gradient(rgba(139,92,26,0.03) 1px, transparent 1px), linear-gradient(to right, rgba(139,92,26,0.03) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
+          <div className="absolute bottom-[-20%] left-[-10%] w-[55vw] h-[55vw] rounded-full" style={{ background: 'radial-gradient(circle, rgba(248,239,220,0.5) 0%, transparent 70%)' }} />
         </div>
 
         {/* Main Card */}
@@ -1224,8 +1222,6 @@ export function Admin() {
           {/* ── LEFT: Admin Identity Panel (Light Warm Slate) ─────────────────────────────── */}
           <div className="w-full lg:w-[45%] flex flex-col justify-between relative overflow-hidden p-10 lg:p-14"
             style={{ backgroundColor: '#FDFCF9', borderRight: '1px solid rgba(139,92,26,0.06)' }}>
-            {/* Grid overlay */}
-            <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(to right, #000 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
 
             {/* Top: Brand */}
             <div className="relative z-10">
