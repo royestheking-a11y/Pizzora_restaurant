@@ -967,27 +967,37 @@ export function CashRegisterManagement() {
                 </div>
 
                 {/* Expected Cash in Drawer */}
-                <div className="border-t border-emerald-200 pt-2.5 mt-1 bg-emerald-50/60 p-3 rounded-xl space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-900 font-black text-xs">EXPECTED CASH IN DRAWER:</span>
-                    <span className="font-black text-base text-emerald-700" style={{ fontFamily: 'var(--font-heading)' }}>
-                      ৳{expectedDrawerCash.toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-[10.5px] text-gray-600 leading-tight">
-                    (Opening Cash ৳{activeSession.openingBalance.toLocaleString()} + Physical Cash Sales ৳{currentSales.cash.toLocaleString()})
-                  </p>
+                {(() => {
+                  const digitalSales = currentSales.bkash + currentSales.nagad + currentSales.card + currentSales.other;
+                  return (
+                    <div className="mt-2.5 p-3 rounded-xl bg-emerald-50/80 border border-emerald-200/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-[11px] font-black uppercase tracking-wider text-emerald-950 block" style={{ fontFamily: 'var(--font-heading)' }}>
+                            Expected Cash In Drawer
+                          </span>
+                          <span className="text-[10px] text-emerald-700 font-medium">
+                            Opening ৳{activeSession.openingBalance.toLocaleString()} + Cash Sales ৳{currentSales.cash.toLocaleString()}
+                          </span>
+                        </div>
+                        <span className="text-xl font-black text-emerald-700" style={{ fontFamily: 'var(--font-heading)' }}>
+                          ৳{expectedDrawerCash.toLocaleString()}
+                        </span>
+                      </div>
 
-                  <div className="pt-2 border-t border-emerald-200/60 flex justify-between items-center text-xs">
-                    <span className="text-gray-700 font-bold">Total Intake (Drawer + Digital):</span>
-                    <span className="font-black text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
-                      ৳{(expectedDrawerCash + currentSales.bkash + currentSales.nagad + currentSales.card + currentSales.other).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-gray-500 leading-tight bg-white/70 p-1.5 rounded-lg border border-emerald-100">
-                    💡 <strong>bKash / Digital (৳{(currentSales.bkash + currentSales.nagad + currentSales.card + currentSales.other).toLocaleString()})</strong> goes directly to your bKash merchant account/bank, not into the physical cash drawer box.
-                  </p>
-                </div>
+                      {digitalSales > 0 && (
+                        <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs">
+                          <span className="text-gray-600 font-semibold flex items-center gap-1.5">
+                            Total with Digital <span className="text-[10px] text-pink-600 font-bold">(+bKash ৳{digitalSales.toLocaleString()})</span>:
+                          </span>
+                          <span className="font-black text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                            ৳{(expectedDrawerCash + digitalSales).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* End of Day Split Form */}
