@@ -3,12 +3,40 @@ import {
   BarChart3, TrendingUp, Calendar, DollarSign, ShoppingBag, Search,
   ArrowUpDown, Download, Printer, Eye, X, Award, Sparkles, Filter,
   CheckCircle2, Clock, ChevronDown, PackageCheck, AlertCircle, Utensils, Receipt,
-  Info, Check, Tag
+  Info, Check, Tag, Package, AlertTriangle, ChefHat, Link2, Unlink
 } from 'lucide-react';
-import { useApp, MenuItem } from '../../context/AppContext';
+import { useApp, MenuItem, InventoryItem } from '../../context/AppContext';
 import { optimizeCloudinaryUrl } from '../../utils/image';
 
 export type TimePeriod = 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'all';
+
+export function findLinkedInventoryItem(
+  product: { id?: string; name: string; category?: string },
+  inventory: InventoryItem[]
+): InventoryItem | null {
+  if (!inventory || inventory.length === 0) return null;
+
+  // 1. Direct explicit menuItemId or ID match (set by admin)
+  if (product.id) {
+    const direct = inventory.find(i => i.menuItemId === product.id || i.id === product.id);
+    if (direct) return direct;
+  }
+
+  // 2. Exact name match (case-insensitive & trimmed)
+  const normName = (product.name || '').trim().toLowerCase();
+  const nameMatch = inventory.find(i => (i.name || '').trim().toLowerCase() === normName);
+  if (nameMatch) return nameMatch;
+
+  // 3. Exact stripped match (e.g. "Water 500 ml" === "Water 500ml" without punctuation/spaces)
+  const strip = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const strippedProd = strip(product.name);
+  if (strippedProd && strippedProd.length >= 3) {
+    const exactStripped = inventory.find(i => strip(i.name) === strippedProd);
+    if (exactStripped) return exactStripped;
+  }
+
+  return null;
+}
 
 interface ProductStats {
   id: string;
@@ -30,6 +58,7 @@ interface ProductStats {
   countMonth: number;
   countYear: number;
   countAllTime: number;
+  inventoryItem?: InventoryItem | null;
   recentOrders: {
     orderNumber: string;
     timestamp: number;
@@ -59,13 +88,61 @@ function getDhakaTimeBounds() {
 }
 
 export function ProductOrderAnalytics() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const [period, setPeriod] = useState<TimePeriod>('today');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<'quantity' | 'revenue' | 'least' | 'name'>('quantity');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedProduct, setSelectedProduct] = useState<ProductStats | null>(null);
+  const [isLinkingInv, setIsLinkingInv] = useState<boolean>(false);
+  const [invSearchQuery, setInvSearchQuery] = useState<string>('');
+
+  const filteredInventoryOptions = useMemo(() => {
+    const list = state.inventory || [];
+    if (!invSearchQuery.trim()) return list;
+    const q = invSearchQuery.toLowerCase().trim();
+    return list.filter(item =>
+      (item.name || '').toLowerCase().includes(q) ||
+      (item.sku || '').toLowerCase().includes(q) ||
+      (item.category || '').toLowerCase().includes(q) ||
+      (item.supplier || '').toLowerCase().includes(q)
+    );
+  }, [state.inventory, invSearchQuery]);
+
+  const handleLinkInventory = (invId: string) => {
+    if (!selectedProduct) return;
+
+    // 1. Unlink any inventory item currently mapped to this product
+    (state.inventory || []).forEach(item => {
+      if (item.menuItemId === selectedProduct.id && item.id !== invId) {
+        dispatch({
+          type: 'UPDATE_INVENTORY_ITEM',
+          payload: { ...item, menuItemId: undefined }
+        });
+      }
+    });
+
+    // 2. If a specific inventory item was chosen (not "none")
+    if (invId && invId !== 'none') {
+      const target = state.inventory?.find(i => i.id === invId);
+      if (target) {
+        dispatch({
+          type: 'UPDATE_INVENTORY_ITEM',
+          payload: { ...target, menuItemId: selectedProduct.id }
+        });
+      }
+    }
+
+    setIsLinkingInv(false);
+    setInvSearchQuery('');
+  };
+
+  const handleCloseProductModal = () => {
+    setSelectedProduct(null);
+    setIsLinkingInv(false);
+    setInvSearchQuery('');
+  };
 
   // Revenue calculation mode:
   // 'net'   -> Net Realized Sales (order totals after discounts, 100% matches Sales Report!)
@@ -334,8 +411,10 @@ export function ProductOrderAnalytics() {
 
     const list = Array.from(statsMap.values()).map(s => {
       const activeItemRevenue = revenueMode === 'net' ? s.netRevenue : s.grossRevenue;
+      const matchedInventory = findLinkedInventoryItem(s, state.inventory || []);
       return {
         ...s,
+        inventoryItem: matchedInventory,
         totalRevenue: activeItemRevenue,
         unitsShare: periodUnits > 0 ? (s.totalQuantity / periodUnits) * 100 : 0,
         revenueShare: activeTotalRevenue > 0 ? (activeItemRevenue / activeTotalRevenue) * 100 : 0,
@@ -349,7 +428,7 @@ export function ProductOrderAnalytics() {
       totalPeriodGrossRevenue: periodGross,
       totalPeriodNetRevenue: periodNet,
     };
-  }, [state.menuItems, unifiedOrderItems, period, timeBounds, revenueMode]);
+  }, [state.menuItems, state.inventory, unifiedOrderItems, period, timeBounds, revenueMode]);
 
   // Categories list
   const categories = useMemo(() => {
@@ -872,6 +951,28 @@ export function ProductOrderAnalytics() {
                     {p.name}
                   </h4>
 
+                  {/* Connected Inventory Stock Pill */}
+                  {(() => {
+                    const inv = p.inventoryItem || findLinkedInventoryItem(p, state.inventory || []);
+                    if (!inv) return null;
+                    const isOut = inv.currentStock <= 0;
+                    const isLow = inv.currentStock <= inv.minStock;
+                    return (
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                          isOut
+                            ? 'bg-red-50 text-red-600 border border-red-200'
+                            : isLow
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        }`}>
+                          <Package size={10} />
+                          {isOut ? 'Stock: 0 Out' : isLow ? `Low: ${inv.currentStock} ${inv.unit}` : `${inv.currentStock} ${inv.unit} in stock`}
+                        </span>
+                      </div>
+                    );
+                  })()}
+
                   {/* Primary Order Metrics */}
                   <div className="grid grid-cols-2 gap-1.5 mt-2 p-2 rounded-xl bg-gray-50 border border-gray-100 min-w-0">
                     <div className="min-w-0">
@@ -941,6 +1042,7 @@ export function ProductOrderAnalytics() {
                   <th className="py-3 px-3 w-10">#</th>
                   <th className="py-3 px-3">Product Name</th>
                   <th className="py-3 px-3">Category</th>
+                  <th className="py-3 px-3 text-center">Warehouse Stock</th>
                   <th className="py-3 px-3 text-right">Unit Price</th>
                   <th className="py-3 px-3 text-right">Today</th>
                   <th className="py-3 px-3 text-right">Week</th>
@@ -977,6 +1079,26 @@ export function ProductOrderAnalytics() {
                       <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px] font-bold">
                         {p.category}
                       </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-center">
+                      {(() => {
+                        const inv = p.inventoryItem || findLinkedInventoryItem(p, state.inventory || []);
+                        if (!inv) return <span className="text-[10px] text-gray-400 font-medium">—</span>;
+                        const isOut = inv.currentStock <= 0;
+                        const isLow = inv.currentStock <= inv.minStock;
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            isOut
+                              ? 'bg-red-50 text-red-600 border border-red-200'
+                              : isLow
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${isOut ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                            {inv.currentStock} {inv.unit}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="py-2.5 px-3 text-right font-bold text-gray-700">
                       ৳{p.price}
@@ -1032,10 +1154,10 @@ export function ProductOrderAnalytics() {
       {selectedProduct && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
-          onClick={() => setSelectedProduct(null)}
+          onClick={handleCloseProductModal}
         >
           <div
-            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden animate-scale-in flex flex-col max-h-[88vh]"
+            className="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-scale-in flex flex-col max-h-[88vh]"
             onClick={e => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -1056,7 +1178,7 @@ export function ProductOrderAnalytics() {
                 </div>
               </div>
               <button
-                onClick={() => setSelectedProduct(null)}
+                onClick={handleCloseProductModal}
                 className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors flex-shrink-0"
               >
                 <X size={15} />
@@ -1100,6 +1222,377 @@ export function ProductOrderAnalytics() {
                 </div>
               </div>
 
+              {/* Connected Warehouse Inventory & Available Stock Card */}
+              {(() => {
+                const linkedInv = findLinkedInventoryItem(selectedProduct, state.inventory || []) || selectedProduct.inventoryItem;
+                const isOut = linkedInv ? linkedInv.currentStock <= 0 : false;
+                const isLow = linkedInv ? (linkedInv.currentStock > 0 && linkedInv.currentStock <= linkedInv.minStock) : false;
+                const isHealthy = linkedInv ? linkedInv.currentStock > linkedInv.minStock : false;
+
+                // Detect if item is naturally cooked / prepared kitchen food (Pizzas, Chowmein, Pastas, Burgers)
+                const catLower = (selectedProduct.category || '').toLowerCase();
+                const nameLower = (selectedProduct.name || '').toLowerCase();
+                const isKitchenFood = (
+                  catLower.includes('pizza') ||
+                  catLower.includes('burger') ||
+                  catLower.includes('pasta') ||
+                  catLower.includes('chawomen') ||
+                  catLower.includes('chowmain') ||
+                  catLower.includes('chow mein') ||
+                  catLower.includes('noodle') ||
+                  catLower.includes('chicken') ||
+                  catLower.includes('appetizer') ||
+                  catLower.includes('platter') ||
+                  catLower.includes('salad') ||
+                  catLower.includes('rice') ||
+                  catLower.includes('fry') ||
+                  nameLower.includes('pizza') ||
+                  nameLower.includes('burger') ||
+                  nameLower.includes('pasta') ||
+                  nameLower.includes('chowmain') ||
+                  nameLower.includes('chowmein') ||
+                  nameLower.includes('noodle')
+                );
+
+                return (
+                  <div className={`p-3.5 rounded-2xl border transition-all ${
+                    !linkedInv
+                      ? isKitchenFood
+                        ? 'bg-amber-50/50 border-amber-200'
+                        : 'bg-gray-50 border-gray-200'
+                      : isOut
+                      ? 'bg-red-50/90 border-red-200 shadow-xs'
+                      : isLow
+                      ? 'bg-amber-50/90 border-amber-200 shadow-xs'
+                      : 'bg-emerald-50/80 border-emerald-200 shadow-xs'
+                  }`}>
+                    {/* Header */}
+                    <div className="flex items-center justify-between gap-3 mb-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold shadow-xs shrink-0 ${
+                          !linkedInv
+                            ? isKitchenFood
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-gray-400 text-white'
+                            : isOut
+                            ? 'bg-red-600 text-white'
+                            : isLow
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-emerald-600 text-white'
+                        }`}>
+                          {!linkedInv && isKitchenFood ? <ChefHat size={16} /> : <Package size={16} />}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-black text-gray-900 tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+                            {linkedInv
+                              ? 'Warehouse Stock'
+                              : isKitchenFood
+                              ? 'Kitchen Prepared Dish'
+                              : 'Retail / Beverage Stock'}
+                          </h4>
+                          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-gray-500 flex-wrap">
+                            {linkedInv ? (
+                              <>
+                                <span className="font-mono font-bold text-[9px] px-1.5 py-0.2 rounded bg-white border border-gray-200 text-gray-700 shadow-2xs shrink-0">
+                                  SKU: {linkedInv.sku}
+                                </span>
+                                <span className="truncate">
+                                  Linked to "{linkedInv.name}" ({linkedInv.unit})
+                                </span>
+                              </>
+                            ) : isKitchenFood ? (
+                              <span>Cooked fresh on order using raw inventory ingredients</span>
+                            ) : (
+                              <span>Packaged product · Stock tracking not connected</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Header Actions & Health Status Badge */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {linkedInv ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsLinkingInv(!isLinkingInv);
+                                setInvSearchQuery('');
+                              }}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 shadow-2xs transition-colors"
+                              title="Change linked inventory item"
+                            >
+                              <Link2 size={11} /> {isLinkingInv ? 'Close' : 'Change'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleLinkInventory('none')}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-white hover:bg-red-50 text-red-600 border border-red-200 shadow-2xs transition-colors"
+                              title="Unlink this item so it doesn't track wholesale inventory"
+                            >
+                              <Unlink size={11} /> Unlink
+                            </button>
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full text-white shadow-xs whitespace-nowrap ${
+                              isOut ? 'bg-red-600 animate-pulse' : isLow ? 'bg-amber-500' : 'bg-emerald-600'
+                            }`}>
+                              {isOut ? <AlertTriangle size={11} /> : isLow ? <AlertCircle size={11} /> : <CheckCircle2 size={11} />}
+                              {isOut ? 'OUT OF STOCK' : isLow ? 'LOW STOCK' : 'IN STOCK'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsLinkingInv(!isLinkingInv);
+                                setInvSearchQuery('');
+                              }}
+                              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-2xs transition-colors ${
+                                isKitchenFood
+                                  ? 'bg-white hover:bg-amber-50 text-amber-800 border border-amber-300'
+                                  : 'bg-red-600 hover:bg-red-700 text-white'
+                              }`}
+                            >
+                              <Link2 size={11} /> {isLinkingInv ? 'Close' : isKitchenFood ? 'Map Item SKU' : 'Link to Inventory'}
+                            </button>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-gray-200 text-gray-700 whitespace-nowrap">
+                              {isKitchenFood ? 'KITCHEN RECIPE' : 'UNLINKED'}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Inline Link/Change Inventory Selector with Search Box */}
+                    {isLinkingInv && (
+                      <div className="mb-3 p-3 bg-white rounded-xl border-2 border-red-300 shadow-lg animate-scale-in">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                            <Link2 size={13} className="text-red-600" />
+                            Select Inventory Item to Link with "{selectedProduct.name}":
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsLinkingInv(false);
+                              setInvSearchQuery('');
+                            }}
+                            className="text-[11px] font-bold text-gray-400 hover:text-gray-700 px-2 py-0.5 rounded hover:bg-gray-100 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+
+                        {/* Search Input Box */}
+                        <div className="relative mb-2">
+                          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={invSearchQuery}
+                            onChange={(e) => setInvSearchQuery(e.target.value)}
+                            placeholder="Type to search by item name, SKU (e.g. MOJ, BOX), or category..."
+                            autoFocus
+                            className="w-full pl-8 pr-7 py-2 text-xs font-medium rounded-lg border border-gray-300 bg-gray-50 outline-none focus:ring-2 focus:ring-red-400 focus:bg-white focus:border-red-400 transition-all shadow-inner"
+                          />
+                          {invSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setInvSearchQuery('')}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+                              title="Clear search"
+                            >
+                              <X size={13} />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Inventory Options Scrollable List */}
+                        <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1 border border-gray-200 rounded-lg p-1.5 bg-gray-50/70">
+                          {/* Option to Unlink / Kitchen Recipe */}
+                          <button
+                            type="button"
+                            onClick={() => handleLinkInventory('none')}
+                            className={`w-full text-left p-2 rounded-lg text-xs transition-colors flex items-center justify-between border ${
+                              !linkedInv
+                                ? 'bg-amber-50/90 border-amber-300 text-amber-950 font-bold shadow-2xs'
+                                : 'bg-white hover:bg-gray-100 border-gray-200 text-gray-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 pr-2">
+                              <ChefHat size={15} className="text-amber-600 shrink-0" />
+                              <div className="min-w-0">
+                                <div className="font-bold text-xs truncate">-- Unlink / No Direct Warehouse Item --</div>
+                                <div className="text-[10px] text-gray-500 font-normal">Kitchen prepared recipe (Cooked fresh, no warehouse stock)</div>
+                              </div>
+                            </div>
+                            {!linkedInv && (
+                              <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                                Currently Selected
+                              </span>
+                            )}
+                          </button>
+
+                          {/* Filtered Inventory Items */}
+                          {filteredInventoryOptions.length > 0 ? (
+                            filteredInventoryOptions.map((inv) => {
+                              const isCurrent = linkedInv?.id === inv.id;
+                              const isInvOut = inv.currentStock <= 0;
+                              const isInvLow = inv.currentStock > 0 && inv.currentStock <= (inv.minStock ?? 5);
+
+                              return (
+                                <button
+                                  key={inv.id}
+                                  type="button"
+                                  onClick={() => handleLinkInventory(inv.id)}
+                                  className={`w-full text-left p-2 rounded-lg text-xs transition-all flex items-center justify-between border ${
+                                    isCurrent
+                                      ? 'bg-red-50 border-red-300 text-red-950 font-bold shadow-2xs'
+                                      : 'bg-white hover:bg-red-50/60 hover:border-red-200 border-gray-200 text-gray-800'
+                                  }`}
+                                >
+                                  <div className="min-w-0 pr-2">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="font-bold text-gray-900">{inv.name}</span>
+                                      <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-gray-100 text-gray-700 border border-gray-200">
+                                        SKU: {inv.sku}
+                                      </span>
+                                      {inv.category && (
+                                        <span className="text-[9px] px-1.5 py-0.2 rounded font-medium bg-gray-100 text-gray-500">
+                                          {inv.category}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                                      <span>Cost: <b className="text-gray-700">৳{inv.costPrice}</b>/{inv.unit}</span>
+                                      {inv.supplier && <span>· Supplier: {inv.supplier}</span>}
+                                    </div>
+                                  </div>
+
+                                  <div className="shrink-0 text-right">
+                                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                      isInvOut
+                                        ? 'bg-red-100 text-red-700'
+                                        : isInvLow
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-emerald-100 text-emerald-800'
+                                    }`}>
+                                      {inv.currentStock} {inv.unit}
+                                    </span>
+                                    {isCurrent && (
+                                      <span className="block text-[9px] font-bold text-red-600 mt-0.5">
+                                        ✓ Linked
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="p-4 text-center text-xs text-gray-500 bg-white rounded-lg border border-dashed border-gray-300">
+                              <p className="font-semibold text-gray-700">No inventory items found matching "{invSearchQuery}"</p>
+                              <p className="text-[11px] text-gray-400 mt-0.5">Check for spelling or try searching by SKU code.</p>
+                              <button
+                                type="button"
+                                onClick={() => setInvSearchQuery('')}
+                                className="mt-2 text-xs font-bold text-red-600 hover:text-red-700 underline"
+                              >
+                                Clear search filter
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] text-gray-500 mt-1.5 px-0.5">
+                          <span>
+                            {filteredInventoryOptions.length} of {(state.inventory || []).length} items shown
+                          </span>
+                          <span>Click any item above to instantly link</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Body Content */}
+                    {linkedInv ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                          <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
+                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Available in Stock</span>
+                            <p className={`text-base font-black ${
+                              isOut ? 'text-red-600' : isLow ? 'text-amber-700' : 'text-emerald-700'
+                            }`} style={{ fontFamily: 'var(--font-heading)' }}>
+                              {linkedInv.currentStock.toLocaleString()}{' '}
+                              <span className="text-xs font-normal text-gray-600">{linkedInv.unit}</span>
+                            </p>
+                          </div>
+
+                          <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
+                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Purchase Cost</span>
+                            <p className="text-base font-black text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>
+                              ৳{linkedInv.costPrice}{' '}
+                              <span className="text-[10px] font-normal text-gray-500">/{linkedInv.unit}</span>
+                            </p>
+                          </div>
+
+                          <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
+                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Min Alert Level</span>
+                            <p className="text-base font-black text-gray-700" style={{ fontFamily: 'var(--font-heading)' }}>
+                              {linkedInv.minStock}{' '}
+                              <span className="text-xs font-normal text-gray-500">{linkedInv.unit}</span>
+                            </p>
+                          </div>
+
+                          <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
+                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Asset Value</span>
+                            <p className="text-base font-black text-emerald-800 font-mono" style={{ fontFamily: 'var(--font-heading)' }}>
+                              ৳{(linkedInv.currentStock * (linkedInv.costPrice || 0)).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Critical Alert Messages */}
+                        {isOut && (
+                          <div className="text-[11px] font-bold text-red-700 bg-red-100/90 px-3 py-2 rounded-xl flex items-center gap-2 border border-red-200 shadow-2xs">
+                            <AlertTriangle size={14} className="flex-shrink-0" />
+                            <span>This item is completely out of stock! Contact {linkedInv.supplier ? `"${linkedInv.supplier}"` : 'vendor'} to restock immediately.</span>
+                          </div>
+                        )}
+                        {isLow && (
+                          <div className="text-[11px] font-bold text-amber-800 bg-amber-100/90 px-3 py-2 rounded-xl flex items-center gap-2 border border-amber-200 shadow-2xs">
+                            <AlertCircle size={14} className="flex-shrink-0 text-amber-600" />
+                            <span>Stock is below safety minimum ({linkedInv.minStock} {linkedInv.unit}). Only {linkedInv.currentStock} {linkedInv.unit} remaining!</span>
+                          </div>
+                        )}
+                        {isHealthy && (
+                          <div className="text-[10px] font-semibold text-emerald-800 bg-emerald-100/70 px-3 py-1.5 rounded-xl flex items-center justify-between gap-2 border border-emerald-200/60 shadow-2xs flex-wrap">
+                            <span>Optimal warehouse balance ({linkedInv.currentStock} of max {linkedInv.maxStock} {linkedInv.unit})</span>
+                            <span className="font-bold">Supplier: {linkedInv.supplier || 'Standard'}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : isKitchenFood ? (
+                      <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80 text-xs text-amber-900 flex items-start gap-2.5">
+                        <Utensils size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-bold">Prepared Fresh in Kitchen</p>
+                          <p className="text-[11px] text-amber-800/90 mt-0.5">
+                            "{selectedProduct.name}" is a cooked food item prepared upon order. Its raw materials (chicken, noodles, vegetables, dough, spices) and packaging boxes are tracked centrally under <strong>Inventory Management</strong>.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-white/70 rounded-xl text-center border border-dashed border-gray-200">
+                        <p className="text-xs text-gray-700 font-bold">
+                          Not Linked to Warehouse Inventory
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-0.5 max-w-sm mx-auto">
+                          If this is a pre-bottled drink or packaged retail item, click <strong>"Link to Inventory"</strong> above to select its warehouse stock and track live bottle counts.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Recent Orders Containing this Item */}
               <div>
                 <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -1142,7 +1635,7 @@ export function ProductOrderAnalytics() {
             {/* Modal Footer */}
             <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-end">
               <button
-                onClick={() => setSelectedProduct(null)}
+                onClick={handleCloseProductModal}
                 className="px-4 py-1.5 rounded-xl text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 transition-colors"
               >
                 Close

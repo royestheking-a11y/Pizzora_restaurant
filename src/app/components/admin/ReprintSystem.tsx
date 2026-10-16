@@ -172,22 +172,33 @@ export function ReprintSystem() {
       const order = await fetchOrderById(job.orderId);
       if (order) {
         const isTable = Boolean(order.isTableOrder || (order.address && order.address.toLowerCase().includes('table')) || order.tableNumber || job.tableNo);
+        const items = (order.items || []).map((item: any) => ({
+          name: item.name || item.item?.name || 'Item',
+          quantity: item.quantity || 1,
+          price: item.price || item.item?.price || 0,
+          variant: item.variant,
+          note: item.note || item.specialRequest,
+        }));
+        const itemsSubtotal = items.reduce((s: number, i: any) => s + (i.price * i.quantity), 0);
+        const subtotal = order.subtotal !== undefined ? order.subtotal : itemsSubtotal;
+        const deliveryFee = order.deliveryFee !== undefined
+          ? Number(order.deliveryFee)
+          : Math.max(0, (Number(order.total) || 0) - subtotal);
+
         invoiceData = {
           invoiceNumber: job.invoiceNumber,
           orderId: job.orderId,
-          orderType: isTable ? `Dine In — Table ${order.tableNumber || job.tableNo || ''}` : (order.orderType || job.orderType || 'POS'),
+          orderType: isTable ? `Dine In — Table ${order.tableNumber || job.tableNo || ''}` : (order.orderType || job.orderType || 'Delivery'),
           tableNo: order.tableNumber ? String(order.tableNumber) : (job.tableNo || undefined),
           customerName: order.customerName || job.customerName || undefined,
+          customerPhone: order.phone || undefined,
+          deliveryAddress: order.address || undefined,
+          deliveryFee: deliveryFee > 0 ? deliveryFee : undefined,
+          riderNote: order.notes || undefined,
           cashierName: job.printedBy || 'Cashier',
           dateTime: new Date(job.printedAt || Date.now()).toLocaleString(),
-          items: (order.items || []).map((item: any) => ({
-            name: item.name || item.item?.name || 'Item',
-            quantity: item.quantity || 1,
-            price: item.price || item.item?.price || 0,
-            variant: item.variant,
-            note: item.note,
-          })),
-          subtotal: order.total || job.total,
+          items,
+          subtotal,
           discount: order.discount || 0,
           total: order.total || job.total,
           paymentMethod: order.paymentMethod || job.paymentMethod || 'Cash',

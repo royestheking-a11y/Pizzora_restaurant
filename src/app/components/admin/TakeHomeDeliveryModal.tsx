@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import {
   Truck, Phone, MapPin, X, Plus, Minus, Trash2, Search, User, ChefHat,
-  Clock, CreditCard, Sparkles, AlertCircle
+  Clock, CreditCard, Sparkles, AlertCircle, Printer, FileText, Check, CheckCircle2
 } from 'lucide-react';
 import { useApp, Order, OrderStatus, MenuItem } from '../../context/AppContext';
-import { generateInvoiceNumber, printerService, loadPrinterSettings } from '../../utils/printerService';
+import { generateInvoiceNumber, printerService, loadPrinterSettings, type InvoiceData } from '../../utils/printerService';
 
 export interface TakeHomeDeliveryModalProps {
   isOpen: boolean;
@@ -30,7 +30,7 @@ export const SYLHET_AREAS = [
 ];
 
 export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeHomeDeliveryModalProps) {
-  const { state, dispatch, showNotification } = useApp();
+  const { state, dispatch, showNotification, refreshAnalytics } = useApp();
 
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
@@ -43,6 +43,11 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
   const [menuSearch, setMenuSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [printReceiptOnConfirm, setPrintReceiptOnConfirm] = useState(true);
+  const [printKOTOnConfirm, setPrintKOTOnConfirm] = useState(false);
+  const [initialStatus, setInitialStatus] = useState<OrderStatus>('Preparing');
+  const [printFeedback, setPrintFeedback] = useState<string | null>(null);
+  const [isPrintingPreview, setIsPrintingPreview] = useState(false);
 
   const handleSelectArea = (areaName: string) => {
     setArea(areaName);
@@ -53,13 +58,23 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
   };
 
   const menuCategories = useMemo(() => {
-    return ['All', ...Array.from(new Set((state.menuItems || []).map(m => m.category)))];
+    const cats = new Set<string>();
+    (state.menuItems || []).forEach(m => {
+      if (m.category && m.category.trim()) {
+        cats.add(m.category.trim());
+      }
+    });
+    return ['All', ...Array.from(cats)];
   }, [state.menuItems]);
 
   const filteredItems = useMemo(() => {
+    const q = menuSearch.trim().toLowerCase();
     return (state.menuItems || []).filter(item => {
-      const matchCat = category === 'All' || item.category === category;
-      const matchSearch = !menuSearch.trim() || item.name.toLowerCase().includes(menuSearch.toLowerCase());
+      const matchCat = category === 'All' || (item.category && item.category.trim().toLowerCase() === category.toLowerCase());
+      const matchSearch = !q ||
+        (item.name && item.name.toLowerCase().includes(q)) ||
+        (item.category && item.category.toLowerCase().includes(q)) ||
+        (item.description && item.description.toLowerCase().includes(q));
       return matchCat && matchSearch;
     });
   }, [state.menuItems, category, menuSearch]);
@@ -102,7 +117,54 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
 
   const grandTotal = subtotal + Number(fee || 0);
 
-  const handleCreateOrder = async (initialStatus: OrderStatus) => {
+  const handlePrePrintBill = async () => {
+    if (selectedItems.length === 0) {
+      showNotification('Please add at least 1 food item to preview print.', 'error');
+      return;
+    }
+    setIsPrintingPreview(true);
+    try {
+      const fullAddress = `${address.trim()}${area ? ` [${area}]` : ''}`;
+      const settings = loadPrinterSettings();
+      const invoiceData: InvoiceData = {
+        invoiceNumber: 'DRAFT-' + String(Date.now()).slice(-5),
+        orderId: 'DRAFT',
+        orderType: 'Delivery (Pre-Bill)',
+        customerName: customerName.trim() || 'Home Delivery Guest',
+        customerPhone: phone.trim() || undefined,
+        deliveryAddress: fullAddress || undefined,
+        deliveryFee: Number(fee || 0),
+        riderNote: riderNote.trim() || undefined,
+        cashierName: sessionStorage.getItem('pizzora_admin_name') || 'Cashier',
+        dateTime: new Date().toLocaleString(),
+        items: selectedItems.map(c => ({
+          name: c.item.name,
+          quantity: c.quantity,
+          price: c.item.price,
+          variant: (c.item as any).variant,
+          specialRequest: c.note,
+          note: c.note,
+        })),
+        subtotal,
+        discount: paymentMethod === 'Complimentary' ? grandTotal : 0,
+        total: paymentMethod === 'Complimentary' ? 0 : grandTotal,
+        paymentMethod,
+        amountPaid: grandTotal,
+        change: 0,
+      };
+      await printerService.printReceipt(invoiceData, settings, { source: 'online', skipAutoLog: true });
+      showNotification('Delivery pre-print bill sent to printer', 'info');
+    } catch (err: any) {
+      showNotification('Pre-print error: ' + (err?.message || ''), 'error');
+    } finally {
+      setIsPrintingPreview(false);
+    }
+  };
+
+  const handleCreateOrder = async (
+    targetStatus?: OrderStatus,
+    options?: { printReceipt?: boolean; printKOT?: boolean }
+  ) => {
     if (!phone.trim()) {
       showNotification('Customer phone number is required for delivery.', 'error');
       return;
@@ -116,7 +178,12 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
       return;
     }
 
+    const finalStatus = targetStatus !== undefined ? targetStatus : initialStatus;
+    const shouldPrintReceipt = options?.printReceipt !== undefined ? options.printReceipt : printReceiptOnConfirm;
+    const shouldPrintKOT = options?.printKOT !== undefined ? options.printKOT : printKOTOnConfirm;
+
     setIsSubmitting(true);
+    setPrintFeedback(null);
     try {
       let invNo = '';
       try {
@@ -142,7 +209,7 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
         deliveryFee: Number(fee || 0),
         discount: paymentMethod === 'Complimentary' ? grandTotal : 0,
         total: paymentMethod === 'Complimentary' ? 0 : grandTotal,
-        status: initialStatus,
+        status: finalStatus,
         paymentMethod: paymentMethod,
         compDetails: paymentMethod === 'Complimentary' ? {
           guestName: customerName.trim() || 'Complimentary Delivery',
@@ -164,38 +231,71 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
       };
 
       dispatch({ type: 'PLACE_ORDER', payload: newOrder });
-      showNotification(`Home Delivery Order #${invNo} created & ${initialStatus}!`, 'success');
+
+      // Construct InvoiceData with full customer details, order details, and delivery charges
+      const invoiceData: InvoiceData = {
+        invoiceNumber: invNo,
+        orderId: newOrder.id,
+        orderType: 'Home Delivery',
+        customerName: newOrder.customerName,
+        customerPhone: phone.trim(),
+        deliveryAddress: fullAddress,
+        deliveryFee: Number(fee || 0),
+        riderNote: riderNote.trim() || undefined,
+        cashierName: sessionStorage.getItem('pizzora_admin_name') || 'Cashier',
+        dateTime: new Date().toLocaleString(),
+        items: selectedItems.map(c => ({
+          name: c.item.name,
+          quantity: c.quantity,
+          price: c.item.price,
+          variant: (c.item as any).variant,
+          specialRequest: c.note,
+          note: c.note,
+        })),
+        subtotal,
+        discount: paymentMethod === 'Complimentary' ? grandTotal : 0,
+        total: paymentMethod === 'Complimentary' ? 0 : grandTotal,
+        paymentMethod,
+        amountPaid: paymentMethod === 'Complimentary' ? 0 : grandTotal,
+        change: 0,
+      };
+
+      const settings = loadPrinterSettings();
+
+      // Print Thermal Receipt
+      if (shouldPrintReceipt) {
+        try {
+          const printRes = await printerService.printReceipt(invoiceData, settings, { source: 'online' });
+          if (!printRes.success) {
+            setPrintFeedback(printRes.error || 'Print window blocked');
+          }
+        } catch (printErr: any) {
+          console.warn('Delivery print error:', printErr);
+          setPrintFeedback(printErr?.message || 'Print failed');
+        }
+      }
+
+      // Print Kitchen Ticket (KOT)
+      if (shouldPrintKOT) {
+        try {
+          await printerService.printKOT(invoiceData, settings);
+        } catch (kotErr: any) {
+          console.warn('Delivery KOT print error:', kotErr);
+        }
+      }
+
+      if (finalStatus === 'Delivered') {
+        refreshAnalytics?.();
+        showNotification(`Home Delivery Order #${invNo} confirmed as Delivered & added to Sales Report!`, 'success');
+      } else {
+        showNotification(`Home Delivery Order #${invNo} confirmed${shouldPrintReceipt ? ' & receipt sent to printer' : ''}!`, 'success');
+      }
 
       if (onOrderCreated) {
-        onOrderCreated(newOrder);
-      } else {
-        // Attempt thermal print if settings enable autoPrint
         try {
-          const settings = loadPrinterSettings();
-          if (settings.autoPrint) {
-            await printerService.printReceipt({
-              invoiceNumber: invNo,
-              orderId: newOrder.id,
-              orderType: 'Delivery',
-              customerName: newOrder.customerName,
-              cashierName: sessionStorage.getItem('pizzora_admin_name') || 'Cashier',
-              dateTime: new Date().toLocaleString(),
-              items: selectedItems.map(c => ({
-                name: c.item.name,
-                quantity: c.quantity,
-                price: c.item.price,
-                specialRequest: c.note,
-              })),
-              subtotal,
-              discount: 0,
-              total: grandTotal,
-              paymentMethod,
-              amountPaid: grandTotal,
-              change: 0,
-            }, settings);
-          }
-        } catch (printErr) {
-          console.warn('Auto print error:', printErr);
+          onOrderCreated(newOrder);
+        } catch (cbErr) {
+          console.warn('onOrderCreated callback error:', cbErr);
         }
       }
 
@@ -350,6 +450,95 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
                 />
               </div>
             </div>
+
+            {/* Print & Dispatch Preferences (Fills left column naturally) */}
+            <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200/80 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Printer size={13} className="text-emerald-600" /> Print & Dispatch Options
+                </span>
+                <button
+                  type="button"
+                  onClick={handlePrePrintBill}
+                  disabled={selectedItems.length === 0 || isPrintingPreview}
+                  className="text-[11px] text-gray-500 hover:text-emerald-700 flex items-center gap-1 font-bold cursor-pointer disabled:opacity-40 transition-colors"
+                  title="Print draft estimate slip before confirming"
+                >
+                  <FileText size={11} className="text-gray-400" />
+                  <span>{isPrintingPreview ? 'Printing...' : 'Pre-Print Slip'}</span>
+                </button>
+              </div>
+
+              <div className="space-y-2 pt-0.5">
+                <label className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-gray-200/90 hover:border-emerald-400 cursor-pointer transition-colors shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Printer size={14} className="text-emerald-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-gray-900">Auto-Print Customer Receipt</p>
+                      <p className="text-[10px] text-gray-400">Prints bill with rider phone, address & fee</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={printReceiptOnConfirm}
+                    onChange={e => setPrintReceiptOnConfirm(e.target.checked)}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-gray-200/90 hover:border-blue-400 cursor-pointer transition-colors shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <ChefHat size={14} className="text-blue-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-gray-900">Print Kitchen Ticket (KOT)</p>
+                      <p className="text-[10px] text-gray-400">Sends food ticket to kitchen cooking station</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={printKOTOnConfirm}
+                    onChange={e => setPrintKOTOnConfirm(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                  />
+                </label>
+              </div>
+
+              {/* Initial Order Status Selector */}
+              <div className="pt-2.5 border-t border-gray-200/70 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold text-gray-700">Initial Status:</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    initialStatus === 'Delivered'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : initialStatus === 'Preparing'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {initialStatus === 'Delivered' ? '✓ Completed & In Sales' : initialStatus === 'Preparing' ? 'In Kitchen Queue' : 'On Hold'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1 p-1 bg-gray-200/60 rounded-xl">
+                  {(['Preparing', 'Delivered', 'Pending'] as const).map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setInitialStatus(s)}
+                      className={`py-1.5 px-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer text-center ${
+                        initialStatus === s
+                          ? s === 'Delivered'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : s === 'Preparing'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-amber-500 text-white shadow-xs'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+                      }`}
+                    >
+                      {s === 'Preparing' ? 'Kitchen' : s === 'Delivered' ? 'Delivered' : 'Pending'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Right Column: Menu Item Picker & Ticket Cart (7 cols) */}
@@ -390,13 +579,21 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
               </div>
             </div>
 
-            {/* Menu Item Quick Picker (scrollable list) */}
-            <div className="border border-gray-200 rounded-2xl p-2.5 bg-gray-50 max-h-[175px] overflow-y-auto scrollbar-thin">
+            {/* Menu Item Quick Picker (scrollable list showing ALL products) */}
+            <div className="border border-gray-200 rounded-2xl p-2.5 bg-gray-50 max-h-[230px] overflow-y-auto scrollbar-thin">
+              <div className="flex items-center justify-between pb-1.5 px-0.5 text-[11px] text-gray-500 font-semibold border-b border-gray-200/60 mb-2">
+                <span>All Products ({filteredItems.length})</span>
+                {category !== 'All' && (
+                  <button onClick={() => setCategory('All')} className="text-emerald-700 hover:underline">
+                    Show All Categories
+                  </button>
+                )}
+              </div>
               {filteredItems.length === 0 ? (
                 <div className="py-6 text-center text-xs text-gray-400">No menu items match your search.</div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {filteredItems.slice(0, 24).map(item => (
+                  {filteredItems.map(item => (
                     <div
                       key={item.id}
                       onClick={() => addItem(item)}
@@ -512,37 +709,92 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="text-xs text-gray-500">
-            {selectedItems.length} items • Total: <strong className="text-gray-900">৳{grandTotal.toLocaleString()}</strong> ({paymentMethod})
+        <div className="px-5 py-3.5 border-t border-gray-200 bg-gray-50/90 flex flex-col sm:flex-row items-center justify-between gap-3">
+          {printFeedback && (
+            <div className="w-full px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <AlertCircle size={13} className="text-amber-600 flex-shrink-0" />
+                <span>Printer notice: {printFeedback}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setPrintFeedback(null)}
+                className="text-amber-700 font-bold hover:underline text-[11px] ml-2"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {/* Left: Compact summary */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-500 font-medium">
+              {selectedItems.reduce((s, i) => s + i.quantity, 0)} {selectedItems.reduce((s, i) => s + i.quantity, 0) === 1 ? 'item' : 'items'}
+            </span>
+            <span className="text-gray-300">•</span>
+            <span className="text-gray-500 font-medium">Total:</span>
+            <strong className="text-emerald-700 text-sm font-extrabold" style={{ fontFamily: 'var(--font-heading)' }}>
+              ৳{grandTotal.toLocaleString()}
+            </strong>
+            <span className="text-gray-400 font-medium text-[11px]">({paymentMethod})</span>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+
+          {/* Right: Clean, beautifully aligned Action Buttons in a single row */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-200 transition-colors"
+              className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-200/70 transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={() => handleCreateOrder('Pending')}
-              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white transition-colors flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+              onClick={() => handleCreateOrder('Pending', { printReceipt: false, printKOT: false })}
+              className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/90 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
+              title="Save delivery order as Pending"
             >
               <Clock size={13} />
-              Save as Pending
+              <span>Save as Pending</span>
             </button>
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={() => handleCreateOrder('Preparing')}
-              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 disabled:opacity-50"
-              style={{ fontFamily: 'var(--font-heading)' }}
+              onClick={() => handleCreateOrder('Preparing', { printReceipt: false, printKOT: true })}
+              className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/90 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
+              title="Send to kitchen with KOT only (no customer receipt)"
             >
               <ChefHat size={14} />
-              Confirm & Send to Kitchen
+              <span>Send to Kitchen</span>
+            </button>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => handleCreateOrder(initialStatus, { printReceipt: true, printKOT: printKOTOnConfirm })}
+              className={`px-5 py-2.5 rounded-xl text-xs font-extrabold active:scale-95 text-white transition-all flex items-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer ${
+                initialStatus === 'Delivered'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
+                  : initialStatus === 'Preparing'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
+                  : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/25'
+              }`}
+              style={{ fontFamily: 'var(--font-heading)' }}
+              title={
+                initialStatus === 'Delivered'
+                  ? 'Confirm delivery order, mark Delivered & Paid into Sales Report, and print receipt'
+                  : 'Confirm delivery order, dispatch to kitchen/rider and print receipt'
+              }
+            >
+              {initialStatus === 'Delivered' ? <CheckCircle2 size={14} /> : <Printer size={14} />}
+              <span>
+                {isSubmitting
+                  ? 'Confirming...'
+                  : initialStatus === 'Delivered'
+                  ? 'Confirm Delivered & Print'
+                  : 'Confirm & Print Receipt'}
+              </span>
             </button>
           </div>
         </div>

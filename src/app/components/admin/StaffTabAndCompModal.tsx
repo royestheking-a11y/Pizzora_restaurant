@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   X, Users, Gift, CheckCircle2, Clock, Banknote, Smartphone,
   CreditCard, Search, FileText, ChevronRight, User, AlertCircle,
-  Sparkles, Calendar, ArrowRight, ShieldCheck, Tag
+  Sparkles, Calendar, ArrowRight, ShieldCheck, Tag, Download, Printer
 } from 'lucide-react';
 import { useApp, Order } from '../../context/AppContext';
 
@@ -11,6 +11,17 @@ interface StaffTabAndCompModalProps {
   onClose: () => void;
   initialTab?: 'staff-tabs' | 'complimentary';
 }
+
+// Net order total to be paid by staff member
+export const getStaffOrderDue = (o: Order) => {
+  if (typeof o.total === 'number' && o.total >= 0) return o.total;
+  return o.subtotal || 0;
+};
+
+// Original menu subtotal before 100% comp
+export const getCompRetailVal = (o: Order) => {
+  return o.subtotal || o.total || 0;
+};
 
 export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs' }: StaffTabAndCompModalProps) {
   const { state, dispatch, showNotification } = useApp();
@@ -106,13 +117,13 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
   // Staff Tab Summary Metrics
   const staffMetrics = useMemo(() => {
     const pendingOrders = staffTabOrders.filter(o => !(o.staffTabDetails?.isSettled));
-    const totalPendingAmount = pendingOrders.reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
+    const totalPendingAmount = pendingOrders.reduce((sum, o) => sum + getStaffOrderDue(o), 0);
     const uniquePendingStaff = new Set(pendingOrders.map(o => o.staffTabDetails?.staffName?.trim() || 'Staff Member')).size;
 
     const currentMonth = new Date().toISOString().slice(0, 7);
     const settledThisMonth = staffTabOrders.filter(o => {
       return o.staffTabDetails?.isSettled && (o.staffTabDetails?.settledAt || '').startsWith(currentMonth);
-    }).reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
+    }).reduce((sum, o) => sum + getStaffOrderDue(o), 0);
 
     return { totalPendingAmount, uniquePendingStaff, settledThisMonth, totalStaffOrders: staffTabOrders.length };
   }, [staffTabOrders]);
@@ -131,18 +142,18 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
         };
       }
       groups[key].orders.push(o);
-      groups[key].totalDue += (o.subtotal || o.total || 0);
+      groups[key].totalDue += getStaffOrderDue(o);
     });
     return Object.values(groups).sort((a, b) => b.totalDue - a.totalDue);
   }, [staffTabOrders]);
 
   // Comp Metrics
   const compMetrics = useMemo(() => {
-    const totalCompValue = compOrders.reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
+    const totalCompValue = compOrders.reduce((sum, o) => sum + getCompRetailVal(o), 0);
     const currentMonth = new Date().toISOString().slice(0, 7);
     const thisMonthValue = compOrders
       .filter(o => (o.createdAt || '').startsWith(currentMonth))
-      .reduce((sum, o) => sum + (o.subtotal || o.total || 0), 0);
+      .reduce((sum, o) => sum + getCompRetailVal(o), 0);
 
     const reasonCounts: Record<string, number> = {};
     compOrders.forEach(o => {
@@ -152,6 +163,56 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
 
     return { totalCompOrders: compOrders.length, totalCompValue, thisMonthValue, reasonCounts };
   }, [compOrders]);
+
+  // Export current active tab as CSV
+  const handleExportCSV = () => {
+    if (activeTab === 'staff-tabs') {
+      const rows = [
+        ['Invoice', 'Date', 'Staff Name', 'Items Consumed', 'Amount (BDT)', 'Status', 'Settled Date', 'Payment Method', 'Notes'],
+        ...filteredStaffOrders.map(o => [
+          `"${o.orderNumber || o.id}"`,
+          `"${new Date(o.createdAt).toLocaleString()}"`,
+          `"${(o.staffTabDetails?.staffName || o.customerName || 'Staff Member').replace(/"/g, '""')}"`,
+          `"${o.items.map(i => `${i.quantity}x ${i.item.name}`).join('; ').replace(/"/g, '""')}"`,
+          getStaffOrderDue(o),
+          o.staffTabDetails?.isSettled ? 'Settled' : 'Unpaid Due',
+          o.staffTabDetails?.settledAt ? `"${new Date(o.staffTabDetails.settledAt).toLocaleString()}"` : '""',
+          `"${o.staffTabDetails?.settledMethod || ''}"`,
+          `"${(o.staffTabDetails?.notes || '').replace(/"/g, '""')}"`
+        ])
+      ];
+      const csv = 'data:text/csv;charset=utf-8,\uFEFF' + rows.map(r => r.join(',')).join('\n');
+      const link = document.createElement('a');
+      link.setAttribute('href', encodeURI(csv));
+      link.setAttribute('download', `Pizzora_Staff_Tabs_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showNotification('Staff Tab records exported to CSV!', 'success');
+    } else {
+      const rows = [
+        ['Invoice', 'Date', 'Guest / Host', 'Reason', 'Authorized By', 'Items Served', 'Retail Value (BDT)', 'Notes'],
+        ...filteredCompOrders.map(o => [
+          `"${o.orderNumber || o.id}"`,
+          `"${new Date(o.createdAt).toLocaleString()}"`,
+          `"${(o.compDetails?.guestName || o.customerName || 'VIP Guest').replace(/"/g, '""')}"`,
+          `"${(o.compDetails?.reason || 'Other').replace(/"/g, '""')}"`,
+          `"${(o.compDetails?.authorizedBy || 'Manager').replace(/"/g, '""')}"`,
+          `"${o.items.map(i => `${i.quantity}x ${i.item.name}`).join('; ').replace(/"/g, '""')}"`,
+          getCompRetailVal(o),
+          `"${(o.compDetails?.notes || '').replace(/"/g, '""')}"`
+        ])
+      ];
+      const csv = 'data:text/csv;charset=utf-8,\uFEFF' + rows.map(r => r.join(',')).join('\n');
+      const link = document.createElement('a');
+      link.setAttribute('href', encodeURI(csv));
+      link.setAttribute('download', `Pizzora_Complimentary_Meals_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showNotification('Complimentary meal records exported to CSV!', 'success');
+    }
+  };
 
   // Handle single order settlement
   const handleConfirmSingleSettlement = (e: React.FormEvent) => {
@@ -234,12 +295,22 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white transition-colors"
+              title="Export current tab records as CSV"
+            >
+              <Download size={13} /> Export CSV
+            </button>
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Navigation Tabs */}
@@ -448,7 +519,7 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
                         {filteredStaffOrders.map(order => {
                           const isSettled = order.staffTabDetails?.isSettled ?? false;
                           const staffName = order.staffTabDetails?.staffName || 'Staff Member';
-                          const orderAmt = order.subtotal || order.total || 0;
+                          const orderAmt = getStaffOrderDue(order);
 
                           return (
                             <tr key={order.id} className="hover:bg-amber-50/20 transition-colors">
@@ -754,7 +825,7 @@ export function StaffTabAndCompModal({ isOpen, onClose, initialTab = 'staff-tabs
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
               <span className="text-xs font-bold text-amber-900">Total Due Amount:</span>
               <span className="text-lg font-black text-amber-900" style={{ fontFamily: 'var(--font-heading)' }}>
-                ৳{(settleOrder.subtotal || settleOrder.total || 0).toLocaleString()}
+                ৳{getStaffOrderDue(settleOrder).toLocaleString()}
               </span>
             </div>
 

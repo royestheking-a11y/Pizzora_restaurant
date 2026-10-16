@@ -189,7 +189,9 @@ export function CashRegisterManagement() {
         return;
       }
       if (o.paymentMethod === 'Staff Tab') {
-        breakdown.staffTabDue += o.total;
+        if (!o.staffTabDetails?.isSettled) {
+          breakdown.staffTabDue += o.total;
+        }
         return;
       }
 
@@ -222,7 +224,9 @@ export function CashRegisterManagement() {
         return;
       }
       if (o.paymentMethod === 'Staff Tab') {
-        breakdown.staffTabDue += o.total;
+        if (!o.staffTabDetails?.isSettled) {
+          breakdown.staffTabDue += o.total;
+        }
         return;
       }
 

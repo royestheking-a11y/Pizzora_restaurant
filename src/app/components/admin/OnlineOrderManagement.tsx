@@ -56,7 +56,7 @@ interface OnlineOrderManagementProps {
 }
 
 export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementProps) {
-  const { state, dispatch, showNotification } = useApp();
+  const { state, dispatch, showNotification, refreshAnalytics } = useApp();
   const [sourceScope, setSourceScope] = useState<'website' | 'all-delivery'>('all-delivery');
 
     // -- Take Home Delivery Order State ------------------------------------------
@@ -210,6 +210,12 @@ export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementPro
     dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: orderId, status: newStatus } });
     if (selectedOrder && selectedOrder.id === orderId) {
       setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
+    }
+    if (newStatus === 'Delivered') {
+      showNotification('Order marked as Delivered & added to Sales Report!', 'success');
+      refreshAnalytics?.();
+    } else {
+      showNotification(`Order status updated to ${newStatus}`, 'info');
     }
   };
 

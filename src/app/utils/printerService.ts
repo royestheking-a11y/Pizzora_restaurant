@@ -28,6 +28,10 @@ export interface InvoiceData {
   orderType: string;
   tableNo?: string;
   customerName?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  deliveryFee?: number;
+  riderNote?: string;
   cashierName: string;
   dateTime: string;
   items: Array<{ name: string; quantity: number; price: number; variant?: string; specialRequest?: string; note?: string }>;
@@ -294,6 +298,15 @@ class QZTrayService {
     if (invoice.customerName) {
       data.push(`Customer   : ${invoice.customerName}\n`);
     }
+    if (invoice.customerPhone) {
+      data.push(`Phone      : ${invoice.customerPhone}\n`);
+    }
+    if (invoice.deliveryAddress) {
+      data.push(`Address    : ${invoice.deliveryAddress}\n`);
+    }
+    if (invoice.riderNote) {
+      data.push(`Rider Note : ${invoice.riderNote}\n`);
+    }
 
     data.push(sep + '\n');
 
@@ -337,6 +350,9 @@ class QZTrayService {
     data.push(totRow('Subtotal:', `Tk ${currency(invoice.subtotal)}`));
     if (invoice.discount > 0) {
       data.push(totRow('Discount:', `-Tk ${currency(invoice.discount)}`));
+    }
+    if (invoice.deliveryFee && invoice.deliveryFee > 0) {
+      data.push(totRow('Delivery Fee:', `Tk ${currency(invoice.deliveryFee)}`));
     }
     if (invoice.vat && invoice.vat > 0) {
       data.push(totRow('VAT:', `Tk ${currency(invoice.vat)}`));
@@ -530,6 +546,18 @@ class QZTrayService {
     data.push(...this.bold(false));
     data.push(`Order      : ${invoice.invoiceNumber}\n`);
     data.push(`Time       : ${invoice.dateTime}\n`);
+    if (invoice.customerName) {
+      data.push(`Customer   : ${invoice.customerName}\n`);
+    }
+    if (invoice.customerPhone) {
+      data.push(`Phone      : ${invoice.customerPhone}\n`);
+    }
+    if (invoice.deliveryAddress) {
+      data.push(`Address    : ${invoice.deliveryAddress}\n`);
+    }
+    if (invoice.riderNote) {
+      data.push(`Note       : ${invoice.riderNote}\n`);
+    }
 
     data.push(sep + '\n');
 
@@ -799,6 +827,21 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
           <td class="meta-label">Customer:</td>
           <td class="meta-val">${escapeHtml(invoice.customerName)}</td>
         </tr>` : ''}
+        ${invoice.customerPhone ? `
+        <tr>
+          <td class="meta-label">Phone:</td>
+          <td class="meta-val" style="font-weight: 900;">${escapeHtml(invoice.customerPhone)}</td>
+        </tr>` : ''}
+        ${invoice.deliveryAddress ? `
+        <tr>
+          <td class="meta-label">Address:</td>
+          <td class="meta-val" style="font-weight: 800;">${escapeHtml(invoice.deliveryAddress)}</td>
+        </tr>` : ''}
+        ${invoice.riderNote ? `
+        <tr>
+          <td class="meta-label">Rider Note:</td>
+          <td class="meta-val" style="font-style: italic; font-weight: 700;">${escapeHtml(invoice.riderNote)}</td>
+        </tr>` : ''}
       </table>
 
       <table class="items-table">
@@ -825,6 +868,11 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
         <tr>
           <td>Discount:</td>
           <td class="right">-Tk ${formatMoney(invoice.discount)}</td>
+        </tr>` : ''}
+        ${invoice.deliveryFee && invoice.deliveryFee > 0 ? `
+        <tr>
+          <td>Delivery Fee:</td>
+          <td class="right">Tk ${formatMoney(invoice.deliveryFee)}</td>
         </tr>` : ''}
         ${invoice.vat && invoice.vat > 0 ? `
         <tr>
@@ -1190,9 +1238,22 @@ export function generateKOTHtml(invoice: InvoiceData, settings: PrinterSettings)
       <span>Order: <strong>${escapeHtml(invoice.invoiceNumber)}</strong></span>
       <span>Time: <strong>${escapeHtml(invoice.dateTime)}</strong></span>
     </div>
-    <div class="meta-line" style="margin-bottom: 8px;">
+    <div class="meta-line" style="margin-bottom: 4px;">
       <span>Cashier: ${escapeHtml(invoice.cashierName)}</span>
+      ${invoice.customerName ? `<span>Guest: <strong>${escapeHtml(invoice.customerName)}</strong></span>` : ''}
     </div>
+    ${invoice.customerPhone ? `
+    <div class="meta-line" style="margin-bottom: 4px;">
+      <span>Phone: <strong>${escapeHtml(invoice.customerPhone)}</strong></span>
+    </div>` : ''}
+    ${invoice.deliveryAddress ? `
+    <div style="font-size: ${is58 ? '11px' : '12px'}; font-weight: 800; padding: 2px 4px; border: 1.5px dashed #000; margin-bottom: 4px; line-height: 1.2;">
+      Deliver to: ${escapeHtml(invoice.deliveryAddress)}
+    </div>` : ''}
+    ${invoice.riderNote ? `
+    <div style="font-size: ${is58 ? '10px' : '11px'}; font-style: italic; font-weight: 700; margin-bottom: 6px;">
+      * Rider Note: ${escapeHtml(invoice.riderNote)}
+    </div>` : ''}
 
     <div style="border-top: 2px solid #000; margin-bottom: 8px;"></div>
 

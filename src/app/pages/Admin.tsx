@@ -29,7 +29,7 @@ import { DeliverySettingsPanel } from '../components/admin/DeliverySettingsPanel
 import { ProductOrderAnalytics } from '../components/admin/ProductOrderAnalytics';
 import { OnlineOrderManagement, isWebsiteOnlineOrder } from '../components/admin/OnlineOrderManagement';
 import { Printer, RotateCcw, Truck, Globe } from 'lucide-react';
-import { logPrintJob } from '../utils/printerService';
+import { printerService, loadPrinterSettings, logPrintJob, type InvoiceData } from '../utils/printerService';
 import { AdminStatSkeleton, AdminListSkeleton, TableRowSkeleton, POSCardSkeleton, ChartSkeleton } from '../components/Skeletons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -825,7 +825,7 @@ export function Admin() {
   const handlePrintOrder = async (order: any) => {
     if (!order) return;
     const isTable = Boolean(order.isTableOrder || (order.address && order.address.toLowerCase().includes('table')) || order.tableNumber);
-    const isOnline = Boolean(order.isOnlineOrder || order.source === 'website' || (order.orderNumber && order.orderNumber.startsWith('PIZO')));
+    const isOnline = Boolean(order.isOnlineOrder || order.source === 'website' || (order.orderNumber && order.orderNumber.startsWith('PIZO')) || order.orderType === 'Delivery');
     const source: 'pos' | 'table' | 'online' | 'admin' = isTable ? 'table' : (isOnline ? 'online' : 'pos');
     const invoiceNumber = order.orderNumber || (isTable ? `TBL-${order.tableNumber || ''}-${order.id?.slice(-6)}` : `PIZ-${order.id?.slice(-8)}`);
 
@@ -834,7 +834,40 @@ export function Admin() {
       quantity: ci.quantity || 1,
       price: isTable ? (ci.price || 0) : (ci.item?.price || ci.price || 0),
       variant: ci.variant,
+      note: isTable ? ci.note : (ci.specialRequest || ci.note),
     }));
+
+    const itemsSubtotal = items.reduce((s: number, i: any) => s + (i.price * i.quantity), 0);
+    const subtotal = order.subtotal !== undefined ? order.subtotal : itemsSubtotal;
+    const deliveryFee = order.deliveryFee !== undefined
+      ? Number(order.deliveryFee)
+      : Math.max(0, (Number(order.total) || 0) - subtotal);
+    const customerName = order.customerName || order.displayTitle || (isTable ? `Table ${order.tableNumber || ''}` : 'Guest');
+    const customerPhone = order.phone || order.displayPhone || '';
+    const deliveryAddress = order.address || '';
+    const riderNote = order.notes || order.specialInstructions || '';
+
+    const invoiceData: InvoiceData = {
+      invoiceNumber,
+      orderId: order.id,
+      orderType: isTable ? 'Dine In' : (order.orderType || (isOnline ? 'Home Delivery' : 'POS')),
+      tableNo: order.tableNumber ? String(order.tableNumber) : '',
+      customerName,
+      customerPhone: customerPhone || undefined,
+      deliveryAddress: deliveryAddress || undefined,
+      deliveryFee: deliveryFee > 0 ? deliveryFee : undefined,
+      riderNote: riderNote || undefined,
+      cashierName: sessionStorage.getItem('pizzora_admin_name') || 'Admin',
+      dateTime: new Date(order.createdAt || Date.now()).toLocaleString(),
+      items,
+      subtotal,
+      discount: order.discount || 0,
+      total: order.total || 0,
+      paymentMethod: order.paymentMethod || 'Cash',
+      splitPayments: order.splitPayments,
+      amountPaid: order.total || 0,
+      change: 0,
+    };
 
     // Log to Reprint System database immediately
     logPrintJob({
@@ -845,28 +878,21 @@ export function Admin() {
       status: 'success',
       paymentMethod: order.paymentMethod || 'Cash',
       total: order.total || 0,
-      orderType: isTable ? 'Dine In' : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
-      customerName: order.customerName || (isTable ? `Table ${order.tableNumber || ''}` : 'Guest'),
+      orderType: isTable ? 'Dine In' : (order.orderType || (isOnline ? 'Home Delivery' : 'POS')),
+      customerName,
       tableNo: order.tableNumber ? String(order.tableNumber) : '',
       source,
-      snapshot: {
-        invoiceNumber,
-        orderId: order.id,
-        orderType: isTable ? 'Dine In' : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
-        tableNo: order.tableNumber ? String(order.tableNumber) : '',
-        customerName: order.customerName || (isTable ? `Table ${order.tableNumber || ''}` : 'Guest'),
-        cashierName: sessionStorage.getItem('pizzora_admin_name') || 'Admin',
-        dateTime: new Date(order.createdAt || Date.now()).toLocaleString(),
-        items,
-        subtotal: order.total || 0,
-        discount: order.discount || 0,
-        total: order.total || 0,
-        paymentMethod: order.paymentMethod || 'Cash',
-        splitPayments: order.splitPayments,
-        amountPaid: order.total || 0,
-        change: 0,
-      }
+      snapshot: invoiceData,
     }).catch(e => console.warn('[Admin] Failed to log print job:', e));
+
+    // Try modern thermal printerService (direct browser iframe / QZ Tray)
+    try {
+      const settings = loadPrinterSettings();
+      const res = await printerService.printReceipt(invoiceData, settings, { source });
+      if (res.success) return;
+    } catch (printErr) {
+      console.warn('[Admin] printerService print error, falling back to window.print():', printErr);
+    }
 
     setPrintOrder(order);
     setTimeout(() => {
@@ -886,6 +912,8 @@ export function Admin() {
   }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
 
   const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
+  const adminName = sessionStorage.getItem('pizzora_admin_name') || (adminRole === 'admin' ? 'Administrator' : 'Store Manager');
+  const adminInitials = (sessionStorage.getItem('pizzora_admin_name')?.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2) || (adminRole === 'admin' ? 'AD' : 'MG')).toUpperCase();
 
   // Pagination for older orders
   const [isLoadingOlderOrders, setIsLoadingOlderOrders] = useState(false);
@@ -1101,28 +1129,35 @@ export function Admin() {
     });
   };
 
-  const sidebarItems: { id: AdminTab; icon: typeof LayoutDashboard; label: string; badge?: number }[] = [
-    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { id: 'sales', icon: TrendingUp, label: 'Sales Report' },
-    { id: 'orders', icon: ShoppingBag, label: 'All Orders', badge: pendingOrders },
-    { id: 'online-orders', icon: Truck, label: 'Home Delivery & Online', badge: pendingOnlineOrders },
-    { id: 'product-analytics', icon: BarChart3, label: 'Product Sales Analytics' },
-    { id: 'tables', icon: LayoutGrid, label: 'Table Management', badge: pendingTableOrders },
-    { id: 'reservations', icon: Calendar, label: 'Reservations', badge: pendingReservations },
-    { id: 'payments', icon: CreditCard, label: 'Payments' },
-    { id: 'inventory', icon: Package, label: 'Inventory' },
-    { id: 'expense', icon: Wallet, label: 'Expense' },
-    { id: 'cash-register', icon: Banknote, label: 'Cash Register' },
-    { id: 'payroll', icon: Users, label: 'Payroll' },
-    { id: 'menu', icon: UtensilsCrossed, label: 'Menu Management' },
-    { id: 'chefs', icon: Users, label: 'Chefs' },
-    { id: 'gallery', icon: Image, label: 'Gallery' },
-    { id: 'messages', icon: MessageSquare, label: 'Messages', badge: unreadMessages },
-    { id: 'manual-invoice', icon: Printer, label: 'Invoice System' },
-    { id: 'printer-settings', icon: Printer, label: 'Printer Settings' },
-    { id: 'reprint', icon: RotateCcw, label: 'Reprint System' },
-    { id: 'delivery-settings', icon: Truck, label: 'Delivery Charges' },
-    ...(adminRole === 'admin' ? [{ id: 'roles' as AdminTab, icon: ShieldCheck, label: 'Role Management' }] : []),
+  const sidebarItems: { id: AdminTab; icon: typeof LayoutDashboard; label: string; badge?: number; section: string }[] = [
+    // Overview
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', section: 'Overview' },
+    { id: 'sales', icon: TrendingUp, label: 'Sales Report', section: 'Overview' },
+    { id: 'product-analytics', icon: BarChart3, label: 'Product Sales Analytics', section: 'Overview' },
+
+    // Operations & POS
+    { id: 'tables', icon: LayoutGrid, label: 'Table Management', badge: pendingTableOrders, section: 'Operations & POS' },
+    { id: 'orders', icon: ShoppingBag, label: 'All Orders', badge: pendingOrders, section: 'Operations & POS' },
+    { id: 'online-orders', icon: Truck, label: 'Home Delivery & Online', badge: pendingOnlineOrders, section: 'Operations & POS' },
+    { id: 'reservations', icon: Calendar, label: 'Reservations', badge: pendingReservations, section: 'Operations & POS' },
+
+    // Finance & Stock
+    { id: 'cash-register', icon: Banknote, label: 'Cash Register', section: 'Finance & Stock' },
+    { id: 'payments', icon: CreditCard, label: 'Payments', section: 'Finance & Stock' },
+    { id: 'expense', icon: Wallet, label: 'Expense', section: 'Finance & Stock' },
+    { id: 'inventory', icon: Package, label: 'Inventory', section: 'Finance & Stock' },
+    { id: 'payroll', icon: Users, label: 'Payroll', section: 'Finance & Stock' },
+
+    // Restaurant & System
+    { id: 'menu', icon: UtensilsCrossed, label: 'Menu Management', section: 'Restaurant & System' },
+    { id: 'chefs', icon: Users, label: 'Chefs', section: 'Restaurant & System' },
+    { id: 'gallery', icon: Image, label: 'Gallery', section: 'Restaurant & System' },
+    { id: 'messages', icon: MessageSquare, label: 'Messages', badge: unreadMessages, section: 'Restaurant & System' },
+    { id: 'manual-invoice', icon: Printer, label: 'Invoice System', section: 'Restaurant & System' },
+    { id: 'reprint', icon: RotateCcw, label: 'Reprint System', section: 'Restaurant & System' },
+    { id: 'printer-settings', icon: Printer, label: 'Printer Settings', section: 'Restaurant & System' },
+    { id: 'delivery-settings', icon: Truck, label: 'Delivery Charges', section: 'Restaurant & System' },
+    ...(adminRole === 'admin' ? [{ id: 'roles' as AdminTab, icon: ShieldCheck, label: 'Role Management', section: 'Restaurant & System' }] : []),
   ];
 
   // ── Save Menu Item ──────────────────────────────────────────────────
@@ -1428,93 +1463,155 @@ export function Admin() {
           className={`print-hidden flex-shrink-0 flex flex-col shadow-2xl fixed top-0 bottom-0 left-0 z-40 transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
           style={{
             width: '260px',
-            backgroundColor: '#0A0A0A',
-            borderRight: '1px solid rgba(255,255,255,0.05)'
+            background: 'linear-gradient(180deg, #120E11 0%, #0A0809 50%, #050405 100%)',
+            borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '6px 0 32px rgba(0, 0, 0, 0.55)'
           }}
         >
-          {/* Sidebar Header */}
-          <div className="px-5 pt-6 pb-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center h-8"> {/* Fixed small height container to cut off whitespace */}
-                <img
-                  src="/pizzoralogo.png"
-                  alt="Pizzora"
-                  className="h-12 object-contain scale-[1.7] origin-left"
-                  style={{ filter: 'brightness(0) invert(1)', opacity: 0.95 }}
-                />
+          {/* Top Brand Bar */}
+          <div className="px-4 pt-5 pb-3.5 border-b border-white/[0.08] relative overflow-hidden">
+            {/* Ambient Red Glow in corner */}
+            <div className="absolute -top-8 -left-8 w-28 h-28 bg-red-600/15 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center h-8">
+                  <img
+                    src="/pizzoralogo.png"
+                    alt="Pizzora"
+                    className="h-10 object-contain scale-[1.55] origin-left drop-shadow-md"
+                    style={{ filter: 'brightness(0) invert(1)', opacity: 0.95 }}
+                  />
+                </div>
               </div>
-              {/* Close button — mobile only */}
-              <button
-                className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors hover:bg-white/10"
-                style={{ background: 'rgba(255,255,255,0.05)' }}
-                onClick={() => setSidebarOpen(false)}
-              >
-                <X size={16} style={{ color: 'rgba(255,255,255,0.7)' }} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r from-red-600/30 to-rose-600/20 text-red-400 border border-red-500/30 shadow-[0_0_8px_rgba(249,0,43,0.2)]">
+                  POS OS
+                </span>
+                {/* Close button — mobile only */}
+                <button
+                  className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors hover:bg-white/10 text-white/70"
+                  style={{ background: 'rgba(255,255,255,0.06)' }}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
-            <div className="mt-8 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg flex-shrink-0" style={{ background: 'linear-gradient(135deg, #F9002B, #9f001c)', boxShadow: '0 4px 14px rgba(249,0,43,0.3)' }}>
-                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '13px', letterSpacing: '0.5px' }}>AD</span>
+            {/* Premium Admin Profile Card */}
+            <div className="mt-3.5 p-2.5 rounded-2xl bg-gradient-to-b from-white/[0.07] to-white/[0.02] border border-white/[0.09] backdrop-blur-md flex items-center gap-2.5 shadow-[0_4px_20px_rgba(0,0,0,0.35)] relative group">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-xs shrink-0 bg-gradient-to-br from-red-500 via-red-600 to-rose-700 ring-2 ring-red-500/30 shadow-[0_0_12px_rgba(249,0,43,0.35)]">
+                {adminInitials}
               </div>
-              <div className="flex flex-col">
-                <span style={{ color: '#fff', fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '14px', letterSpacing: '0.3px', lineHeight: 1.2 }}>Administrator</span>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.6)]"></div>
-                  <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '11px', letterSpacing: '0.5px' }}>System Active</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-white text-xs font-bold tracking-tight truncate" style={{ fontFamily: 'var(--font-heading)' }}>
+                    {adminName}
+                  </span>
+                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30 shrink-0">
+                    {adminRole === 'admin' ? 'Owner' : 'Staff'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
+                  <span className="text-[10px] text-zinc-400 font-medium tracking-tight">System Online</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-            {sidebarItems.map(({ id, icon: Icon, label, badge }) => (
-              <button
-                key={id}
-                onClick={() => { setActiveTab(id); setSidebarOpen(false); }}
-                className="w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-medium transition-all"
-                style={{
-                  background: activeTab === id ? 'rgba(249,0,43,0.18)' : 'transparent',
-                  color: activeTab === id ? '#F9002B' : 'rgba(255,255,255,0.6)',
-                  border: activeTab === id ? '1px solid rgba(249,0,43,0.25)' : '1px solid transparent',
-                  fontFamily: 'var(--font-heading)',
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon size={16} />
-                  <span>{label}</span>
-                </div>
-                {badge !== undefined && badge > 0 && (
-                  <span
-                    className="px-1.5 py-0.5 rounded-full text-xs font-bold text-white"
-                    style={{ backgroundColor: '#DC2626', minWidth: '20px', textAlign: 'center' }}
+          {/* Navigation with categorized groups */}
+          <nav className="flex-1 py-2 px-2.5 space-y-0.5 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent">
+            {sidebarItems.map(({ id, icon: Icon, label, badge, section }, index) => {
+              const isActive = activeTab === id;
+              const showSectionHeader = section && (index === 0 || sidebarItems[index - 1]?.section !== section);
+
+              return (
+                <div key={id}>
+                  {showSectionHeader && (
+                    <div className={`px-2.5 flex items-center justify-between ${index === 0 ? 'pt-1.5 pb-1' : 'pt-3.5 pb-1'}`}>
+                      <span className="text-[9.5px] font-black uppercase tracking-wider text-zinc-500">
+                        {section}
+                      </span>
+                      <div className="h-[1px] flex-1 bg-white/[0.06] ml-2" />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setActiveTab(id); setSidebarOpen(false); }}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold transition-all relative group ${
+                      isActive
+                        ? 'bg-gradient-to-r from-red-600/30 via-red-600/15 to-transparent text-white border border-red-500/40 shadow-sm shadow-red-950/40'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/[0.05] border border-transparent'
+                    }`}
+                    style={{ fontFamily: 'var(--font-heading)' }}
                   >
-                    {badge}
-                  </span>
-                )}
-              </button>
-            ))}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200 ${
+                        isActive
+                          ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-[0_2px_8px_rgba(249,0,43,0.5)] ring-1 ring-red-400/40'
+                          : 'bg-white/[0.04] text-zinc-400 group-hover:text-white group-hover:bg-white/[0.09] border border-white/[0.06] group-hover:border-white/10 group-hover:scale-105'
+                      }`}>
+                        <Icon size={14} />
+                      </div>
+                      <span className={`truncate whitespace-nowrap text-[12.5px] tracking-tight ${isActive ? 'font-extrabold text-white' : 'font-medium group-hover:text-zinc-100'}`}>
+                        {label}
+                      </span>
+                    </div>
+                    {badge !== undefined && badge > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-[0_2px_6px_rgba(249,0,43,0.4)] shrink-0 ml-1.5">
+                        {badge}
+                      </span>
+                    )}
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-gradient-to-b from-red-400 to-red-600 shadow-[0_0_10px_rgba(249,0,43,0.9)]" />
+                    )}
+                  </button>
+                </div>
+              );
+            })}
           </nav>
 
-          {/* Sidebar Footer */}
-          <div className="p-4 border-t space-y-1" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+          {/* Sidebar Footer — 3 Modern Premium Action Buttons */}
+          <div className="p-3 border-t border-white/[0.08] bg-black/40 backdrop-blur-md space-y-2 relative">
+            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-red-950/20 to-transparent pointer-events-none" />
+
+            {/* Big Red Button: Table Management (Dine-in POS) */}
             <button
-              onClick={() => navigate('/pos')}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-white"
+              onClick={() => { setActiveTab('tables'); setSidebarOpen(false); }}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-white shadow-lg shadow-red-950/50 hover:shadow-red-600/30 active:scale-[0.98] whitespace-nowrap overflow-hidden hover:brightness-110 relative z-10"
               style={{ background: 'linear-gradient(135deg,#F9002B,#C8001F)', fontFamily: 'var(--font-heading)' }}
             >
-              <CreditCard size={14} />
-              <span>Open POS</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <LayoutGrid size={15} className="shrink-0" />
+                <span className="whitespace-nowrap font-extrabold text-[13px] tracking-tight">Table Management</span>
+              </div>
+              {pendingTableOrders > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-white text-red-600 shrink-0 ml-1.5 shadow-xs">
+                  {pendingTableOrders}
+                </span>
+              )}
             </button>
+
+            {/* Colorful Counter POS Button (Vibrant Golden-Yellow) */}
             <button
-              onClick={() => navigate('/')}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all hover:bg-white/8"
-              style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-heading)' }}
+              onClick={() => navigate('/pos')}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-amber-950/40 active:scale-[0.98] whitespace-nowrap overflow-hidden hover:brightness-105 relative z-10"
+              style={{
+                background: 'linear-gradient(135deg, #FBBF24, #D97706)',
+                color: '#1F1200',
+                fontFamily: 'var(--font-heading)',
+                border: '1px solid rgba(254, 240, 138, 0.4)'
+              }}
             >
-              <ExternalLink size={14} />
-              <span>View Website</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <CreditCard size={15} className="shrink-0 text-amber-950" />
+                <span className="whitespace-nowrap font-black text-[12.5px] tracking-tight text-amber-950">Open Counter POS</span>
+              </div>
+              <ChevronRight size={14} className="text-amber-950/80 shrink-0 ml-1" />
             </button>
+
+            {/* Highlighted Logout Button */}
             <button
               onClick={() => {
                 sessionStorage.removeItem('pizzora_token');
@@ -1524,10 +1621,17 @@ export function Admin() {
                 dispatch({ type: 'ADMIN_LOGOUT' });
                 navigate('/admin');
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all hover:bg-red-900/20"
-              style={{ color: 'rgba(255,100,100,0.7)', fontFamily: 'var(--font-heading)' }}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all bg-red-950/30 hover:bg-red-900/50 text-red-200 hover:text-white border border-red-500/30 hover:border-red-500/60 shadow-sm shadow-red-950/40 active:scale-[0.98] relative z-10"
+              style={{ fontFamily: 'var(--font-heading)' }}
+              title="Sign out of Admin Dashboard"
             >
-              <LogOut size={14} /> Logout
+              <div className="flex items-center gap-2">
+                <LogOut size={14} className="text-red-400 shrink-0" />
+                <span className="font-extrabold tracking-wide">Sign Out / Logout</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold text-red-300 bg-red-900/60 px-1.5 py-0.5 rounded border border-red-700/50">
+                Exit
+              </span>
             </button>
           </div>
         </div>
@@ -1555,7 +1659,21 @@ export function Admin() {
                 </h2>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2.5 flex-shrink-0">
+              {/* View Website (Upper header, placed right by the watch) */}
+              <a
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 hover:text-red-600 bg-gray-50 hover:bg-red-50 border border-gray-200 hover:border-red-200 transition-all shadow-2xs active:scale-[0.98]"
+                style={{ fontFamily: 'var(--font-heading)' }}
+                title="View customer facing website"
+              >
+                <Globe size={14} className="text-red-600" />
+                <span className="hidden sm:inline">View Website</span>
+                <ExternalLink size={12} className="text-gray-400 hidden sm:inline" />
+              </a>
+
               <LiveTopStats orders={state.orders} expenses={state.expenses} />
               {unreadMessages > 0 && (
                 <div className="relative">
@@ -2309,8 +2427,14 @@ export function Admin() {
                                       <select
                                         value={order.status}
                                         onChange={e => {
-                                          dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: order.id, status: e.target.value as OrderStatus } });
-                                          showNotification('Order status updated!', 'success');
+                                          const newStatus = e.target.value as OrderStatus;
+                                          dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: order.id, status: newStatus } });
+                                          if (newStatus === 'Delivered') {
+                                            refreshAnalytics?.();
+                                            showNotification('Order marked as Delivered & added to Sales Report!', 'success');
+                                          } else {
+                                            showNotification(`Order status updated to ${newStatus}`, 'success');
+                                          }
                                         }}
                                         className="px-2 py-1.5 rounded-lg border text-xs font-semibold"
                                         style={{ borderColor: 'rgba(249,0,43,0.2)', color: '#111', fontFamily: 'var(--font-heading)', cursor: 'pointer' }}
@@ -3416,16 +3540,22 @@ export function Admin() {
                   <>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span>Customer</span>
-                      <span>{printOrder.displayTitle}</span>
+                      <span>{printOrder.displayTitle || printOrder.customerName || 'Guest'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span>Phone</span>
-                      <span>{printOrder.displayPhone}</span>
+                      <span>{printOrder.displayPhone || printOrder.phone || '-'}</span>
                     </div>
                     {printOrder.address && (
                       <div>
                         <span>Address: </span>
                         <span>{printOrder.address}</span>
+                      </div>
+                    )}
+                    {printOrder.notes && (
+                      <div style={{ fontSize: '10px', fontStyle: 'italic', marginTop: '2px' }}>
+                        <span>Note: </span>
+                        <span>{printOrder.notes}</span>
                       </div>
                     )}
                   </>

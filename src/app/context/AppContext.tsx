@@ -864,7 +864,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         orders: state.orders.map(o => {
-          if (o.id !== action.payload.orderId) return o;
+          if (o.id !== action.payload.orderId && o.orderNumber !== action.payload.orderId) return o;
           return {
             ...o,
             staffTabDetails: {
@@ -874,6 +874,20 @@ function reducer(state: AppState, action: Action): AppState {
               settledMethod: action.payload.settledMethod,
               settledBy: action.payload.settledBy || 'Admin',
               notes: action.payload.notes || o.staffTabDetails?.notes || ''
+            }
+          };
+        }),
+        tableOrders: (state.tableOrders || []).map(to => {
+          if (to.id !== action.payload.orderId && to.invoiceNumber !== action.payload.orderId) return to;
+          return {
+            ...to,
+            staffTabDetails: {
+              ...(to.staffTabDetails || { staffId: '', staffName: to.customerName || 'Staff', isSettled: false }),
+              isSettled: true,
+              settledAt: now,
+              settledMethod: action.payload.settledMethod,
+              settledBy: action.payload.settledBy || 'Admin',
+              notes: action.payload.notes || to.staffTabDetails?.notes || ''
             }
           };
         })

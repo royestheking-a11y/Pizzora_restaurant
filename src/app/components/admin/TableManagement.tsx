@@ -80,6 +80,17 @@ interface TableDraftSession {
   customerName: string;
   customerPhone: string;
   guestCount: number;
+  paymentMethod?: PaymentMethod;
+  cashTendered?: string;
+  trxRef?: string;
+  splitAmounts?: { Cash: string; bKash: string; Nagad: string; Card: string };
+  compGuestName?: string;
+  compReason?: string;
+  compAuthorizedBy?: string;
+  compNotes?: string;
+  staffEmployeeId?: string;
+  staffEmployeeName?: string;
+  staffNotes?: string;
 }
 
 function ElapsedTime({ since }: { since: number }) {
@@ -1362,25 +1373,7 @@ export function TableManagement() {
   // Menu Explorer in POS mode
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
-
-  // Right Panel POS Payment state (same as POS terminal)
-  const [panelPaymentMethod, setPanelPaymentMethod] = useState<PaymentMethod>('Cash');
-  const [panelCashTendered, setPanelCashTendered] = useState<string>('');
-  const [panelTrxRef, setPanelTrxRef] = useState<string>('');
-  const [panelSplitAmounts, setPanelSplitAmounts] = useState<{ Cash: string; bKash: string; Nagad: string; Card: string }>({
-    Cash: '', bKash: '', Nagad: '', Card: ''
-  });
   const [isPanelProcessing, setIsPanelProcessing] = useState<boolean>(false);
-
-  // Complimentary (Free Guest) & Staff Tab States for Right Panel
-  const [panelCompGuestName, setPanelCompGuestName] = useState<string>('');
-  const [panelCompReason, setPanelCompReason] = useState<string>('Owner / Partner VIP');
-  const [panelCompAuthorizedBy, setPanelCompAuthorizedBy] = useState<string>('Manager');
-  const [panelCompNotes, setPanelCompNotes] = useState<string>('');
-
-  const [panelStaffEmployeeId, setPanelStaffEmployeeId] = useState<string>('');
-  const [panelStaffEmployeeName, setPanelStaffEmployeeName] = useState<string>('');
-  const [panelStaffNotes, setPanelStaffNotes] = useState<string>('');
 
   const currentTable = useMemo(() => {
     return tables.find(t => t.id === selectedTableId) || tables[0] || null;
@@ -1391,22 +1384,58 @@ export function TableManagement() {
     return tableOrders.find(o => o.tableId === currentTable.id && !['Served', 'Paid'].includes(o.status)) || null;
   }, [tableOrders, currentTable]);
 
-  // Active Draft Session for Current Table
+  // Active Draft Session for Current Table (Independent per-table cart & payment state)
   const currentDraft = useMemo<TableDraftSession>(() => {
     if (!currentTable) {
-      return { items: [], discountVal: '', discountType: 'flat', customerNote: '', customerName: '', customerPhone: '', guestCount: 2 };
+      return {
+        items: [],
+        discountVal: '',
+        discountType: 'flat',
+        customerNote: '',
+        customerName: '',
+        customerPhone: '',
+        guestCount: 2,
+        paymentMethod: 'Cash',
+        cashTendered: '',
+        trxRef: '',
+        splitAmounts: { Cash: '', bKash: '', Nagad: '', Card: '' },
+        compGuestName: '',
+        compReason: 'Owner / Partner VIP',
+        compAuthorizedBy: 'Manager',
+        compNotes: '',
+        staffEmployeeId: '',
+        staffEmployeeName: '',
+        staffNotes: '',
+      };
     }
     const draft = tableDrafts[currentTable.id];
-    return draft || {
-      items: [],
-      discountVal: '',
-      discountType: 'flat',
-      customerNote: '',
-      customerName: currentTable.customerName || '',
-      customerPhone: currentTable.customerPhone || '',
-      guestCount: currentTable.guestCount || currentTable.seats || 2,
+    const initialPaymentMethod: PaymentMethod =
+      draft?.paymentMethod ||
+      (activeOrder?.paymentMethod && ['Cash', 'Card', 'bKash', 'Nagad', 'Split', 'Complimentary', 'Staff Tab'].includes(activeOrder.paymentMethod)
+        ? (activeOrder.paymentMethod as PaymentMethod)
+        : 'Cash');
+
+    return {
+      items: draft?.items || [],
+      discountVal: draft?.discountVal || '',
+      discountType: draft?.discountType || 'flat',
+      customerNote: draft?.customerNote || '',
+      customerName: draft?.customerName ?? (currentTable.customerName || activeOrder?.customerName || ''),
+      customerPhone: draft?.customerPhone ?? (currentTable.customerPhone || activeOrder?.customerPhone || ''),
+      guestCount: draft?.guestCount ?? (currentTable.guestCount || activeOrder?.guestCount || currentTable.seats || 2),
+      paymentMethod: initialPaymentMethod,
+      cashTendered: draft?.cashTendered ?? '',
+      trxRef: draft?.trxRef ?? '',
+      splitAmounts: draft?.splitAmounts ?? { Cash: '', bKash: '', Nagad: '', Card: '' },
+      compGuestName: draft?.compGuestName ?? (draft?.customerName || currentTable.customerName || activeOrder?.compDetails?.guestName || ''),
+      compReason: draft?.compReason ?? (activeOrder?.compDetails?.reason || 'Owner / Partner VIP'),
+      compAuthorizedBy: draft?.compAuthorizedBy ?? (activeOrder?.compDetails?.authorizedBy || 'Manager'),
+      compNotes: draft?.compNotes ?? (activeOrder?.compDetails?.notes || ''),
+      staffEmployeeId: draft?.staffEmployeeId ?? (activeOrder?.staffTabDetails?.staffId || ''),
+      staffEmployeeName: draft?.staffEmployeeName ?? (draft?.customerName || currentTable.customerName || activeOrder?.staffTabDetails?.staffName || ''),
+      staffNotes: draft?.staffNotes ?? (activeOrder?.staffTabDetails?.notes || ''),
     };
-  }, [tableDrafts, currentTable]);
+  }, [tableDrafts, currentTable, activeOrder]);
 
   // Update Draft helper
   const updateCurrentDraft = useCallback((updater: (prev: TableDraftSession) => TableDraftSession) => {
@@ -1420,6 +1449,17 @@ export function TableManagement() {
         customerName: currentTable.customerName || '',
         customerPhone: currentTable.customerPhone || '',
         guestCount: currentTable.guestCount || currentTable.seats || 2,
+        paymentMethod: 'Cash',
+        cashTendered: '',
+        trxRef: '',
+        splitAmounts: { Cash: '', bKash: '', Nagad: '', Card: '' },
+        compGuestName: currentTable.customerName || '',
+        compReason: 'Owner / Partner VIP',
+        compAuthorizedBy: 'Manager',
+        compNotes: '',
+        staffEmployeeId: '',
+        staffEmployeeName: currentTable.customerName || '',
+        staffNotes: '',
       };
       return {
         ...prev,
@@ -1427,6 +1467,71 @@ export function TableManagement() {
       };
     });
   }, [currentTable]);
+
+  // Right Panel POS Payment state (Per-table individual getters & setters)
+  const panelPaymentMethod: PaymentMethod = currentDraft.paymentMethod || 'Cash';
+  const panelCashTendered: string = currentDraft.cashTendered || '';
+  const panelTrxRef: string = currentDraft.trxRef || '';
+  const panelSplitAmounts = currentDraft.splitAmounts || { Cash: '', bKash: '', Nagad: '', Card: '' };
+  const panelCompGuestName: string = currentDraft.compGuestName || '';
+  const panelCompReason: string = currentDraft.compReason || 'Owner / Partner VIP';
+  const panelCompAuthorizedBy: string = currentDraft.compAuthorizedBy || 'Manager';
+  const panelCompNotes: string = currentDraft.compNotes || '';
+  const panelStaffEmployeeId: string = currentDraft.staffEmployeeId || '';
+  const panelStaffEmployeeName: string = currentDraft.staffEmployeeName || '';
+  const panelStaffNotes: string = currentDraft.staffNotes || '';
+
+  const setPanelPaymentMethod = useCallback((pm: PaymentMethod) => {
+    updateCurrentDraft(d => ({ ...d, paymentMethod: pm }));
+  }, [updateCurrentDraft]);
+
+  const setPanelCashTendered = useCallback((val: string) => {
+    updateCurrentDraft(d => ({ ...d, cashTendered: val }));
+  }, [updateCurrentDraft]);
+
+  const setPanelTrxRef = useCallback((val: string) => {
+    updateCurrentDraft(d => ({ ...d, trxRef: val }));
+  }, [updateCurrentDraft]);
+
+  const setPanelSplitAmounts = useCallback((
+    updater:
+      | { Cash: string; bKash: string; Nagad: string; Card: string }
+      | ((prev: { Cash: string; bKash: string; Nagad: string; Card: string }) => { Cash: string; bKash: string; Nagad: string; Card: string })
+  ) => {
+    updateCurrentDraft(d => {
+      const current = d.splitAmounts || { Cash: '', bKash: '', Nagad: '', Card: '' };
+      const next = typeof updater === 'function' ? updater(current) : updater;
+      return { ...d, splitAmounts: next };
+    });
+  }, [updateCurrentDraft]);
+
+  const setPanelCompGuestName = useCallback((val: string) => {
+    updateCurrentDraft(d => ({ ...d, compGuestName: val }));
+  }, [updateCurrentDraft]);
+
+  const setPanelCompReason = useCallback((val: string) => {
+    updateCurrentDraft(d => ({ ...d, compReason: val }));
+  }, [updateCurrentDraft]);
+
+  const setPanelCompAuthorizedBy = useCallback((val: string) => {
+    updateCurrentDraft(d => ({ ...d, compAuthorizedBy: val }));
+  }, [updateCurrentDraft]);
+
+  const setPanelCompNotes = useCallback((val: string) => {
+    updateCurrentDraft(d => ({ ...d, compNotes: val }));
+  }, [updateCurrentDraft]);
+
+  const setPanelStaffEmployeeId = useCallback((val: string) => {
+    updateCurrentDraft(d => ({ ...d, staffEmployeeId: val }));
+  }, [updateCurrentDraft]);
+
+  const setPanelStaffEmployeeName = useCallback((val: string) => {
+    updateCurrentDraft(d => ({ ...d, staffEmployeeName: val }));
+  }, [updateCurrentDraft]);
+
+  const setPanelStaffNotes = useCallback((val: string) => {
+    updateCurrentDraft(d => ({ ...d, staffNotes: val }));
+  }, [updateCurrentDraft]);
 
   // Add Item to Current Table Draft
   const handleAddItemToTable = (item: MenuItem) => {
@@ -1701,9 +1806,6 @@ export function TableManagement() {
         delete next[currentTable.id];
         return next;
       });
-      setPanelCashTendered('');
-      setPanelTrxRef('');
-      setPanelSplitAmounts({ Cash: '', bKash: '', Nagad: '', Card: '' });
 
       showNotification(`Table ${currentTable.tableNumber} settled (৳${ticketTotal}) via ${panelPaymentMethod} and cleared!`, 'success');
     } catch (err: any) {

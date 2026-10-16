@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Edit2, Trash2, Save, X, AlertTriangle, Package,
   TrendingDown, TrendingUp, Search, ChevronDown, BarChart3, Download,
@@ -37,7 +37,7 @@ export const INVENTORY_CATEGORIES: InventoryCategoryMeta[] = [
 
 const CATEGORIES = INVENTORY_CATEGORIES.map(c => c.id);
 
-const UNITS = ['Piece', 'Bottle', 'Box', 'Packet', 'Can', 'Kg', 'Gram', 'Liter', 'ml', 'Dozen'];
+const UNITS = ['Bottle', 'Piece', 'Box', 'Packet', 'Can', 'Cup', 'Bag', 'Kg', 'Gram', 'Liter', 'ml', 'Dozen', 'Roll', 'Portion', 'Set'];
 const PZ = '#F9002B';
 const PZD = '#C8001F';
 
@@ -180,17 +180,63 @@ export function InventoryManagement() {
     name: '',
     sku: '',
     category: 'Raw Materials & Ingredients',
-    unit: 'Kg',
+    unit: 'Bottle',
     supplier: '',
     costPrice: 0, // Purchase Price
-    initialStock: 0, // Opening quantity
-    newPurchasedQty: 0, // Initial purchase quantity
+    initialStock: 0, // Stock on hand
+    newPurchasedQty: 0,
     currentStock: 0,
     minStock: 10,
     maxStock: 100,
-    addedDate: new Date().toLocaleDateString('en-CA')
+    addedDate: new Date().toLocaleDateString('en-CA'),
+    menuItemId: '',
   });
   const [form, setForm] = useState(blankForm());
+
+  // Custom Categories State (persisted locally and merged with existing inventory)
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('pizzora_custom_inv_categories');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showAddCategoryInput, setShowAddCategoryInput] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [skuManuallyEdited, setSkuManuallyEdited] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pizzora_custom_inv_categories', JSON.stringify(customCategories));
+    } catch {}
+  }, [customCategories]);
+
+  const allCategories = useMemo(() => {
+    const set = new Set(CATEGORIES);
+    items.forEach(i => { if (i.category) set.add(i.category); });
+    customCategories.forEach(c => set.add(c));
+    return Array.from(set);
+  }, [items, customCategories]);
+
+  // Intelligent SKU Auto-Generator
+  const generateSkuFromName = (name: string, category: string): string => {
+    if (!name.trim()) return '';
+    const clean = name.trim().replace(/[^a-zA-Z0-9\s]/g, '');
+    const words = clean.split(/\s+/).filter(Boolean);
+    let code = '';
+    if (words.length >= 2) {
+      code = (words[0].slice(0, 2) + words[1].slice(0, 2)).toUpperCase();
+    } else if (words.length === 1) {
+      code = words[0].slice(0, 3).toUpperCase();
+    }
+    if (code.length < 3) {
+      code = (code + 'INV').slice(0, 3);
+    }
+    const prefix = code.slice(0, 3);
+    const existingCount = items.filter(i => (i.sku || '').toUpperCase().startsWith(prefix)).length;
+    return `${prefix}-${String(existingCount + 1).padStart(3, '0')}`;
+  };
 
   // Date Boundaries Calculation
   const getFilterDate = (daysAgo: number) => {
@@ -230,7 +276,11 @@ export function InventoryManagement() {
 
   // Save or edit item
   const handleSave = () => {
-    if (!form.name || !form.sku) return;
+    if (!form.name.trim() || !form.sku.trim()) return;
+
+    const unitPrice = Number(form.costPrice) || 0;
+    const stockQty = Number(form.initialStock) || 0;
+    const entryDate = form.addedDate || new Date().toLocaleDateString('en-CA');
 
     if (editing) {
       const updatedItem: InventoryItem = {
@@ -240,19 +290,16 @@ export function InventoryManagement() {
         category: form.category,
         unit: form.unit,
         supplier: form.supplier.trim(),
-        costPrice: Number(form.costPrice) || 0,
+        costPrice: unitPrice,
         minStock: Number(form.minStock) || 0,
         maxStock: Number(form.maxStock) || 100,
         addedDate: form.addedDate || editing.addedDate,
+        menuItemId: form.menuItemId || undefined,
+        currentStock: stockQty, // Allow updating stock directly if adjusted
       };
       dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: updatedItem });
     } else {
       const newItemId = `inv-${Date.now()}`;
-      const initStock = Number(form.initialStock) || 0;
-      const newPurchased = Number(form.newPurchasedQty) || 0;
-      const totalStock = initStock + newPurchased;
-      const unitPrice = Number(form.costPrice) || 0;
-      const entryDate = form.addedDate || new Date().toLocaleDateString('en-CA');
 
       const newItem: InventoryItem = {
         id: newItemId,
@@ -262,20 +309,21 @@ export function InventoryManagement() {
         unit: form.unit,
         supplier: form.supplier.trim(),
         costPrice: unitPrice,
-        initialStock: initStock,
-        currentStock: totalStock,
+        initialStock: stockQty,
+        currentStock: stockQty,
         minStock: Number(form.minStock) || 0,
         maxStock: Number(form.maxStock) || 100,
         addedDate: entryDate,
         lastPurchasePrice: unitPrice,
         lastPurchasedDate: entryDate,
-        lastPurchasedQty: newPurchased > 0 ? newPurchased : initStock,
+        lastPurchasedQty: stockQty,
+        menuItemId: form.menuItemId || undefined,
       };
 
       dispatch({ type: 'ADD_INVENTORY_ITEM', payload: newItem });
 
-      // 1. Initial Opening Stock Movement
-      if (initStock > 0) {
+      // Clean single initial stock movement
+      if (stockQty > 0) {
         dispatch({
           type: 'ADD_STOCK_MOVEMENT',
           payload: {
@@ -283,29 +331,11 @@ export function InventoryManagement() {
             itemId: newItemId,
             itemName: newItem.name,
             type: 'Initial Stock',
-            quantity: initStock,
+            quantity: stockQty,
             unitPrice: unitPrice,
-            totalCost: initStock * unitPrice,
+            totalCost: stockQty * unitPrice,
             date: entryDate,
-            note: 'Initial Opening Stock'
-          }
-        });
-      }
-
-      // 2. Initial Purchase Movement if new purchase quantity entered
-      if (newPurchased > 0) {
-        dispatch({
-          type: 'ADD_STOCK_MOVEMENT',
-          payload: {
-            id: `mv-${Date.now()}-purch`,
-            itemId: newItemId,
-            itemName: newItem.name,
-            type: 'Purchase IN',
-            quantity: newPurchased,
-            unitPrice: unitPrice,
-            totalCost: newPurchased * unitPrice,
-            date: entryDate,
-            note: 'Initial Stock Purchase'
+            note: 'Initial Stock on Hand'
           }
         });
       }
@@ -314,6 +344,8 @@ export function InventoryManagement() {
     setShowForm(false);
     setEditing(null);
     setForm(blankForm());
+    setSkuManuallyEdited(false);
+    setShowAddCategoryInput(false);
   };
 
   const handleDelete = (id: string) => dispatch({ type: 'DELETE_INVENTORY_ITEM', payload: id });
@@ -1313,13 +1345,16 @@ export function InventoryManagement() {
                                   unit: item.unit,
                                   supplier: item.supplier || '',
                                   costPrice: item.costPrice || 0,
-                                  initialStock: item.initialStock || item.currentStock,
+                                  initialStock: item.currentStock,
                                   newPurchasedQty: 0,
                                   currentStock: item.currentStock,
                                   minStock: item.minStock,
                                   maxStock: item.maxStock,
-                                  addedDate: item.addedDate || new Date().toLocaleDateString('en-CA')
+                                  addedDate: item.addedDate || new Date().toLocaleDateString('en-CA'),
+                                  menuItemId: item.menuItemId || '',
                                 });
+                                setSkuManuallyEdited(true);
+                                setShowAddCategoryInput(false);
                                 setShowForm(true);
                               }}
                               title="Edit Item"
@@ -2343,148 +2378,314 @@ export function InventoryManagement() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl bg-white border border-gray-200">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-linear-to-r from-red-50/50 to-white">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white" style={{ background: `linear-gradient(135deg, ${PZ}, ${PZD})` }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xs" style={{ background: `linear-gradient(135deg, ${PZ}, ${PZD})` }}>
                   <Package size={18} />
                 </div>
                 <div>
                   <h2 className="text-base font-extrabold text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
                     {editing ? 'Edit Inventory Item' : 'Add New Inventory Product'}
                   </h2>
-                  <p className="text-[11px] text-gray-500">Record stock date, opening balance, initial purchase, and unit cost price</p>
+                  <p className="text-[11px] text-gray-500">Quickly add item name, auto-generate SKU, set category, purchase price & stock quantity</p>
                 </div>
               </div>
-              <button onClick={() => { setShowForm(false); setEditing(null); }} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-700">
+              <button
+                onClick={() => { setShowForm(false); setEditing(null); }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+              >
                 <X size={16} />
               </button>
             </div>
 
-            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label style={labelSt}>Entry Date *</label>
-                <input
-                  type="date"
-                  value={form.addedDate}
-                  onChange={e => setForm(f => ({ ...f, addedDate: e.target.value }))}
-                  style={inputSt}
-                />
+            {/* Form Fields */}
+            <div className="p-5 space-y-4">
+              {/* Row 1: Product Name & Auto SKU */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label style={labelSt}>
+                    Product / Item Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Mineral Water 500ml, 10&quot; Pizza Box, Mozzarella"
+                    value={form.name}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setForm(f => {
+                        const updated = { ...f, name: val };
+                        if (!skuManuallyEdited) {
+                          updated.sku = generateSkuFromName(val, f.category);
+                        }
+                        // Auto-match menu item if name matches
+                        const matchedMenu = state.menuItems?.find(m => m.name.toLowerCase() === val.trim().toLowerCase());
+                        if (matchedMenu && !f.menuItemId) {
+                          updated.menuItemId = matchedMenu.id;
+                        }
+                        return updated;
+                      });
+                    }}
+                    style={inputSt}
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label style={{ ...labelSt, marginBottom: 0 }}>
+                      SKU Code <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSkuManuallyEdited(false);
+                        const autoSku = generateSkuFromName(form.name || 'ITEM', form.category);
+                        setForm(f => ({ ...f, sku: autoSku }));
+                      }}
+                      className="text-[11px] font-bold text-red-600 hover:text-red-700 flex items-center gap-1 transition-colors"
+                      title="Generate SKU automatically from product name"
+                    >
+                      <Zap size={11} /> Auto Generate
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="e.g. WAT-001"
+                      value={form.sku}
+                      onChange={e => {
+                        setSkuManuallyEdited(true);
+                        setForm(f => ({ ...f, sku: e.target.value.toUpperCase() }));
+                      }}
+                      style={{ ...inputSt, fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.05em' }}
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label style={labelSt}>Product / Item Name *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 10&quot; Pizza Box, Mineral Water, Mozzarella Cheese"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  style={inputSt}
-                />
+              {/* Row 2: Category (with Custom Category Add) & Unit of Measure */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label style={{ ...labelSt, marginBottom: 0 }}>
+                      Category / Item Type <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCategoryInput(!showAddCategoryInput)}
+                      className="text-[11px] font-bold text-red-600 hover:text-red-700 flex items-center gap-0.5 transition-colors"
+                    >
+                      <Plus size={12} /> {showAddCategoryInput ? 'Existing Categories' : 'Custom Category'}
+                    </button>
+                  </div>
+                  {showAddCategoryInput ? (
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="Type custom category name..."
+                        value={newCategoryInput}
+                        onChange={e => setNewCategoryInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newCategoryInput.trim()) {
+                              const cat = newCategoryInput.trim();
+                              setCustomCategories(prev => prev.includes(cat) ? prev : [...prev, cat]);
+                              setForm(f => ({ ...f, category: cat }));
+                              setNewCategoryInput('');
+                              setShowAddCategoryInput(false);
+                            }
+                          }
+                        }}
+                        style={inputSt}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (newCategoryInput.trim()) {
+                            const cat = newCategoryInput.trim();
+                            setCustomCategories(prev => prev.includes(cat) ? prev : [...prev, cat]);
+                            setForm(f => ({ ...f, category: cat }));
+                            setNewCategoryInput('');
+                            setShowAddCategoryInput(false);
+                          }
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl text-white font-bold text-xs shadow-xs hover:opacity-90 flex-shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${PZ}, ${PZD})` }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={form.category}
+                      onChange={e => {
+                        const newCat = e.target.value;
+                        setForm(f => {
+                          const updated = { ...f, category: newCat };
+                          if (!skuManuallyEdited && form.name) {
+                            updated.sku = generateSkuFromName(form.name, newCat);
+                          }
+                          return updated;
+                        });
+                      }}
+                      style={inputSt}
+                    >
+                      {allCategories.map(c => (
+                        <option key={c} value={c}>
+                          {c} {customCategories.includes(c) ? '(Custom)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div>
+                  <label style={labelSt}>
+                    Unit of Measure <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.unit}
+                    onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                    style={inputSt}
+                  >
+                    {UNITS.map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label style={labelSt}>SKU Code *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. BOX-010, WAT-001, CHE-001"
-                  value={form.sku}
-                  onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
-                  style={inputSt}
-                />
-              </div>
-
-              <div>
-                <label style={labelSt}>Category / Item Type *</label>
-                <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={inputSt}>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelSt}>Unit of Measure *</label>
-                <select value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} style={inputSt}>
-                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelSt}>Purchase Price (৳/unit) *</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={form.costPrice}
-                  onChange={e => setForm(f => ({ ...f, costPrice: Number(e.target.value) }))}
-                  style={inputSt}
-                />
-              </div>
-
-              <div>
-                <label style={labelSt}>Supplier / Vendor</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Bismillah Store, Dhaka Market"
-                  value={form.supplier}
-                  onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))}
-                  style={inputSt}
-                />
-              </div>
-
-              {!editing && (
-                <>
-                  <div className="bg-amber-50/60 p-3.5 rounded-xl border border-amber-100">
-                    <label style={{ ...labelSt, color: '#B45309' }}>Opening Stock Balance</label>
+              {/* Row 3: Purchase Price & Stock Quantity on Hand */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label style={labelSt}>
+                    Purchase Price (৳/unit) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">৳</span>
                     <input
                       type="number"
+                      min="0"
+                      step="any"
                       placeholder="0"
-                      value={form.initialStock}
-                      onChange={e => setForm(f => ({ ...f, initialStock: Number(e.target.value) }))}
-                      style={inputSt}
+                      value={form.costPrice || ''}
+                      onChange={e => setForm(f => ({ ...f, costPrice: Number(e.target.value) }))}
+                      style={{ ...inputSt, paddingLeft: '28px', fontWeight: 600 }}
                     />
-                    <span className="text-[10px] text-amber-700/80 mt-1 block">Initial balance or existing stock</span>
                   </div>
+                  <span className="text-[10px] text-gray-400 mt-1 block">Cost paid per single unit</span>
+                </div>
 
-                  <div className="bg-green-50/60 p-3.5 rounded-xl border border-green-100">
-                    <label style={{ ...labelSt, color: '#15803D' }}>New Purchased Quantity</label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={form.newPurchasedQty}
-                      onChange={e => setForm(f => ({ ...f, newPurchasedQty: Number(e.target.value) }))}
-                      style={inputSt}
-                    />
-                    <span className="text-[10px] text-green-700/80 mt-1 block">New stock purchased with this entry</span>
+                <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <label style={{ ...labelSt, color: '#047857', marginBottom: 0 }}>
+                      {editing ? 'Current Stock on Hand' : 'Initial Stock Quantity'} <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      {form.unit || 'Units'}
+                    </span>
                   </div>
-                </>
-              )}
-
-              <div>
-                <label style={labelSt}>Minimum Safety Stock Threshold</label>
-                <input
-                  type="number"
-                  placeholder="10"
-                  value={form.minStock}
-                  onChange={e => setForm(f => ({ ...f, minStock: Number(e.target.value) }))}
-                  style={inputSt}
-                />
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 100"
+                    value={form.initialStock !== undefined && form.initialStock !== 0 ? form.initialStock : (form.initialStock === 0 ? '' : form.initialStock)}
+                    onChange={e => {
+                      const qty = e.target.value === '' ? 0 : Number(e.target.value);
+                      setForm(f => ({ ...f, initialStock: qty, currentStock: qty }));
+                    }}
+                    style={{ ...inputSt, borderColor: '#A7F3D0', fontWeight: 'bold', fontSize: '15px' }}
+                  />
+                  <div className="flex items-center justify-between text-[11px] text-emerald-800 font-medium mt-1.5">
+                    <span>Stock Asset Value:</span>
+                    <span className="font-extrabold font-mono text-emerald-900">
+                      ৳{((Number(form.initialStock) || 0) * (Number(form.costPrice) || 0)).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label style={labelSt}>Maximum Storage Capacity</label>
-                <input
-                  type="number"
-                  placeholder="100"
-                  value={form.maxStock}
-                  onChange={e => setForm(f => ({ ...f, maxStock: Number(e.target.value) }))}
-                  style={inputSt}
-                />
+              {/* Row 4: Supplier / Vendor & Link to Menu Item */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label style={labelSt}>Supplier / Vendor</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Akij Beverage, Bismillah Store, Dhaka Market"
+                    value={form.supplier}
+                    onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))}
+                    style={inputSt}
+                  />
+                </div>
+
+                <div>
+                  <label style={labelSt}>Link to POS Menu Item (Optional)</label>
+                  <select
+                    value={form.menuItemId || ''}
+                    onChange={e => setForm(f => ({ ...f, menuItemId: e.target.value }))}
+                    style={inputSt}
+                  >
+                    <option value="">None / Standalone Raw Material</option>
+                    {state.menuItems?.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.category} · ৳{m.price})
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[10px] text-gray-400 mt-1 block">Connects to POS sales for real-time stock deduction</span>
+                </div>
+              </div>
+
+              {/* Row 5: Capacity, Safety Threshold & Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div>
+                  <label style={labelSt}>Minimum Safety Stock</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="10"
+                    value={form.minStock}
+                    onChange={e => setForm(f => ({ ...f, minStock: Number(e.target.value) }))}
+                    style={inputSt}
+                  />
+                  <span className="text-[10px] text-gray-400 mt-0.5 block">Alerts when low</span>
+                </div>
+
+                <div>
+                  <label style={labelSt}>Maximum Storage Capacity</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="100"
+                    value={form.maxStock}
+                    onChange={e => setForm(f => ({ ...f, maxStock: Number(e.target.value) }))}
+                    style={inputSt}
+                  />
+                  <span className="text-[10px] text-gray-400 mt-0.5 block">Full shelf limit</span>
+                </div>
+
+                <div>
+                  <label style={labelSt}>Entry Date</label>
+                  <input
+                    type="date"
+                    value={form.addedDate}
+                    onChange={e => setForm(f => ({ ...f, addedDate: e.target.value }))}
+                    style={inputSt}
+                  />
+                  <span className="text-[10px] text-gray-400 mt-0.5 block">Stock record date</span>
+                </div>
               </div>
             </div>
 
-            <div className="flex gap-3 p-5 border-t border-gray-100 bg-gray-50/50">
+            {/* Modal Actions */}
+            <div className="flex gap-3 p-5 border-t border-gray-100 bg-gray-50/70">
               <button
                 type="button"
                 onClick={() => { setShowForm(false); setEditing(null); }}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-gray-200 text-gray-700 hover:bg-gray-100"
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors"
                 style={{ fontFamily: 'var(--font-heading)' }}
               >
                 Cancel
@@ -2492,11 +2693,12 @@ export function InventoryManagement() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold shadow-sm transition-transform active:scale-95"
+                disabled={!form.name.trim() || !form.sku.trim()}
+                className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold shadow-sm transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                 style={{ background: `linear-gradient(135deg, ${PZ}, ${PZD})`, fontFamily: 'var(--font-heading)' }}
               >
-                <Save size={13} className="inline mr-1.5" />
-                {editing ? 'Update Product' : 'Save Product & Stock'}
+                <Save size={14} />
+                {editing ? 'Update Inventory Item' : 'Save Product & Stock'}
               </button>
             </div>
           </div>
