@@ -317,7 +317,7 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-fade-in overflow-y-auto">
-      <div className="w-full max-w-4xl rounded-3xl shadow-2xl bg-white border border-gray-200 overflow-hidden flex flex-col max-h-[92vh] my-auto">
+      <div className="w-full max-w-5xl rounded-3xl shadow-2xl bg-white border border-gray-200 overflow-hidden flex flex-col max-h-[92vh] my-auto">
         {/* Header */}
         <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-emerald-50/60">
           <div className="flex items-center gap-3">
@@ -709,7 +709,7 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="px-5 py-3.5 border-t border-gray-200 bg-gray-50/90 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="px-5 py-3.5 border-t border-gray-200 bg-gray-50/90 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {printFeedback && (
             <div className="w-full px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-center justify-between">
               <span className="flex items-center gap-1.5">
@@ -726,21 +726,23 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
             </div>
           )}
 
-          {/* Left: Compact summary */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-gray-500 font-medium">
-              {selectedItems.reduce((s, i) => s + i.quantity, 0)} {selectedItems.reduce((s, i) => s + i.quantity, 0) === 1 ? 'item' : 'items'}
+          {/* Left: Compact summary — unbreakable single-line badge */}
+          <div className="flex items-center gap-2 text-xs whitespace-nowrap flex-shrink-0 bg-white px-3 py-1.5 rounded-xl border border-gray-200/90 shadow-2xs self-start md:self-auto">
+            <span className="text-gray-600 font-semibold whitespace-nowrap">
+              <span className="font-extrabold text-gray-900">{selectedItems.reduce((s, i) => s + i.quantity, 0)}</span> {selectedItems.reduce((s, i) => s + i.quantity, 0) === 1 ? 'item' : 'items'}
             </span>
             <span className="text-gray-300">•</span>
-            <span className="text-gray-500 font-medium">Total:</span>
-            <strong className="text-emerald-700 text-sm font-extrabold" style={{ fontFamily: 'var(--font-heading)' }}>
+            <span className="text-gray-500 font-medium whitespace-nowrap">Total:</span>
+            <strong className="text-emerald-700 text-sm font-black whitespace-nowrap" style={{ fontFamily: 'var(--font-heading)' }}>
               ৳{grandTotal.toLocaleString()}
             </strong>
-            <span className="text-gray-400 font-medium text-[11px]">({paymentMethod})</span>
+            <span className="text-gray-600 font-medium text-[11px] bg-gray-100/90 px-2 py-0.5 rounded-md border border-gray-200 whitespace-nowrap">
+              ({paymentMethod})
+            </span>
           </div>
 
           {/* Right: Clean, beautifully aligned Action Buttons in a single row */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0 justify-end">
             <button
               type="button"
               onClick={onClose}
