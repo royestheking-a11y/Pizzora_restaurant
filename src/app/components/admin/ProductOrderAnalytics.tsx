@@ -1228,7 +1228,8 @@ export function ProductOrderAnalytics() {
 
               {/* Connected Warehouse Inventory & Available Stock Card */}
               {(() => {
-                const linkedInv = findLinkedInventoryItem(selectedProduct, state.inventory || []) || selectedProduct.inventoryItem;
+                const stockInfo = selectedProduct.linkedStockInfo || getLinkedInventoryForMenuItem(selectedProduct, state.inventory || []);
+                const linkedInv = stockInfo?.linkedItem || findLinkedInventoryItem(selectedProduct, state.inventory || []) || selectedProduct.inventoryItem;
                 const isOut = linkedInv ? linkedInv.currentStock <= 0 : false;
                 const isLow = linkedInv ? (linkedInv.currentStock > 0 && linkedInv.currentStock <= linkedInv.minStock) : false;
                 const isHealthy = linkedInv ? linkedInv.currentStock > linkedInv.minStock : false;
