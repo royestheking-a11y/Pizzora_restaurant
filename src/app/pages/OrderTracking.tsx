@@ -108,8 +108,21 @@ export function OrderTracking() {
             </p>
           </div>
           <div className="text-right">
-            <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '20px', color: '#F9002B' }}>৳{order.total}</p>
-            <p style={{ fontSize: '13px', color: '#6B7280' }}>{order.paymentMethod}</p>
+            {Number(order.deliveryFee || 0) > 0 ? (
+              <>
+                <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '20px', color: '#F9002B' }}>
+                  ৳{Number(order.total) >= ((order.subtotal || 0) + Number(order.deliveryFee) - 0.5)
+                    ? order.total
+                    : (Number(order.total) + Number(order.deliveryFee))}
+                </p>
+                <p style={{ fontSize: '11px', color: '#6B7280' }}>
+                  Food: ৳{order.total} + Delivery: ৳{order.deliveryFee}
+                </p>
+              </>
+            ) : (
+              <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '20px', color: '#F9002B' }}>৳{order.total}</p>
+            )}
+            <p style={{ fontSize: '12px', color: '#6B7280', fontWeight: 600 }}>{order.paymentMethod}</p>
           </div>
         </div>
 

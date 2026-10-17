@@ -923,10 +923,11 @@ async function processDbAction(action) {
     case 'DELETE_CASH_ENTRY': await CashRegisterEntry.findOneAndDelete({ id: action.payload }); break;
 
     case 'ADD_INVENTORY_ITEM': await InventoryItem.create(action.payload); break;
-    case 'UPDATE_INVENTORY_ITEM': await InventoryItem.findOneAndUpdate({ id: action.payload.id }, action.payload); break;
+    case 'UPDATE_INVENTORY_ITEM': await InventoryItem.findOneAndUpdate({ id: action.payload.id }, { $set: action.payload }, { new: true, upsert: true }); break;
     case 'DELETE_INVENTORY_ITEM': await InventoryItem.findOneAndDelete({ id: action.payload }); break;
 
     case 'ADD_STOCK_MOVEMENT': await StockMovement.create(action.payload); break;
+    case 'DELETE_STOCK_MOVEMENT': await StockMovement.findOneAndDelete({ id: action.payload }); break;
 
     case 'ADD_REVIEW': await ItemReview.create(action.payload); break;
     case 'HELPFUL_REVIEW': await ItemReview.findOneAndUpdate({ id: action.payload }, { $inc: { helpful: 1 } }); break;

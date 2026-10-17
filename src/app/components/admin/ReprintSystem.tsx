@@ -184,6 +184,10 @@ export function ReprintSystem() {
         const deliveryFee = order.deliveryFee !== undefined
           ? Number(order.deliveryFee)
           : Math.max(0, (Number(order.total) || 0) - subtotal);
+        const orderTotalNum = Number(order.total) || Number(job.total) || 0;
+        const discount = order.discount || 0;
+        const isLegacyCombined = deliveryFee > 0 && orderTotalNum >= (subtotal - discount + deliveryFee - 0.5);
+        const slipTotal = isLegacyCombined ? orderTotalNum : (orderTotalNum + deliveryFee);
 
         invoiceData = {
           invoiceNumber: job.invoiceNumber,
@@ -200,10 +204,10 @@ export function ReprintSystem() {
           items,
           subtotal,
           discount: order.discount || 0,
-          total: order.total || job.total,
+          total: slipTotal,
           paymentMethod: order.paymentMethod || job.paymentMethod || 'Cash',
           splitPayments: order.splitPayments,
-          amountPaid: order.total || job.total,
+          amountPaid: slipTotal,
           change: 0,
         };
       } else {

@@ -170,21 +170,6 @@ export function Navbar() {
           </button>
         </div>
       </div>
-
-      {/* Notification Toast */}
-      {state.notification && (
-        <div
-          className="fixed top-24 right-4 z-[100] px-5 py-3.5 rounded-xl shadow-xl flex items-center gap-3"
-          style={{
-            backgroundColor: state.notification.type === 'success' ? '#DCFCE7' : state.notification.type === 'error' ? '#FEE2E2' : '#DBEAFE',
-            border: `1px solid ${state.notification.type === 'success' ? '#BBF7D0' : state.notification.type === 'error' ? '#FECACA' : '#BFDBFE'}`,
-            fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '14px',
-            color: state.notification.type === 'success' ? '#15803D' : state.notification.type === 'error' ? '#DC2626' : '#1D4ED8',
-          }}
-        >
-          {state.notification.message}
-        </div>
-      )}
     </>
   );
 }

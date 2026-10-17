@@ -110,7 +110,10 @@ export function Checkout() {
         id: Date.now().toString(),
         orderNumber: id,
         items: state.cart,
-        total: grandTotal,
+        subtotal: cartTotal,
+        deliveryFee: delivery,
+        // Restaurant order balance is ONLY food subtotal; delivery fee is collected by rider
+        total: cartTotal,
         status: 'Pending' as const,
         paymentMethod,
         customerName: form.name,
@@ -194,6 +197,24 @@ export function Checkout() {
                 </div>
               </div>
             ))}
+
+            {/* Price breakdown */}
+            <div className="pt-3 border-t border-gray-100 space-y-1.5 text-xs">
+              <div className="flex justify-between text-gray-600">
+                <span>Food Items Subtotal</span>
+                <span className="font-bold text-gray-900">৳{cartTotal.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-amber-700">
+                <span>Delivery Charge (Paid to Rider)</span>
+                <span className="font-bold">+৳{delivery.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm font-extrabold text-gray-900 pt-1.5 border-t border-gray-200">
+                <span>Total Amount to Pay</span>
+                <span className="text-red-600 text-base" style={{ fontFamily: 'var(--font-heading)' }}>
+                  ৳{grandTotal.toLocaleString()}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="flex gap-3">

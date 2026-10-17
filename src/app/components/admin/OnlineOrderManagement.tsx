@@ -820,6 +820,11 @@ export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementPro
                         <span className="font-black text-gray-900 text-sm" style={{ fontFamily: 'var(--font-heading)' }}>
                           ৳{(order.total || 0).toLocaleString()}
                         </span>
+                        {Number(order.deliveryFee || 0) > 0 && (
+                          <div className="text-[10px] text-emerald-600 font-bold whitespace-nowrap">
+                            +৳{Number(order.deliveryFee).toLocaleString()} Rider Fee
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3 px-4">
@@ -1051,18 +1056,44 @@ export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementPro
                       })}
                     </tbody>
                     <tfoot className="bg-gray-50 font-bold border-t border-gray-200">
+                      {selectedOrder.subtotal !== undefined && selectedOrder.subtotal !== selectedOrder.total && (
+                        <tr>
+                          <td colSpan={3} className="py-1.5 px-3 text-right text-gray-500 text-xs">Food Subtotal:</td>
+                          <td className="py-1.5 px-3 text-right text-gray-800 text-xs">৳{(selectedOrder.subtotal || 0).toLocaleString()}</td>
+                        </tr>
+                      )}
                       {(selectedOrder.discount || 0) > 0 && (
                         <tr>
-                          <td colSpan={3} className="py-2 px-3 text-right text-gray-500">Discount:</td>
-                          <td className="py-2 px-3 text-right text-green-600">-৳{(selectedOrder.discount || 0).toLocaleString()}</td>
+                          <td colSpan={3} className="py-1.5 px-3 text-right text-gray-500 text-xs">Discount:</td>
+                          <td className="py-1.5 px-3 text-right text-green-600 text-xs">-৳{(selectedOrder.discount || 0).toLocaleString()}</td>
                         </tr>
                       )}
                       <tr>
-                        <td colSpan={3} className="py-2.5 px-3 text-right text-gray-700 text-sm">Grand Total:</td>
-                        <td className="py-2.5 px-3 text-right text-red-600 font-black text-base" style={{ fontFamily: 'var(--font-heading)' }}>
+                        <td colSpan={3} className="py-2 px-3 text-right text-gray-700 text-xs">Restaurant Order Balance:</td>
+                        <td className="py-2 px-3 text-right text-gray-900 font-black text-sm" style={{ fontFamily: 'var(--font-heading)' }}>
                           ৳{(selectedOrder.total || 0).toLocaleString()}
                         </td>
                       </tr>
+                      {Number(selectedOrder.deliveryFee || 0) > 0 && (
+                        <>
+                          <tr className="bg-amber-50/60">
+                            <td colSpan={3} className="py-1.5 px-3 text-right text-amber-800 text-xs font-semibold">
+                              Delivery Charge (Paid to Rider):
+                            </td>
+                            <td className="py-1.5 px-3 text-right text-amber-800 font-bold text-xs">
+                              +৳{Number(selectedOrder.deliveryFee).toLocaleString()}
+                            </td>
+                          </tr>
+                          <tr className="bg-emerald-50/80 border-t border-emerald-200">
+                            <td colSpan={3} className="py-2 px-3 text-right text-emerald-900 font-extrabold text-xs">
+                              Slip Total (To Collect):
+                            </td>
+                            <td className="py-2 px-3 text-right text-emerald-800 font-black text-sm" style={{ fontFamily: 'var(--font-heading)' }}>
+                              ৳{((Number(selectedOrder.total) || 0) + Number(selectedOrder.deliveryFee)).toLocaleString()}
+                            </td>
+                          </tr>
+                        </>
+                      )}
                     </tfoot>
                   </table>
                 </div>
@@ -1094,7 +1125,9 @@ export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementPro
       <TakeHomeDeliveryModal
         isOpen={showTakeOrderModal}
         onClose={() => setShowTakeOrderModal(false)}
-        onOrderCreated={onPrintOrder}
+        onOrderCreated={(order) => {
+          setSelectedOrder(order);
+        }}
       />
 
       {/* Delete Confirmation Modal */}
@@ -1153,6 +1186,11 @@ function OrderCard({
           <span className="font-black text-gray-900 text-sm" style={{ fontFamily: 'var(--font-heading)' }}>
             ৳{(order.total || 0).toLocaleString()}
           </span>
+          {Number(order.deliveryFee || 0) > 0 && (
+            <span className="text-[10px] text-emerald-600 font-bold block whitespace-nowrap">
+              +৳{Number(order.deliveryFee).toLocaleString()} Rider Fee
+            </span>
+          )}
           <span className="text-[10px] text-gray-400 font-semibold block">{order.paymentMethod}</span>
         </div>
       </div>

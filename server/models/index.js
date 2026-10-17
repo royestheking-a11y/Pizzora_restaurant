@@ -241,6 +241,7 @@ const InventoryItemSchema = new mongoose.Schema({
   unit: String,
   supplier: String,
   costPrice: Number, // Purchase price / কেনা মূল্য
+  sellingPrice: { type: Number, default: 0 }, // Selling price / বিক্রয় মূল্য
   currentStock: Number,
   minStock: Number,
   maxStock: Number,
@@ -269,6 +270,10 @@ const StockMovementSchema = new mongoose.Schema({
   difference: Number, // For reconciliation (physicalStock - systemStock)
   performedBy: String,
   orderNumber: String,
+  supplier: String,
+  category: String,
+  unit: String,
+  stockAfter: Number,
 }, { strict: true });
 
 StockMovementSchema.index({ date: -1, itemId: 1 });

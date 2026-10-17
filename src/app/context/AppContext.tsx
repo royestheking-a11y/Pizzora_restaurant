@@ -246,6 +246,7 @@ export interface InventoryItem {
   unit: string;
   supplier: string;
   costPrice: number; // Purchase price / কেনা মূল্য
+  sellingPrice?: number; // Selling price / বিক্রয় মূল্য
   currentStock: number;
   minStock: number;
   maxStock: number;
@@ -272,6 +273,10 @@ export interface StockMovement {
   difference?: number; // For reconciliation (physicalStock - systemStock)
   performedBy?: string; // Auditor or user
   orderNumber?: string;
+  supplier?: string;
+  category?: string;
+  unit?: string;
+  stockAfter?: number;
 }
 
 export interface ItemReview {
@@ -450,6 +455,7 @@ type Action =
   | { type: 'UPDATE_INVENTORY_ITEM'; payload: InventoryItem }
   | { type: 'DELETE_INVENTORY_ITEM'; payload: string }
   | { type: 'ADD_STOCK_MOVEMENT'; payload: StockMovement }
+  | { type: 'DELETE_STOCK_MOVEMENT'; payload: string }
   // Reviews
   | { type: 'ADD_REVIEW'; payload: ItemReview }
   | { type: 'HELPFUL_REVIEW'; payload: string }
@@ -1150,6 +1156,8 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ADD_STOCK_MOVEMENT':
       if (state.stockMovements.some(m => m.id === action.payload.id)) return state;
       return { ...state, stockMovements: [action.payload, ...state.stockMovements] };
+    case 'DELETE_STOCK_MOVEMENT':
+      return { ...state, stockMovements: state.stockMovements.filter(m => m.id !== action.payload) };
 
     // ── Reviews ──────────────────────────────────────────────────────────────
     case 'ADD_REVIEW':

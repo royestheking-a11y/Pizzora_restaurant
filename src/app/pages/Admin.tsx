@@ -847,6 +847,14 @@ export function Admin() {
     const deliveryAddress = order.address || '';
     const riderNote = order.notes || order.specialInstructions || '';
 
+    // Calculate customer slip total:
+    // If order.total is already legacy combined (total >= subtotal - discount + deliveryFee), use order.total.
+    // Otherwise customer slip total = order.total + deliveryFee so the slip displays 50 + 40 = 90.
+    const orderTotalNum = Number(order.total) || 0;
+    const discount = order.discount || 0;
+    const isLegacyCombined = deliveryFee > 0 && orderTotalNum >= (subtotal - discount + deliveryFee - 0.5);
+    const slipTotal = isLegacyCombined ? orderTotalNum : (orderTotalNum + deliveryFee);
+
     const invoiceData: InvoiceData = {
       invoiceNumber,
       orderId: order.id,
@@ -862,10 +870,10 @@ export function Admin() {
       items,
       subtotal,
       discount: order.discount || 0,
-      total: order.total || 0,
+      total: slipTotal,
       paymentMethod: order.paymentMethod || 'Cash',
       splitPayments: order.splitPayments,
-      amountPaid: order.total || 0,
+      amountPaid: slipTotal,
       change: 0,
     };
 
@@ -877,7 +885,7 @@ export function Admin() {
       isReprint: false,
       status: 'success',
       paymentMethod: order.paymentMethod || 'Cash',
-      total: order.total || 0,
+      total: slipTotal,
       orderType: isTable ? 'Dine In' : (order.orderType || (isOnline ? 'Home Delivery' : 'POS')),
       customerName,
       tableNo: order.tableNumber ? String(order.tableNumber) : '',
@@ -3482,7 +3490,9 @@ export function Admin() {
             const price = isTable ? ci.price : ci.item?.price;
             return sum + (price || 0) * ci.quantity;
           }, 0);
-          const deliveryFee = printOrder.total - subtotal;
+          const deliveryFee = Number(printOrder.deliveryFee || 0);
+          const isLegacyCombined = deliveryFee > 0 && Number(printOrder.total) >= (subtotal + deliveryFee - 0.5);
+          const customerGrandTotal = isLegacyCombined ? Number(printOrder.total) : (Number(printOrder.total) + deliveryFee);
           return (
             <div style={{
               width: '80mm',
@@ -3606,14 +3616,19 @@ export function Admin() {
                 </div>
                 {!isTable && deliveryFee > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Delivery Fee</span>
+                    <span>Delivery Fee (Rider)</span>
                     <span>৳{deliveryFee.toFixed(0)}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '15px', borderTop: '1px solid #000', marginTop: '4px', paddingTop: '4px' }}>
-                  <span>TOTAL</span>
-                  <span>৳{printOrder.total}</span>
+                  <span>TOTAL TO COLLECT</span>
+                  <span>৳{customerGrandTotal.toFixed(0)}</span>
                 </div>
+                {!isTable && deliveryFee > 0 && (
+                  <div style={{ fontSize: '9px', color: '#666', textAlign: 'right', marginTop: '2px' }}>
+                    (Restaurant Order Balance: ৳{Number(printOrder.total || 0).toFixed(0)})
+                  </div>
+                )}
               </div>
 
               {/* Footer */}

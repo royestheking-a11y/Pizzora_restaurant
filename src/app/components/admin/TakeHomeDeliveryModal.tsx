@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
   Truck, Phone, MapPin, X, Plus, Minus, Trash2, Search, User, ChefHat,
-  Clock, CreditCard, Sparkles, AlertCircle, Printer, FileText, Check, CheckCircle2
+  Clock, CreditCard, Sparkles, AlertCircle, Printer, FileText, Check, CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { useApp, Order, OrderStatus, MenuItem } from '../../context/AppContext';
 import { generateInvoiceNumber, printerService, loadPrinterSettings, type InvoiceData } from '../../utils/printerService';
@@ -43,11 +44,31 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
   const [menuSearch, setMenuSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<'pending' | 'kitchen' | 'confirm' | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ phone?: boolean; address?: boolean; items?: boolean }>({});
   const [printReceiptOnConfirm, setPrintReceiptOnConfirm] = useState(true);
   const [printKOTOnConfirm, setPrintKOTOnConfirm] = useState(false);
   const [initialStatus, setInitialStatus] = useState<OrderStatus>('Preparing');
   const [printFeedback, setPrintFeedback] = useState<string | null>(null);
   const [isPrintingPreview, setIsPrintingPreview] = useState(false);
+
+  const resetForm = () => {
+    setCustomerName('');
+    setPhone('');
+    setAddress('');
+    setRiderNote('');
+    setSelectedItems([]);
+    setValidationError(null);
+    setFieldErrors({});
+    setPrintFeedback(null);
+    setSubmittingAction(null);
+  };
+
+  const handleModalClose = () => {
+    resetForm();
+    onClose();
+  };
 
   const handleSelectArea = (areaName: string) => {
     setArea(areaName);
@@ -80,6 +101,8 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
   }, [state.menuItems, category, menuSearch]);
 
   const addItem = (item: MenuItem) => {
+    setValidationError(null);
+    setFieldErrors(prev => ({ ...prev, items: false }));
     setSelectedItems(prev => {
       const existing = prev.find(p => p.item.id === item.id);
       if (existing) {
@@ -115,10 +138,14 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
     return selectedItems.reduce((acc, c) => acc + (c.item.price * c.quantity), 0);
   }, [selectedItems]);
 
-  const grandTotal = subtotal + Number(fee || 0);
+  const deliveryCharge = Number(fee || 0);
+  const grandTotal = subtotal + deliveryCharge; // Total to collect from customer (printed on slip)
+  const orderBalance = paymentMethod === 'Complimentary' ? 0 : subtotal; // Restaurant revenue/balance saved in system
 
   const handlePrePrintBill = async () => {
     if (selectedItems.length === 0) {
+      setValidationError('Please add at least 1 food item to preview print bill.');
+      setFieldErrors({ items: true });
       showNotification('Please add at least 1 food item to preview print.', 'error');
       return;
     }
@@ -126,6 +153,7 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
     try {
       const fullAddress = `${address.trim()}${area ? ` [${area}]` : ''}`;
       const settings = loadPrinterSettings();
+      const customerPayable = paymentMethod === 'Complimentary' ? 0 : grandTotal;
       const invoiceData: InvoiceData = {
         invoiceNumber: 'DRAFT-' + String(Date.now()).slice(-5),
         orderId: 'DRAFT',
@@ -133,7 +161,7 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
         customerName: customerName.trim() || 'Home Delivery Guest',
         customerPhone: phone.trim() || undefined,
         deliveryAddress: fullAddress || undefined,
-        deliveryFee: Number(fee || 0),
+        deliveryFee: deliveryCharge,
         riderNote: riderNote.trim() || undefined,
         cashierName: sessionStorage.getItem('pizzora_admin_name') || 'Cashier',
         dateTime: new Date().toLocaleString(),
@@ -146,10 +174,10 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
           note: c.note,
         })),
         subtotal,
-        discount: paymentMethod === 'Complimentary' ? grandTotal : 0,
-        total: paymentMethod === 'Complimentary' ? 0 : grandTotal,
+        discount: paymentMethod === 'Complimentary' ? subtotal : 0,
+        total: customerPayable,
         paymentMethod,
-        amountPaid: grandTotal,
+        amountPaid: customerPayable,
         change: 0,
       };
       await printerService.printReceipt(invoiceData, settings, { source: 'online', skipAutoLog: true });
@@ -165,17 +193,37 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
     targetStatus?: OrderStatus,
     options?: { printReceipt?: boolean; printKOT?: boolean }
   ) => {
-    if (!phone.trim()) {
-      showNotification('Customer phone number is required for delivery.', 'error');
-      return;
-    }
-    if (!address.trim()) {
-      showNotification('Delivery address (house/street) is required.', 'error');
-      return;
-    }
+    setValidationError(null);
+    setFieldErrors({});
+
+    // 1. Food items are required for all delivery orders
     if (selectedItems.length === 0) {
-      showNotification('Please add at least 1 food item to the delivery ticket.', 'error');
+      const msg = 'Please select at least 1 menu item to place the order.';
+      setValidationError(msg);
+      setFieldErrors({ items: true });
+      showNotification(msg, 'error');
       return;
+    }
+
+    const isPendingDraft = targetStatus === 'Pending';
+    const isKitchenDispatch = targetStatus === 'Preparing' && options?.printReceipt === false;
+
+    // 2. Strict validation for final Confirm & Print Delivery
+    if (!isPendingDraft && !isKitchenDispatch) {
+      if (!phone.trim()) {
+        const msg = 'Customer phone number is required to confirm delivery order.';
+        setValidationError(msg);
+        setFieldErrors({ phone: true });
+        showNotification(msg, 'error');
+        return;
+      }
+      if (!address.trim()) {
+        const msg = 'Delivery address (House / Road / Area) is required to confirm order.';
+        setValidationError(msg);
+        setFieldErrors({ address: true });
+        showNotification(msg, 'error');
+        return;
+      }
     }
 
     const finalStatus = targetStatus !== undefined ? targetStatus : initialStatus;
@@ -183,7 +231,9 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
     const shouldPrintKOT = options?.printKOT !== undefined ? options.printKOT : printKOTOnConfirm;
 
     setIsSubmitting(true);
+    setSubmittingAction(isPendingDraft ? 'pending' : isKitchenDispatch ? 'kitchen' : 'confirm');
     setPrintFeedback(null);
+
     try {
       let invNo = '';
       try {
@@ -192,13 +242,25 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
         invNo = `PIZD-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
       }
 
-      const fullAddress = `${address.trim()}${area ? ` [${area}]` : ''}`;
+      // Safe fallback address/phone for draft orders so staff are never blocked
+      const finalPhone = phone.trim() || (isPendingDraft ? 'Phone not provided' : 'Customer on call');
+      const fullAddress = address.trim()
+        ? `${address.trim()}${area ? ` [${area}]` : ''}`
+        : area
+        ? `Area: ${area} (Exact address pending)`
+        : isPendingDraft
+        ? 'Address pending confirmation'
+        : 'Take Home Delivery';
+
+      // Restaurant order balance: ONLY the food subtotal (excludes delivery fee, which rider receives)
+      const orderBalance = paymentMethod === 'Complimentary' ? 0 : subtotal;
+      const customerPayable = paymentMethod === 'Complimentary' ? 0 : grandTotal;
 
       const newOrder: Order = {
         id: `del-${Date.now()}`,
         orderNumber: invNo,
         customerName: customerName.trim() || 'Home Delivery Guest',
-        phone: phone.trim(),
+        phone: finalPhone,
         address: fullAddress,
         items: selectedItems.map(c => ({
           item: c.item,
@@ -206,9 +268,9 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
           specialRequest: c.note || '',
         })),
         subtotal: subtotal,
-        deliveryFee: Number(fee || 0),
-        discount: paymentMethod === 'Complimentary' ? grandTotal : 0,
-        total: paymentMethod === 'Complimentary' ? 0 : grandTotal,
+        deliveryFee: deliveryCharge,
+        discount: paymentMethod === 'Complimentary' ? subtotal : 0,
+        total: orderBalance, // Saved in system/database as ONLY the food order balance (e.g. ৳50)
         status: finalStatus,
         paymentMethod: paymentMethod,
         compDetails: paymentMethod === 'Complimentary' ? {
@@ -232,15 +294,15 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
 
       dispatch({ type: 'PLACE_ORDER', payload: newOrder });
 
-      // Construct InvoiceData with full customer details, order details, and delivery charges
+      // Construct InvoiceData: printed slip clearly displays Subtotal (৳50) + Delivery Fee (৳40) = Total (৳90)
       const invoiceData: InvoiceData = {
         invoiceNumber: invNo,
         orderId: newOrder.id,
         orderType: 'Home Delivery',
         customerName: newOrder.customerName,
-        customerPhone: phone.trim(),
+        customerPhone: finalPhone,
         deliveryAddress: fullAddress,
-        deliveryFee: Number(fee || 0),
+        deliveryFee: deliveryCharge,
         riderNote: riderNote.trim() || undefined,
         cashierName: sessionStorage.getItem('pizzora_admin_name') || 'Cashier',
         dateTime: new Date().toLocaleString(),
@@ -253,16 +315,16 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
           note: c.note,
         })),
         subtotal,
-        discount: paymentMethod === 'Complimentary' ? grandTotal : 0,
-        total: paymentMethod === 'Complimentary' ? 0 : grandTotal,
+        discount: paymentMethod === 'Complimentary' ? subtotal : 0,
+        total: customerPayable, // Printed on the slip as full customer collection (e.g. ৳90)
         paymentMethod,
-        amountPaid: paymentMethod === 'Complimentary' ? 0 : grandTotal,
+        amountPaid: customerPayable,
         change: 0,
       };
 
       const settings = loadPrinterSettings();
 
-      // Print Thermal Receipt
+      // Print Thermal Receipt if requested
       if (shouldPrintReceipt) {
         try {
           const printRes = await printerService.printReceipt(invoiceData, settings, { source: 'online' });
@@ -275,7 +337,7 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
         }
       }
 
-      // Print Kitchen Ticket (KOT)
+      // Print Kitchen Ticket (KOT) if requested
       if (shouldPrintKOT) {
         try {
           await printerService.printKOT(invoiceData, settings);
@@ -287,8 +349,10 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
       if (finalStatus === 'Delivered') {
         refreshAnalytics?.();
         showNotification(`Home Delivery Order #${invNo} confirmed as Delivered & added to Sales Report!`, 'success');
+      } else if (finalStatus === 'Pending') {
+        showNotification(`Home Delivery Order #${invNo} saved as Pending!`, 'success');
       } else {
-        showNotification(`Home Delivery Order #${invNo} confirmed${shouldPrintReceipt ? ' & receipt sent to printer' : ''}!`, 'success');
+        showNotification(`Home Delivery Order #${invNo} confirmed & sent to kitchen${shouldPrintReceipt ? ' with receipt' : ''}!`, 'success');
       }
 
       if (onOrderCreated) {
@@ -299,17 +363,16 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
         }
       }
 
-      // Reset form
-      setCustomerName('');
-      setPhone('');
-      setAddress('');
-      setRiderNote('');
-      setSelectedItems([]);
+      // Reset form & close modal cleanly
+      resetForm();
       onClose();
     } catch (e: any) {
-      showNotification('Failed to create delivery order: ' + (e?.message || ''), 'error');
+      const errText = 'Failed to create delivery order: ' + (e?.message || '');
+      setValidationError(errText);
+      showNotification(errText, 'error');
     } finally {
       setIsSubmitting(false);
+      setSubmittingAction(null);
     }
   };
 
@@ -334,7 +397,7 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleModalClose}
             className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-gray-200/60 text-gray-400 hover:text-gray-700 transition-colors"
           >
             <X size={18} />
@@ -370,9 +433,19 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
                   <input
                     type="tel"
                     value={phone}
-                    onChange={e => setPhone(e.target.value)}
+                    onChange={e => {
+                      setPhone(e.target.value);
+                      if (fieldErrors.phone) {
+                        setFieldErrors(prev => ({ ...prev, phone: false }));
+                        setValidationError(null);
+                      }
+                    }}
                     placeholder="017XXXXXXXX"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs bg-white text-gray-900 focus:outline-none focus:border-emerald-500"
+                    className={`w-full pl-9 pr-3 py-2 rounded-xl border text-xs bg-white text-gray-900 focus:outline-none transition-all ${
+                      fieldErrors.phone
+                        ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/20'
+                        : 'border-gray-200 focus:border-emerald-500'
+                    }`}
                   />
                 </div>
               </div>
@@ -405,9 +478,19 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
                 <textarea
                   rows={2}
                   value={address}
-                  onChange={e => setAddress(e.target.value)}
+                  onChange={e => {
+                    setAddress(e.target.value);
+                    if (fieldErrors.address) {
+                      setFieldErrors(prev => ({ ...prev, address: false }));
+                      setValidationError(null);
+                    }
+                  }}
                   placeholder="e.g. House 24, Road 5, Block C, 3rd Floor, near Amberkhana Point"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs bg-white text-gray-900 focus:outline-none focus:border-emerald-500 resize-none"
+                  className={`w-full px-3 py-2 rounded-xl border text-xs bg-white text-gray-900 focus:outline-none resize-none transition-all ${
+                    fieldErrors.address
+                      ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/20'
+                      : 'border-gray-200 focus:border-emerald-500'
+                  }`}
                 />
               </div>
 
@@ -619,15 +702,22 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
             </div>
 
             {/* Selected Items / Cart */}
-            <div className="flex-1 flex flex-col rounded-2xl border border-gray-200 p-3 bg-white space-y-2">
+            <div className={`flex-1 flex flex-col rounded-2xl border p-3 bg-white space-y-2 transition-all ${
+              fieldErrors.items
+                ? 'border-red-400 ring-2 ring-red-400/20 shadow-xs'
+                : 'border-gray-200'
+            }`}>
               <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                <span className="text-xs font-bold text-gray-700">
-                  Delivery Basket ({selectedItems.reduce((s, i) => s + i.quantity, 0)} items)
+                <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                  <span>Delivery Basket ({selectedItems.reduce((s, i) => s + i.quantity, 0)} items)</span>
+                  {fieldErrors.items && (
+                    <span className="text-[10px] text-red-500 font-extrabold">(Select at least 1 item)</span>
+                  )}
                 </span>
                 {selectedItems.length > 0 && (
                   <button
                     onClick={() => setSelectedItems([])}
-                    className="text-[11px] font-bold text-red-600 hover:underline"
+                    className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
                   >
                     Clear All
                   </button>
@@ -636,8 +726,8 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
 
               <div className="flex-1 max-h-[160px] overflow-y-auto space-y-2 divide-y divide-gray-50 scrollbar-thin">
                 {selectedItems.length === 0 ? (
-                  <div className="py-8 text-center text-gray-400 text-xs">
-                    No items selected yet. Tap any item above to add to this order.
+                  <div className={`py-8 text-center text-xs transition-colors ${fieldErrors.items ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                    {fieldErrors.items ? '⚠️ Please add at least 1 food item from the menu above.' : 'No items selected yet. Tap any item above to add to this order.'}
                   </div>
                 ) : (
                   selectedItems.map(c => (
@@ -688,20 +778,27 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
               </div>
 
               {/* Price Calculation Summary */}
-              <div className="pt-2 border-t border-gray-100 space-y-1 text-xs">
-                <div className="flex justify-between text-gray-500">
-                  <span>Items Subtotal</span>
-                  <span>৳{subtotal.toLocaleString()}</span>
+              <div className="pt-2 border-t border-gray-100 space-y-1.5 text-xs">
+                <div className="flex justify-between text-gray-600">
+                  <span>Food Items Subtotal</span>
+                  <span className="font-bold text-gray-900">৳{subtotal.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-gray-500">
-                  <span>Delivery Charge ({area})</span>
-                  <span>৳{Number(fee || 0).toLocaleString()}</span>
+                <div className="flex justify-between text-amber-700">
+                  <span className="flex items-center gap-1">
+                    <span>Delivery Charge ({area || 'Rider'})</span>
+                    <span className="text-[10px] text-amber-600 font-medium">(Paid to Rider)</span>
+                  </span>
+                  <span className="font-bold">+৳{deliveryCharge.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-sm font-extrabold text-gray-900 pt-1 border-t border-gray-100">
-                  <span>Grand Total to Collect</span>
+                <div className="flex justify-between text-sm font-extrabold text-gray-900 pt-1.5 border-t border-gray-200">
+                  <span>Slip Total (To Collect)</span>
                   <span className="text-emerald-700 text-base" style={{ fontFamily: 'var(--font-heading)' }}>
                     ৳{grandTotal.toLocaleString()}
                   </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-gray-500 bg-emerald-50/70 px-2 py-1.5 rounded-lg border border-emerald-100/80">
+                  <span className="text-emerald-900 font-semibold">Restaurant Order Balance Saved:</span>
+                  <span className="font-extrabold text-emerald-950">৳{orderBalance.toLocaleString()} (Excludes rider fee)</span>
                 </div>
               </div>
             </div>
@@ -709,9 +806,28 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="px-5 py-3.5 border-t border-gray-200 bg-gray-50/90 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="px-5 py-3.5 border-t border-gray-200 bg-gray-50/90 flex flex-col gap-2.5">
+          {/* Validation Notice Banner */}
+          {validationError && (
+            <div className="w-full px-3.5 py-2.5 bg-red-50 border border-red-200 text-red-800 text-xs rounded-xl flex items-center justify-between shadow-2xs animate-fade-in">
+              <span className="flex items-center gap-2 font-bold">
+                <AlertCircle size={15} className="text-red-600 flex-shrink-0" />
+                <span>{validationError}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => { setValidationError(null); setFieldErrors({}); }}
+                className="text-red-600 hover:text-red-900 font-bold p-1 hover:bg-red-100/60 rounded-md transition-colors"
+                title="Dismiss"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* Printer Warning/Notice Banner */}
           {printFeedback && (
-            <div className="w-full px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-center justify-between">
+            <div className="w-full px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-center justify-between shadow-2xs">
               <span className="flex items-center gap-1.5">
                 <AlertCircle size={13} className="text-amber-600 flex-shrink-0" />
                 <span>Printer notice: {printFeedback}</span>
@@ -719,85 +835,103 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
               <button
                 type="button"
                 onClick={() => setPrintFeedback(null)}
-                className="text-amber-700 font-bold hover:underline text-[11px] ml-2"
+                className="text-amber-700 font-bold hover:underline text-[11px] ml-2 cursor-pointer"
+                title="Dismiss"
               >
                 Dismiss
               </button>
             </div>
           )}
 
-          {/* Left: Compact summary — unbreakable single-line badge */}
-          <div className="flex items-center gap-2 text-xs whitespace-nowrap flex-shrink-0 bg-white px-3 py-1.5 rounded-xl border border-gray-200/90 shadow-2xs self-start md:self-auto">
-            <span className="text-gray-600 font-semibold whitespace-nowrap">
-              <span className="font-extrabold text-gray-900">{selectedItems.reduce((s, i) => s + i.quantity, 0)}</span> {selectedItems.reduce((s, i) => s + i.quantity, 0) === 1 ? 'item' : 'items'}
-            </span>
-            <span className="text-gray-300">•</span>
-            <span className="text-gray-500 font-medium whitespace-nowrap">Total:</span>
-            <strong className="text-emerald-700 text-sm font-black whitespace-nowrap" style={{ fontFamily: 'var(--font-heading)' }}>
-              ৳{grandTotal.toLocaleString()}
-            </strong>
-            <span className="text-gray-600 font-medium text-[11px] bg-gray-100/90 px-2 py-0.5 rounded-md border border-gray-200 whitespace-nowrap">
-              ({paymentMethod})
-            </span>
-          </div>
-
-          {/* Right: Clean, beautifully aligned Action Buttons in a single row */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0 justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-200/70 transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => handleCreateOrder('Pending', { printReceipt: false, printKOT: false })}
-              className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/90 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
-              title="Save delivery order as Pending"
-            >
-              <Clock size={13} />
-              <span>Save as Pending</span>
-            </button>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => handleCreateOrder('Preparing', { printReceipt: false, printKOT: true })}
-              className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/90 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
-              title="Send to kitchen with KOT only (no customer receipt)"
-            >
-              <ChefHat size={14} />
-              <span>Send to Kitchen</span>
-            </button>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => handleCreateOrder(initialStatus, { printReceipt: true, printKOT: printKOTOnConfirm })}
-              className={`px-5 py-2.5 rounded-xl text-xs font-extrabold active:scale-95 text-white transition-all flex items-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer ${
-                initialStatus === 'Delivered'
-                  ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
-                  : initialStatus === 'Preparing'
-                  ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
-                  : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/25'
-              }`}
-              style={{ fontFamily: 'var(--font-heading)' }}
-              title={
-                initialStatus === 'Delivered'
-                  ? 'Confirm delivery order, mark Delivered & Paid into Sales Report, and print receipt'
-                  : 'Confirm delivery order, dispatch to kitchen/rider and print receipt'
-              }
-            >
-              {initialStatus === 'Delivered' ? <CheckCircle2 size={14} /> : <Printer size={14} />}
-              <span>
-                {isSubmitting
-                  ? 'Confirming...'
-                  : initialStatus === 'Delivered'
-                  ? 'Confirm Delivered & Print'
-                  : 'Confirm & Print Receipt'}
+          {/* Main Action Bar */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            {/* Left: Compact summary — unbreakable single-line badge */}
+            <div className="flex items-center gap-2 text-xs whitespace-nowrap flex-shrink-0 bg-white px-3 py-1.5 rounded-xl border border-gray-200/90 shadow-2xs self-start md:self-auto">
+              <span className="text-gray-600 font-semibold whitespace-nowrap">
+                <span className="font-extrabold text-gray-900">{selectedItems.reduce((s, i) => s + i.quantity, 0)}</span> {selectedItems.reduce((s, i) => s + i.quantity, 0) === 1 ? 'item' : 'items'}
               </span>
-            </button>
+              <span className="text-gray-300">•</span>
+              <span className="text-gray-500 font-medium whitespace-nowrap">Order:</span>
+              <strong className="text-gray-900 text-sm font-extrabold whitespace-nowrap" style={{ fontFamily: 'var(--font-heading)' }}>
+                ৳{orderBalance.toLocaleString()}
+              </strong>
+              {deliveryCharge > 0 && (
+                <>
+                  <span className="text-gray-300">•</span>
+                  <span className="text-emerald-700 font-bold whitespace-nowrap text-[11px]">
+                    Slip Total: ৳{grandTotal.toLocaleString()} (+৳{deliveryCharge} Rider)
+                  </span>
+                </>
+              )}
+              <span className="text-gray-600 font-medium text-[11px] bg-gray-100/90 px-2 py-0.5 rounded-md border border-gray-200 whitespace-nowrap">
+                ({paymentMethod})
+              </span>
+            </div>
+
+            {/* Right: Clean, beautifully aligned Action Buttons in a single row */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0 justify-end">
+              <button
+                type="button"
+                onClick={handleModalClose}
+                disabled={isSubmitting}
+                className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-200/70 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => handleCreateOrder('Pending', { printReceipt: false, printKOT: false })}
+                className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/90 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
+                title="Save delivery order as Pending"
+              >
+                {submittingAction === 'pending' ? <Loader2 size={13} className="animate-spin text-amber-700" /> : <Clock size={13} />}
+                <span>{submittingAction === 'pending' ? 'Saving...' : 'Save as Pending'}</span>
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => handleCreateOrder('Preparing', { printReceipt: false, printKOT: true })}
+                className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/90 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
+                title="Send to kitchen with KOT only (no customer receipt)"
+              >
+                {submittingAction === 'kitchen' ? <Loader2 size={14} className="animate-spin text-blue-700" /> : <ChefHat size={14} />}
+                <span>{submittingAction === 'kitchen' ? 'Sending...' : 'Send to Kitchen'}</span>
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => handleCreateOrder(initialStatus, { printReceipt: true, printKOT: printKOTOnConfirm })}
+                className={`px-5 py-2.5 rounded-xl text-xs font-extrabold active:scale-95 text-white transition-all flex items-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer ${
+                  initialStatus === 'Delivered'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
+                    : initialStatus === 'Preparing'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
+                    : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/25'
+                }`}
+                style={{ fontFamily: 'var(--font-heading)' }}
+                title={
+                  initialStatus === 'Delivered'
+                    ? 'Confirm delivery order, mark Delivered & Paid into Sales Report, and print receipt'
+                    : 'Confirm delivery order, dispatch to kitchen/rider and print receipt'
+                }
+              >
+                {submittingAction === 'confirm' ? (
+                  <Loader2 size={14} className="animate-spin text-white" />
+                ) : initialStatus === 'Delivered' ? (
+                  <CheckCircle2 size={14} />
+                ) : (
+                  <Printer size={14} />
+                )}
+                <span>
+                  {submittingAction === 'confirm'
+                    ? 'Confirming...'
+                    : initialStatus === 'Delivered'
+                    ? 'Confirm Delivered & Print'
+                    : 'Confirm & Print Receipt'}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

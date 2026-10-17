@@ -1,6 +1,7 @@
 import { createBrowserRouter, Outlet } from 'react-router';
 import { AppProvider } from './context/AppContext';
 import { OfflineBanner } from './components/OfflineBanner';
+import { GlobalNotificationToast } from './components/GlobalNotificationToast';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { About } from './pages/About';
@@ -21,6 +22,7 @@ function Root() {
   return (
     <AppProvider>
       <OfflineBanner />
+      <GlobalNotificationToast />
       <Outlet />
     </AppProvider>
   );
