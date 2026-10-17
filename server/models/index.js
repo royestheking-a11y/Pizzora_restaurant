@@ -251,7 +251,8 @@ const InventoryItemSchema = new mongoose.Schema({
   lastPurchasePrice: Number,
   lastPurchasedDate: String,
   lastPurchasedQty: Number,
-}, { strict: true });
+  updatedAt: String,
+}, { strict: false });
 
 InventoryItemSchema.index({ category: 1, name: 1 });
 

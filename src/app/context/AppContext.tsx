@@ -256,6 +256,7 @@ export interface InventoryItem {
   lastPurchasePrice?: number;
   lastPurchasedDate?: string;
   lastPurchasedQty?: number;
+  updatedAt?: string;
 }
 
 export interface StockMovement {
@@ -1149,8 +1150,10 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ADD_INVENTORY_ITEM':
       if (state.inventory.some(i => i.id === action.payload.id)) return state;
       return { ...state, inventory: [action.payload, ...state.inventory] };
-    case 'UPDATE_INVENTORY_ITEM':
-      return { ...state, inventory: state.inventory.map(i => i.id === action.payload.id ? action.payload : i) };
+    case 'UPDATE_INVENTORY_ITEM': {
+      const remainingInventory = state.inventory.filter(i => i.id !== action.payload.id);
+      return { ...state, inventory: [action.payload, ...remainingInventory] };
+    }
     case 'DELETE_INVENTORY_ITEM':
       return { ...state, inventory: state.inventory.filter(i => i.id !== action.payload) };
     case 'ADD_STOCK_MOVEMENT':

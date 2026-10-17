@@ -85,6 +85,7 @@ export function InventoryManagement() {
   const [tab, setTab] = useState<'stock' | 'daily-bazar' | 'analytics' | 'comparison' | 'custom-range' | 'report' | 'history' | 'reconciliation' | 'alerts'>('stock');
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<'recent' | 'name-asc' | 'name-desc' | 'stock-desc' | 'stock-asc' | 'valuation-desc'>('recent');
   const [dateFilter, setDateFilter] = useState<'All Time' | 'This Month' | 'Last Month' | 'Today' | 'Yesterday' | 'Last 7 Days' | 'Custom'>('All Time');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -385,6 +386,10 @@ export function InventoryManagement() {
     const stockQty = Number(form.initialStock) || 0;
     const entryDate = form.addedDate || new Date().toLocaleDateString('en-CA');
 
+    const stockDiff = stockQty - (editing ? (editing.currentStock || 0) : 0);
+    const isStockChanged = Boolean(editing && stockDiff !== 0);
+    const nowIso = new Date().toISOString();
+
     if (editing) {
       const updatedItem: InventoryItem = {
         ...editing,
@@ -400,8 +405,54 @@ export function InventoryManagement() {
         addedDate: form.addedDate || editing.addedDate,
         menuItemId: form.menuItemId || undefined,
         currentStock: stockQty, // Allow updating stock directly if adjusted
+        lastPurchasedDate: isStockChanged && stockDiff > 0 ? entryDate : (editing.lastPurchasedDate || entryDate),
+        lastPurchasedQty: isStockChanged && stockDiff > 0 ? stockDiff : editing.lastPurchasedQty,
+        lastPurchasePrice: unitPrice > 0 ? unitPrice : editing.lastPurchasePrice,
+        updatedAt: nowIso,
       };
       dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: updatedItem });
+
+      // If stock was increased, also log a Purchase IN movement so the top Daily Bazar / Kitchen Procurement reflects it!
+      if (stockDiff > 0) {
+        dispatch({
+          type: 'ADD_STOCK_MOVEMENT',
+          payload: {
+            id: `mv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            itemId: updatedItem.id,
+            itemName: updatedItem.name,
+            category: updatedItem.category,
+            unit: updatedItem.unit,
+            supplier: updatedItem.supplier,
+            type: 'Purchase IN',
+            quantity: stockDiff,
+            unitPrice: unitPrice,
+            totalCost: stockDiff * unitPrice,
+            stockAfter: stockQty,
+            date: entryDate,
+            note: `Stock Update from Catalog (${editing.currentStock} → ${stockQty} ${updatedItem.unit})`
+          }
+        });
+      } else if (stockDiff < 0) {
+        dispatch({
+          type: 'ADD_STOCK_MOVEMENT',
+          payload: {
+            id: `mv-adj-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            itemId: updatedItem.id,
+            itemName: updatedItem.name,
+            category: updatedItem.category,
+            unit: updatedItem.unit,
+            supplier: updatedItem.supplier,
+            type: 'Adjustment',
+            quantity: Math.abs(stockDiff),
+            difference: stockDiff,
+            unitPrice: unitPrice,
+            totalCost: Math.abs(stockDiff) * unitPrice,
+            stockAfter: stockQty,
+            date: entryDate,
+            note: `Stock Adjustment (${editing.currentStock} → ${stockQty} ${updatedItem.unit})`
+          }
+        });
+      }
     } else {
       const newItemId = `inv-${Date.now()}`;
 
@@ -423,6 +474,7 @@ export function InventoryManagement() {
         lastPurchasedDate: entryDate,
         lastPurchasedQty: stockQty,
         menuItemId: form.menuItemId || undefined,
+        updatedAt: nowIso,
       };
 
       dispatch({ type: 'ADD_INVENTORY_ITEM', payload: newItem });
@@ -435,10 +487,14 @@ export function InventoryManagement() {
             id: `mv-${Date.now()}-init`,
             itemId: newItemId,
             itemName: newItem.name,
+            category: newItem.category,
+            unit: newItem.unit,
+            supplier: newItem.supplier,
             type: 'Initial Stock',
             quantity: stockQty,
             unitPrice: unitPrice,
             totalCost: stockQty * unitPrice,
+            stockAfter: stockQty,
             date: entryDate,
             note: 'Initial Stock on Hand'
           }
@@ -496,6 +552,7 @@ export function InventoryManagement() {
         lastPurchasedDate: entryDate,
         lastPurchasedQty: qty,
         supplier: bazarForm.supplier.trim() || targetItem.supplier,
+        updatedAt: new Date().toISOString(),
       };
       dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: updatedItem });
     } else {
@@ -525,6 +582,7 @@ export function InventoryManagement() {
         lastPurchasePrice: unitP,
         lastPurchasedDate: entryDate,
         lastPurchasedQty: qty,
+        updatedAt: new Date().toISOString(),
       };
       dispatch({ type: 'ADD_INVENTORY_ITEM', payload: newItem });
     }
@@ -645,7 +703,8 @@ export function InventoryManagement() {
       lastPurchasePrice: purchasePrice,
       lastPurchasedDate: date,
       lastPurchasedQty: qty,
-      supplier: stockInForm.supplier || targetItem.supplier
+      supplier: stockInForm.supplier || targetItem.supplier,
+      updatedAt: new Date().toISOString(),
     };
 
     dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: updatedItem });
@@ -654,10 +713,14 @@ export function InventoryManagement() {
       id: `mv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       itemId: targetItem.id,
       itemName: targetItem.name,
+      category: targetItem.category,
+      unit: targetItem.unit,
+      supplier: stockInForm.supplier || targetItem.supplier,
       type: 'Purchase IN',
       quantity: qty,
       unitPrice: purchasePrice,
       totalCost: qty * purchasePrice,
+      stockAfter: newStock,
       date: date,
       note: stockInForm.note ? `Restock: ${stockInForm.note}` : 'Purchase Restock',
     };
@@ -691,7 +754,8 @@ export function InventoryManagement() {
 
     const updatedItem: InventoryItem = {
       ...targetItem,
-      currentStock: newStock
+      currentStock: newStock,
+      updatedAt: new Date().toISOString(),
     };
 
     dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: updatedItem });
@@ -704,10 +768,14 @@ export function InventoryManagement() {
       id: `mv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       itemId: targetItem.id,
       itemName: targetItem.name,
+      category: targetItem.category,
+      unit: targetItem.unit,
+      supplier: targetItem.supplier,
       type: movementType,
       quantity: qty,
       unitPrice: targetItem.costPrice || 0,
       totalCost: qty * (targetItem.costPrice || 0),
+      stockAfter: newStock,
       date: date,
       note: `${stockOutForm.reason}${stockOutForm.note ? `: ${stockOutForm.note}` : ''}`,
     };
@@ -781,7 +849,8 @@ export function InventoryManagement() {
 
     const updatedItem: InventoryItem = {
       ...item,
-      currentStock: physicalStock
+      currentStock: physicalStock,
+      updatedAt: new Date().toISOString(),
     };
     dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: updatedItem });
 
@@ -789,6 +858,9 @@ export function InventoryManagement() {
       id: `mv-${Date.now()}-audit`,
       itemId: item.id,
       itemName: item.name,
+      category: item.category,
+      unit: item.unit,
+      supplier: item.supplier,
       type: 'Adjustment',
       quantity: Math.abs(difference),
       unitPrice: item.costPrice || 0,
@@ -796,6 +868,7 @@ export function InventoryManagement() {
       systemStock: systemStock,
       physicalStock: physicalStock,
       difference: difference,
+      stockAfter: physicalStock,
       performedBy: adminRole,
       date: new Date().toLocaleDateString('en-CA'),
       note: `Audit Reconciliation: System was ${systemStock}, Counted ${physicalStock}. Variance: ${difference > 0 ? '+' : ''}${difference} ${item.unit}. Reason: ${reason}`
@@ -806,9 +879,30 @@ export function InventoryManagement() {
     setReconcileConfirm({ isOpen: false, item: null, systemStock: 0, physicalStock: 0, difference: 0, reason: '', valueDiff: 0 });
   };
 
-  // Filtered Items for Main List
+  const latestMovementDateMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const m of movements) {
+      if (!m.itemId) continue;
+      let time = 0;
+      if (m.date) {
+        time = new Date(m.date).getTime();
+      }
+      const match = m.id?.match(/mv-(?:bazar-|adj-)?(\d+)/);
+      if (match && match[1]) {
+        const idTime = Number(match[1]);
+        if (!isNaN(idTime) && idTime > time) time = idTime;
+      }
+      const existing = map.get(m.itemId) || 0;
+      if (time > existing) {
+        map.set(m.itemId, time);
+      }
+    }
+    return map;
+  }, [movements]);
+
+  // Filtered & Sorted Items for Main List (Recently updated products sort to top)
   const filtered = useMemo(() => {
-    return items.filter(i => {
+    const result = items.filter(i => {
       const matchSearch =
         i.name.toLowerCase().includes(search.toLowerCase()) ||
         i.sku.toLowerCase().includes(search.toLowerCase()) ||
@@ -817,7 +911,40 @@ export function InventoryManagement() {
       const matchCat = selectedCategory === 'All' || i.category === selectedCategory;
       return matchSearch && matchCat;
     });
-  }, [items, search, selectedCategory]);
+
+    if (sortBy === 'recent') {
+      result.sort((a, b) => {
+        const timeA = a.updatedAt
+          ? new Date(a.updatedAt).getTime()
+          : Math.max(
+              latestMovementDateMap.get(a.id) || 0,
+              a.lastPurchasedDate ? new Date(a.lastPurchasedDate).getTime() : 0,
+              a.addedDate ? new Date(a.addedDate).getTime() : 0
+            );
+        const timeB = b.updatedAt
+          ? new Date(b.updatedAt).getTime()
+          : Math.max(
+              latestMovementDateMap.get(b.id) || 0,
+              b.lastPurchasedDate ? new Date(b.lastPurchasedDate).getTime() : 0,
+              b.addedDate ? new Date(b.addedDate).getTime() : 0
+            );
+        if (timeB !== timeA) return timeB - timeA;
+        return a.name.localeCompare(b.name);
+      });
+    } else if (sortBy === 'name-asc') {
+      result.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'name-desc') {
+      result.sort((a, b) => b.name.localeCompare(a.name));
+    } else if (sortBy === 'stock-desc') {
+      result.sort((a, b) => (b.currentStock || 0) - (a.currentStock || 0));
+    } else if (sortBy === 'stock-asc') {
+      result.sort((a, b) => (a.currentStock || 0) - (b.currentStock || 0));
+    } else if (sortBy === 'valuation-desc') {
+      result.sort((a, b) => ((b.currentStock || 0) * (b.costPrice || 0)) - ((a.currentStock || 0) * (a.costPrice || 0)));
+    }
+
+    return result;
+  }, [items, search, selectedCategory, sortBy, latestMovementDateMap]);
 
   const lowStock = useMemo(() => items.filter(i => (i.currentStock || 0) <= (i.minStock || 0)), [items]);
 
@@ -1906,10 +2033,24 @@ export function InventoryManagement() {
               <select
                 value={selectedCategory}
                 onChange={e => setSelectedCategory(e.target.value)}
-                style={{ ...inputSt, width: 'auto', minWidth: '180px' }}
+                style={{ ...inputSt, width: 'auto', minWidth: '170px' }}
               >
                 <option value="All">All Categories</option>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as any)}
+                style={{ ...inputSt, width: 'auto', minWidth: '190px' }}
+                title="Sort inventory products"
+              >
+                <option value="recent">⚡ Recently Updated / Restocked</option>
+                <option value="name-asc">Product Name (A → Z)</option>
+                <option value="name-desc">Product Name (Z → A)</option>
+                <option value="stock-desc">Highest Stock First</option>
+                <option value="stock-asc">Lowest Stock (Alerts First)</option>
+                <option value="valuation-desc">Highest Valuation</option>
               </select>
             </div>
           </div>
@@ -1941,18 +2082,32 @@ export function InventoryManagement() {
                     const isLow = (item.currentStock || 0) <= (item.minStock || 0);
                     const isOut = (item.currentStock || 0) <= 0;
                     const stockVal = (item.currentStock || 0) * (item.costPrice || 0);
+                    const isUpdatedRecently = (() => {
+                      if (item.lastPurchasedDate === todayStr) return true;
+                      if (item.updatedAt && item.updatedAt.slice(0, 10) === todayStr) return true;
+                      const lastMoveTime = latestMovementDateMap.get(item.id);
+                      if (lastMoveTime && Date.now() - lastMoveTime < 1000 * 60 * 60 * 24) return true;
+                      return false;
+                    })();
 
                     return (
-                      <tr key={item.id} className="hover:bg-gray-50/70 transition-colors">
+                      <tr key={item.id} className={`hover:bg-gray-50/70 transition-colors ${isUpdatedRecently ? 'bg-emerald-50/20' : ''}`}>
                         <td className="px-4 py-3.5">
                           <span className="text-xs font-mono font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md">
                             {item.sku}
                           </span>
                         </td>
                         <td className="px-4 py-3.5">
-                          <p className="text-xs font-bold text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
-                            {item.name}
-                          </p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs font-bold text-gray-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                              {item.name}
+                            </p>
+                            {isUpdatedRecently && (
+                              <span className="px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                Restocked
+                              </span>
+                            )}
+                          </div>
                           {item.supplier && (
                             <span className="text-[11px] text-gray-400 block mt-0.5">Supplier: {item.supplier}</span>
                           )}
@@ -1996,8 +2151,13 @@ export function InventoryManagement() {
                             ) : null}
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-[11px] text-gray-500 font-mono">
-                          {item.lastPurchasedDate || item.addedDate || '—'}
+                        <td className="px-4 py-3.5 text-[11px] font-mono">
+                          <span className="text-gray-600 block">{item.lastPurchasedDate || item.addedDate || '—'}</span>
+                          {isUpdatedRecently && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200 mt-1">
+                              <Sparkles size={9} /> Updated Today
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3.5">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide uppercase ${
