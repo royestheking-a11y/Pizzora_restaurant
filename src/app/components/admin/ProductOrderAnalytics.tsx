@@ -941,7 +941,6 @@ export function ProductOrderAnalytics() {
                     if (!stock) return null;
                     const isOut = stock.stockHealth === 'out';
                     const isLow = stock.stockHealth === 'low';
-                    const remaining = Math.max(0, stock.presentStock - p.countMonth);
                     return (
                       <div className="mt-1.5 p-2 rounded-xl bg-gray-50/90 border border-gray-100 flex flex-col gap-1 min-w-0">
                         <div className="flex items-center justify-between text-[10px] font-bold">
@@ -956,14 +955,12 @@ export function ProductOrderAnalytics() {
                               ? 'bg-amber-100 text-amber-800 border border-amber-200'
                               : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                           }`}>
-                            {stock.presentStock} {stock.unit}
+                            {stock.presentStock} {stock.unit} in stock
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-[9px] text-gray-500 font-medium">
-                          <span>Sold this month: <b className="text-gray-800">{p.countMonth}</b></span>
-                          <span className={remaining <= 0 ? 'text-red-600 font-black' : 'text-emerald-700 font-bold'}>
-                            {remaining} left
-                          </span>
+                          <span>Today: <b className="text-gray-800">{p.countToday} sold</b></span>
+                          <span>This Month: <b className="text-gray-800">{p.countMonth} sold</b></span>
                         </div>
                       </div>
                     );
@@ -1082,7 +1079,6 @@ export function ProductOrderAnalytics() {
                         if (!stock) return <span className="text-[10px] text-gray-400 font-medium">—</span>;
                         const isOut = stock.stockHealth === 'out';
                         const isLow = stock.stockHealth === 'low';
-                        const remaining = Math.max(0, stock.presentStock - p.countMonth);
                         return (
                           <div className="flex flex-col gap-0.5 min-w-[130px]">
                             <div className="flex items-center gap-1.5">
@@ -1094,11 +1090,11 @@ export function ProductOrderAnalytics() {
                                   : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${isOut ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                                {stock.presentStock} {stock.unit}
+                                {stock.presentStock} {stock.unit} in stock
                               </span>
                             </div>
                             <span className="text-[9px] text-gray-500">
-                              {stock.relationLabel} · <b className="text-gray-700">{p.countMonth} sold</b> · <b className={remaining <= 0 ? 'text-red-600' : 'text-emerald-700'}>{remaining} left</b>
+                              {stock.relationLabel} · <b className="text-gray-700">{p.countToday} today</b> · <b className="text-gray-700">{p.countMonth} this month</b>
                             </span>
                           </div>
                         );
@@ -1231,8 +1227,8 @@ export function ProductOrderAnalytics() {
                 const stockInfo = selectedProduct.linkedStockInfo || getLinkedInventoryForMenuItem(selectedProduct, state.inventory || []);
                 const linkedInv = stockInfo?.linkedItem || findLinkedInventoryItem(selectedProduct, state.inventory || []) || selectedProduct.inventoryItem;
                 const isOut = linkedInv ? linkedInv.currentStock <= 0 : false;
-                const isLow = linkedInv ? (linkedInv.currentStock > 0 && linkedInv.currentStock <= linkedInv.minStock) : false;
-                const isHealthy = linkedInv ? linkedInv.currentStock > linkedInv.minStock : false;
+                const isLow = linkedInv ? (linkedInv.currentStock > 0 && linkedInv.currentStock < linkedInv.minStock) : false;
+                const isHealthy = linkedInv ? linkedInv.currentStock >= linkedInv.minStock : false;
 
                 // Detect if item is naturally cooked / prepared kitchen food (Pizzas, Chowmein, Pastas, Burgers)
                 const catLower = (selectedProduct.category || '').toLowerCase();
@@ -1521,14 +1517,27 @@ export function ProductOrderAnalytics() {
                       <div className="space-y-2">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                           <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
-                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Present Month Stock</span>
+                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Available Live Stock</span>
                             <p className={`text-base font-black ${
                               isOut ? 'text-red-600' : isLow ? 'text-amber-700' : 'text-emerald-700'
                             }`} style={{ fontFamily: 'var(--font-heading)' }}>
                               {linkedInv.currentStock.toLocaleString()}{' '}
                               <span className="text-xs font-normal text-gray-600">{linkedInv.unit}</span>
                             </p>
-                            <span className="text-[9px] text-emerald-700 font-bold block mt-0.5">Active Stock</span>
+                            <span className={`text-[9px] font-bold block mt-0.5 ${
+                              isOut ? 'text-red-600' : isLow ? 'text-amber-700' : 'text-emerald-700'
+                            }`}>
+                              {isOut ? 'Out of Stock' : isLow ? 'Low Stock Alert' : 'Active Stock · Ready to Sell'}
+                            </span>
+                          </div>
+
+                          <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
+                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Sold Today</span>
+                            <p className="text-base font-black text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>
+                              {selectedProduct.countToday}{' '}
+                              <span className="text-[10px] font-normal text-gray-500">sold</span>
+                            </p>
+                            <span className="text-[9px] text-gray-500 block mt-0.5">৳{(selectedProduct.countToday * selectedProduct.price).toLocaleString()} today</span>
                           </div>
 
                           <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
@@ -1537,22 +1546,7 @@ export function ProductOrderAnalytics() {
                               {selectedProduct.countMonth}{' '}
                               <span className="text-[10px] font-normal text-gray-500">sold</span>
                             </p>
-                            <span className="text-[9px] text-gray-500 block mt-0.5">৳{(selectedProduct.countMonth * selectedProduct.price).toLocaleString()}</span>
-                          </div>
-
-                          <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
-                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Remaining Balance</span>
-                            <p className={`text-base font-black ${
-                              (linkedInv.currentStock - selectedProduct.countMonth) <= 0 ? 'text-red-600' : 'text-emerald-800'
-                            }`} style={{ fontFamily: 'var(--font-heading)' }}>
-                              {Math.max(0, linkedInv.currentStock - selectedProduct.countMonth).toLocaleString()}{' '}
-                              <span className="text-xs font-normal text-gray-600">{linkedInv.unit}</span>
-                            </p>
-                            <span className={`text-[9px] font-bold block mt-0.5 ${
-                              (linkedInv.currentStock - selectedProduct.countMonth) <= 0 ? 'text-red-600' : 'text-emerald-700'
-                            }`}>
-                              {(linkedInv.currentStock - selectedProduct.countMonth) <= 0 ? 'Needs Restock' : 'Available Left'}
-                            </span>
+                            <span className="text-[9px] text-gray-500 block mt-0.5">৳{(selectedProduct.countMonth * selectedProduct.price).toLocaleString()} this month</span>
                           </div>
 
                           <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
