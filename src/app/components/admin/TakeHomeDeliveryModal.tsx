@@ -380,7 +380,7 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-fade-in overflow-y-auto">
-      <div className="w-full max-w-5xl rounded-3xl shadow-2xl bg-white border border-gray-200 overflow-hidden flex flex-col max-h-[92vh] my-auto">
+      <div className="w-full max-w-5xl xl:max-w-6xl rounded-3xl shadow-2xl bg-white border border-gray-200 overflow-hidden flex flex-col max-h-[92vh] my-auto">
         {/* Header */}
         <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-emerald-50/60">
           <div className="flex items-center gap-3">
@@ -844,37 +844,34 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
           )}
 
           {/* Main Action Bar */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            {/* Left: Compact summary — unbreakable single-line badge */}
-            <div className="flex items-center gap-2 text-xs whitespace-nowrap flex-shrink-0 bg-white px-3 py-1.5 rounded-xl border border-gray-200/90 shadow-2xs self-start md:self-auto">
-              <span className="text-gray-600 font-semibold whitespace-nowrap">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+            {/* Left: Compact summary badge */}
+            <div className="flex items-center gap-2 text-xs whitespace-nowrap bg-white px-3 py-1.5 rounded-xl border border-gray-200/90 shadow-2xs self-start md:self-auto flex-shrink-0">
+              <span className="text-gray-600 font-semibold">
                 <span className="font-extrabold text-gray-900">{selectedItems.reduce((s, i) => s + i.quantity, 0)}</span> {selectedItems.reduce((s, i) => s + i.quantity, 0) === 1 ? 'item' : 'items'}
               </span>
               <span className="text-gray-300">•</span>
-              <span className="text-gray-500 font-medium whitespace-nowrap">Order:</span>
-              <strong className="text-gray-900 text-sm font-extrabold whitespace-nowrap" style={{ fontFamily: 'var(--font-heading)' }}>
+              <span className="text-gray-500 font-medium">Order:</span>
+              <strong className="text-gray-900 text-xs font-black" style={{ fontFamily: 'var(--font-heading)' }}>
                 ৳{orderBalance.toLocaleString()}
               </strong>
               {deliveryCharge > 0 && (
                 <>
                   <span className="text-gray-300">•</span>
-                  <span className="text-emerald-700 font-bold whitespace-nowrap text-[11px]">
-                    Slip Total: ৳{grandTotal.toLocaleString()} (+৳{deliveryCharge} Rider)
+                  <span className="text-emerald-700 font-bold text-xs">
+                    Slip: ৳{grandTotal.toLocaleString()}
                   </span>
                 </>
               )}
-              <span className="text-gray-600 font-medium text-[11px] bg-gray-100/90 px-2 py-0.5 rounded-md border border-gray-200 whitespace-nowrap">
-                ({paymentMethod})
-              </span>
             </div>
 
-            {/* Right: Clean, beautifully aligned Action Buttons in a single row */}
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0 justify-end">
+            {/* Right: Clean Action Buttons properly contained within borders */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-end min-w-0">
               <button
                 type="button"
                 onClick={handleModalClose}
                 disabled={isSubmitting}
-                className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-200/70 transition-colors cursor-pointer"
+                className="px-3 py-2 rounded-xl text-xs font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-200/70 transition-colors cursor-pointer flex-shrink-0"
               >
                 Cancel
               </button>
@@ -882,27 +879,27 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => handleCreateOrder('Pending', { printReceipt: false, printKOT: false })}
-                className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/90 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
+                className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/90 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer flex-shrink-0"
                 title="Save delivery order as Pending"
               >
                 {submittingAction === 'pending' ? <Loader2 size={13} className="animate-spin text-amber-700" /> : <Clock size={13} />}
-                <span>{submittingAction === 'pending' ? 'Saving...' : 'Save as Pending'}</span>
+                <span className="whitespace-nowrap">{submittingAction === 'pending' ? 'Saving...' : 'Save as Pending'}</span>
               </button>
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => handleCreateOrder('Preparing', { printReceipt: false, printKOT: true })}
-                className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/90 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
+                className="px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/90 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer flex-shrink-0"
                 title="Send to kitchen with KOT only (no customer receipt)"
               >
                 {submittingAction === 'kitchen' ? <Loader2 size={14} className="animate-spin text-blue-700" /> : <ChefHat size={14} />}
-                <span>{submittingAction === 'kitchen' ? 'Sending...' : 'Send to Kitchen'}</span>
+                <span className="whitespace-nowrap">{submittingAction === 'kitchen' ? 'Sending...' : 'Send to Kitchen'}</span>
               </button>
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => handleCreateOrder(initialStatus, { printReceipt: true, printKOT: printKOTOnConfirm })}
-                className={`px-5 py-2.5 rounded-xl text-xs font-extrabold active:scale-95 text-white transition-all flex items-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer ${
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold active:scale-95 text-white transition-all flex items-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer flex-shrink-0 ${
                   initialStatus === 'Delivered'
                     ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
                     : initialStatus === 'Preparing'
@@ -923,7 +920,7 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
                 ) : (
                   <Printer size={14} />
                 )}
-                <span>
+                <span className="whitespace-nowrap">
                   {submittingAction === 'confirm'
                     ? 'Confirming...'
                     : initialStatus === 'Delivered'
