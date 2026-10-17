@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useApp, MenuItem, InventoryItem } from '../../context/AppContext';
 import { optimizeCloudinaryUrl } from '../../utils/image';
+import { getLinkedInventoryForMenuItem, LinkedInventoryResult, getDhakaCurrentMonthStr } from '../../utils/inventoryIntelligence';
 
 export type TimePeriod = 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'all';
 
@@ -14,28 +15,8 @@ export function findLinkedInventoryItem(
   product: { id?: string; name: string; category?: string },
   inventory: InventoryItem[]
 ): InventoryItem | null {
-  if (!inventory || inventory.length === 0) return null;
-
-  // 1. Direct explicit menuItemId or ID match (set by admin)
-  if (product.id) {
-    const direct = inventory.find(i => i.menuItemId === product.id || i.id === product.id);
-    if (direct) return direct;
-  }
-
-  // 2. Exact name match (case-insensitive & trimmed)
-  const normName = (product.name || '').trim().toLowerCase();
-  const nameMatch = inventory.find(i => (i.name || '').trim().toLowerCase() === normName);
-  if (nameMatch) return nameMatch;
-
-  // 3. Exact stripped match (e.g. "Water 500 ml" === "Water 500ml" without punctuation/spaces)
-  const strip = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const strippedProd = strip(product.name);
-  if (strippedProd && strippedProd.length >= 3) {
-    const exactStripped = inventory.find(i => strip(i.name) === strippedProd);
-    if (exactStripped) return exactStripped;
-  }
-
-  return null;
+  const result = getLinkedInventoryForMenuItem(product, inventory);
+  return result?.linkedItem || null;
 }
 
 interface ProductStats {
@@ -59,6 +40,7 @@ interface ProductStats {
   countYear: number;
   countAllTime: number;
   inventoryItem?: InventoryItem | null;
+  linkedStockInfo?: LinkedInventoryResult | null;
   recentOrders: {
     orderNumber: string;
     timestamp: number;
@@ -411,10 +393,12 @@ export function ProductOrderAnalytics() {
 
     const list = Array.from(statsMap.values()).map(s => {
       const activeItemRevenue = revenueMode === 'net' ? s.netRevenue : s.grossRevenue;
-      const matchedInventory = findLinkedInventoryItem(s, state.inventory || []);
+      const linkedStockInfo = getLinkedInventoryForMenuItem(s, state.inventory || []);
+      const matchedInventory = linkedStockInfo?.linkedItem || null;
       return {
         ...s,
         inventoryItem: matchedInventory,
+        linkedStockInfo,
         totalRevenue: activeItemRevenue,
         unitsShare: periodUnits > 0 ? (s.totalQuantity / periodUnits) * 100 : 0,
         revenueShare: activeTotalRevenue > 0 ? (activeItemRevenue / activeTotalRevenue) * 100 : 0,
@@ -953,22 +937,34 @@ export function ProductOrderAnalytics() {
 
                   {/* Connected Inventory Stock Pill */}
                   {(() => {
-                    const inv = p.inventoryItem || findLinkedInventoryItem(p, state.inventory || []);
-                    if (!inv) return null;
-                    const isOut = inv.currentStock <= 0;
-                    const isLow = inv.currentStock <= inv.minStock;
+                    const stock = p.linkedStockInfo || getLinkedInventoryForMenuItem(p, state.inventory || []);
+                    if (!stock) return null;
+                    const isOut = stock.stockHealth === 'out';
+                    const isLow = stock.stockHealth === 'low';
+                    const remaining = Math.max(0, stock.presentStock - p.countMonth);
                     return (
-                      <div className="flex items-center gap-1 mt-1">
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                          isOut
-                            ? 'bg-red-50 text-red-600 border border-red-200'
-                            : isLow
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        }`}>
-                          <Package size={10} />
-                          {isOut ? 'Stock: 0 Out' : isLow ? `Low: ${inv.currentStock} ${inv.unit}` : `${inv.currentStock} ${inv.unit} in stock`}
-                        </span>
+                      <div className="mt-1.5 p-2 rounded-xl bg-gray-50/90 border border-gray-100 flex flex-col gap-1 min-w-0">
+                        <div className="flex items-center justify-between text-[10px] font-bold">
+                          <span className="text-gray-600 truncate flex items-center gap-1">
+                            <Package size={11} className={isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-emerald-600'} />
+                            <span className="truncate">{stock.relationLabel}:</span>
+                          </span>
+                          <span className={`px-1.5 py-0.2 rounded font-black text-[10px] shrink-0 ${
+                            isOut
+                              ? 'bg-red-100 text-red-700 border border-red-200'
+                              : isLow
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          }`}>
+                            {stock.presentStock} {stock.unit}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[9px] text-gray-500 font-medium">
+                          <span>Sold this month: <b className="text-gray-800">{p.countMonth}</b></span>
+                          <span className={remaining <= 0 ? 'text-red-600 font-black' : 'text-emerald-700 font-bold'}>
+                            {remaining} left
+                          </span>
+                        </div>
                       </div>
                     );
                   })()}
@@ -1042,7 +1038,7 @@ export function ProductOrderAnalytics() {
                   <th className="py-3 px-3 w-10">#</th>
                   <th className="py-3 px-3">Product Name</th>
                   <th className="py-3 px-3">Category</th>
-                  <th className="py-3 px-3 text-center">Warehouse Stock</th>
+                  <th className="py-3 px-3 text-left">Present Stock & Sales Link</th>
                   <th className="py-3 px-3 text-right">Unit Price</th>
                   <th className="py-3 px-3 text-right">Today</th>
                   <th className="py-3 px-3 text-right">Week</th>
@@ -1080,23 +1076,31 @@ export function ProductOrderAnalytics() {
                         {p.category}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-center">
+                    <td className="py-2.5 px-3">
                       {(() => {
-                        const inv = p.inventoryItem || findLinkedInventoryItem(p, state.inventory || []);
-                        if (!inv) return <span className="text-[10px] text-gray-400 font-medium">—</span>;
-                        const isOut = inv.currentStock <= 0;
-                        const isLow = inv.currentStock <= inv.minStock;
+                        const stock = p.linkedStockInfo || getLinkedInventoryForMenuItem(p, state.inventory || []);
+                        if (!stock) return <span className="text-[10px] text-gray-400 font-medium">—</span>;
+                        const isOut = stock.stockHealth === 'out';
+                        const isLow = stock.stockHealth === 'low';
+                        const remaining = Math.max(0, stock.presentStock - p.countMonth);
                         return (
-                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            isOut
-                              ? 'bg-red-50 text-red-600 border border-red-200'
-                              : isLow
-                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isOut ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                            {inv.currentStock} {inv.unit}
-                          </span>
+                          <div className="flex flex-col gap-0.5 min-w-[130px]">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                isOut
+                                  ? 'bg-red-50 text-red-600 border border-red-200'
+                                  : isLow
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${isOut ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                {stock.presentStock} {stock.unit}
+                              </span>
+                            </div>
+                            <span className="text-[9px] text-gray-500">
+                              {stock.relationLabel} · <b className="text-gray-700">{p.countMonth} sold</b> · <b className={remaining <= 0 ? 'text-red-600' : 'text-emerald-700'}>{remaining} left</b>
+                            </span>
+                          </div>
                         );
                       })()}
                     </td>
@@ -1516,38 +1520,61 @@ export function ProductOrderAnalytics() {
                       <div className="space-y-2">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                           <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
-                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Available in Stock</span>
+                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Present Month Stock</span>
                             <p className={`text-base font-black ${
                               isOut ? 'text-red-600' : isLow ? 'text-amber-700' : 'text-emerald-700'
                             }`} style={{ fontFamily: 'var(--font-heading)' }}>
                               {linkedInv.currentStock.toLocaleString()}{' '}
                               <span className="text-xs font-normal text-gray-600">{linkedInv.unit}</span>
                             </p>
+                            <span className="text-[9px] text-emerald-700 font-bold block mt-0.5">Active Stock</span>
                           </div>
 
                           <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
-                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Purchase Cost</span>
+                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Sold This Month</span>
                             <p className="text-base font-black text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>
-                              ৳{linkedInv.costPrice}{' '}
-                              <span className="text-[10px] font-normal text-gray-500">/{linkedInv.unit}</span>
+                              {selectedProduct.countMonth}{' '}
+                              <span className="text-[10px] font-normal text-gray-500">sold</span>
                             </p>
+                            <span className="text-[9px] text-gray-500 block mt-0.5">৳{(selectedProduct.countMonth * selectedProduct.price).toLocaleString()}</span>
                           </div>
 
                           <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
-                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Min Alert Level</span>
-                            <p className="text-base font-black text-gray-700" style={{ fontFamily: 'var(--font-heading)' }}>
-                              {linkedInv.minStock}{' '}
-                              <span className="text-xs font-normal text-gray-500">{linkedInv.unit}</span>
+                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Remaining Balance</span>
+                            <p className={`text-base font-black ${
+                              (linkedInv.currentStock - selectedProduct.countMonth) <= 0 ? 'text-red-600' : 'text-emerald-800'
+                            }`} style={{ fontFamily: 'var(--font-heading)' }}>
+                              {Math.max(0, linkedInv.currentStock - selectedProduct.countMonth).toLocaleString()}{' '}
+                              <span className="text-xs font-normal text-gray-600">{linkedInv.unit}</span>
                             </p>
+                            <span className={`text-[9px] font-bold block mt-0.5 ${
+                              (linkedInv.currentStock - selectedProduct.countMonth) <= 0 ? 'text-red-600' : 'text-emerald-700'
+                            }`}>
+                              {(linkedInv.currentStock - selectedProduct.countMonth) <= 0 ? 'Needs Restock' : 'Available Left'}
+                            </span>
                           </div>
 
                           <div className="bg-white/90 p-2.5 rounded-xl border border-black/5 shadow-2xs">
-                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Asset Value</span>
-                            <p className="text-base font-black text-emerald-800 font-mono" style={{ fontFamily: 'var(--font-heading)' }}>
+                            <span className="text-[9px] uppercase font-bold text-gray-500 block">Cost & Valuation</span>
+                            <p className="text-base font-black text-gray-800 font-mono" style={{ fontFamily: 'var(--font-heading)' }}>
                               ৳{(linkedInv.currentStock * (linkedInv.costPrice || 0)).toLocaleString()}
                             </p>
+                            <span className="text-[9px] text-gray-500 block mt-0.5">৳{linkedInv.costPrice}/{linkedInv.unit}</span>
                           </div>
                         </div>
+
+                        {/* Deduplication & Active Present Month Notice */}
+                        {stockInfo && stockInfo.archivedDuplicatesCount > 0 && (
+                          <div className="text-[10px] text-gray-700 bg-white/95 p-2 rounded-xl border border-emerald-200/80 flex items-center justify-between flex-wrap gap-1 shadow-2xs">
+                            <span className="flex items-center gap-1.5 text-gray-600">
+                              <CheckCircle2 size={12} className="text-emerald-600" />
+                              <span>De-duplicated: <b>{stockInfo.archivedDuplicatesCount} finished past record{stockInfo.archivedDuplicatesCount > 1 ? 's' : ''}</b> safely ignored</span>
+                            </span>
+                            <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              Active {stockInfo.relationLabel}
+                            </span>
+                          </div>
+                        )}
 
                         {/* Critical Alert Messages */}
                         {isOut && (

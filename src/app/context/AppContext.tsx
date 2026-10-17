@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { MenuItem, menuItems as defaultMenuItems, galleryImages as defaultGalleryImages, GalleryImage, Chef, chefs as defaultChefs } from '../data/restaurantData';
+import { pickActivePresentItem, normalizeProductKey } from '../utils/inventoryIntelligence';
 export type { MenuItem, GalleryImage, Chef };
 
 // ─── Existing Types ────────────────────────────────────────────────────────────
@@ -587,9 +588,11 @@ function findRelatedInventoryDeductionsClient(
   const finalCategory = fullMenuItem?.category || itemCategory;
 
   // 1. If explicit recipe configured on MenuItem:
+  // 1. If explicit recipe configured on MenuItem:
   if ((fullMenuItem as any)?.recipe && Array.isArray((fullMenuItem as any).recipe) && (fullMenuItem as any).recipe.length > 0) {
     for (const r of (fullMenuItem as any).recipe) {
-      const inv = allInventory.find(i => i.id === r.inventoryItemId || (i.name && i.name.toLowerCase() === r.inventoryItemName?.toLowerCase()));
+      const candidates = allInventory.filter(i => i.id === r.inventoryItemId || (i.name && i.name.toLowerCase() === r.inventoryItemName?.toLowerCase()));
+      const inv = pickActivePresentItem(candidates);
       if (inv) {
         deductions.push({
           inventoryItem: inv,
@@ -601,14 +604,16 @@ function findRelatedInventoryDeductionsClient(
     return deductions;
   }
 
-  // 2. Intelligent Auto-Detection:
+  // 2. Intelligent Auto-Detection (Prioritizing Present Month Active Stock):
   const deductedInvIds = new Set<string>();
 
-  // A. Direct Product Match
-  const directMatch = allInventory.find(inv =>
+  // A. Direct Product Match (e.g. Water 500ml, Mojo, Drinks, etc.)
+  const directCandidates = allInventory.filter(inv =>
     (menuItemId && (inv.menuItemId === menuItemId || inv.id === menuItemId)) ||
-    (itemName && inv.name && inv.name.trim().toLowerCase() === itemName.trim().toLowerCase())
+    (itemName && inv.name && inv.name.trim().toLowerCase() === itemName.trim().toLowerCase()) ||
+    normalizeProductKey(inv.name, inv.category) === normalizeProductKey(itemName, itemCategory)
   );
+  const directMatch = pickActivePresentItem(directCandidates);
   if (directMatch && !deductedInvIds.has(directMatch.id)) {
     deductions.push({
       inventoryItem: directMatch,
@@ -629,25 +634,31 @@ function findRelatedInventoryDeductionsClient(
     else if (textToSearch.includes('8') || textToSearch.includes('small')) size = '8';
     else size = '10'; // default 10-inch pizza
 
-    let boxItem = allInventory.find(inv => {
+    const boxCandidates = allInventory.filter(inv => {
       const n = (inv.name || '').toLowerCase();
+      const normKey = normalizeProductKey(inv.name, inv.category);
+      if (normKey === `box:pizza_${size}`) return true;
       return (n.includes('box') || (inv.category || '').toLowerCase().includes('packaging') || (inv.category || '').toLowerCase().includes('food raw materials')) &&
              (n.includes(size) || n.includes(`${size}"`) || n.includes(`${size} inch`)) &&
              n.includes('pizza');
     });
 
+    let boxItem = pickActivePresentItem(boxCandidates);
+
     if (!boxItem) {
-      boxItem = allInventory.find(inv => {
+      const fallbackCandidates = allInventory.filter(inv => {
         const n = (inv.name || '').toLowerCase();
         return n.includes('box') && (n.includes(size) || n.includes(`${size}"`));
       });
+      boxItem = pickActivePresentItem(fallbackCandidates);
     }
 
     if (!boxItem) {
-      boxItem = allInventory.find(inv => {
+      const generalBoxCandidates = allInventory.filter(inv => {
         const n = (inv.name || '').toLowerCase();
         return n.includes('pizza') && n.includes('box');
       });
+      boxItem = pickActivePresentItem(generalBoxCandidates);
     }
 
     if (boxItem && !deductedInvIds.has(boxItem.id)) {
@@ -659,10 +670,13 @@ function findRelatedInventoryDeductionsClient(
       deductedInvIds.add(boxItem.id);
     }
   } else if (isBurger) {
-    const burgerBox = allInventory.find(inv => {
+    const burgerCandidates = allInventory.filter(inv => {
       const n = (inv.name || '').toLowerCase();
+      const normKey = normalizeProductKey(inv.name, inv.category);
+      if (normKey === 'box:burger') return true;
       return (n.includes('burger') && n.includes('box')) || (n.includes('burger') && (inv.category || '').toLowerCase().includes('packaging'));
     });
+    const burgerBox = pickActivePresentItem(burgerCandidates);
     if (burgerBox && !deductedInvIds.has(burgerBox.id)) {
       deductions.push({
         inventoryItem: burgerBox,
@@ -677,7 +691,7 @@ function findRelatedInventoryDeductionsClient(
   if (finalIngredients && finalIngredients.length > 0) {
     for (const ing of finalIngredients) {
       const ingLower = ing.trim().toLowerCase();
-      const matchedInv = allInventory.find(inv => {
+      const ingCandidates = allInventory.filter(inv => {
         if (deductedInvIds.has(inv.id)) return false;
         const invName = (inv.name || '').trim().toLowerCase();
         return (
@@ -693,6 +707,8 @@ function findRelatedInventoryDeductionsClient(
           (ingLower.includes('dough') && (invName.includes('dough') || invName.includes('flour')))
         );
       });
+
+      const matchedInv = pickActivePresentItem(ingCandidates);
 
       if (matchedInv && !deductedInvIds.has(matchedInv.id)) {
         const unitPortion = (matchedInv.unit?.toLowerCase() === 'kg') ? 0.1 : 1;

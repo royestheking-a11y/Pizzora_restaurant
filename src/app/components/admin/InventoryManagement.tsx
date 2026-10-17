@@ -79,13 +79,16 @@ const labelSt: React.CSSProperties = {
   fontFamily: 'var(--font-heading)',
 };
 
+import { processInventoryForMasterCatalog, ProcessedInventoryItem } from '../../utils/inventoryIntelligence';
+
 export function InventoryManagement() {
   const { state, dispatch } = useApp();
   const { inventory: items, stockMovements: movements } = state;
   const [tab, setTab] = useState<'stock' | 'daily-bazar' | 'analytics' | 'comparison' | 'custom-range' | 'report' | 'history' | 'reconciliation' | 'alerts'>('stock');
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [sortBy, setSortBy] = useState<'recent' | 'name-asc' | 'name-desc' | 'stock-desc' | 'stock-asc' | 'valuation-desc'>('recent');
+  const [sortBy, setSortBy] = useState<'recent' | 'date-serial' | 'name-asc' | 'name-desc' | 'stock-desc' | 'stock-asc' | 'valuation-desc'>('date-serial');
+  const [catalogViewMode, setCatalogViewMode] = useState<'active-only' | 'date-serial' | 'all'>('active-only');
   const [dateFilter, setDateFilter] = useState<'All Time' | 'This Month' | 'Last Month' | 'Today' | 'Yesterday' | 'Last 7 Days' | 'Custom'>('All Time');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -900,9 +903,18 @@ export function InventoryManagement() {
     return map;
   }, [movements]);
 
-  // Filtered & Sorted Items for Main List (Recently updated products sort to top)
+  // Intelligent Master Catalog Processing: Identifies active present stock & date serial hierarchy
+  const masterCatalogData = useMemo(() => {
+    return processInventoryForMasterCatalog(items, currentMonthStr, todayStr);
+  }, [items, currentMonthStr, todayStr]);
+
+  // Filtered & Sorted Items for Main List (Arranged by Date Serial or Active Stock)
   const filtered = useMemo(() => {
-    const result = items.filter(i => {
+    const baseItems = catalogViewMode === 'active-only'
+      ? masterCatalogData.activePresentItems
+      : masterCatalogData.processedItems;
+
+    const result = baseItems.filter(i => {
       const matchSearch =
         i.name.toLowerCase().includes(search.toLowerCase()) ||
         i.sku.toLowerCase().includes(search.toLowerCase()) ||
@@ -912,7 +924,34 @@ export function InventoryManagement() {
       return matchSearch && matchCat;
     });
 
-    if (sortBy === 'recent') {
+    const dateGroupPriority: Record<string, number> = {
+      'Today': 0,
+      'Yesterday': 1,
+      'This Month': 2,
+      'Last Month': 3,
+      'Older': 4
+    };
+
+    if (sortBy === 'date-serial') {
+      result.sort((a, b) => {
+        const groupDiff = (dateGroupPriority[a.dateSerialGroup] ?? 99) - (dateGroupPriority[b.dateSerialGroup] ?? 99);
+        if (groupDiff !== 0) return groupDiff;
+        // Within same group, sort by effective date descending
+        const dateCompare = (b.effectiveDate || '').localeCompare(a.effectiveDate || '');
+        if (dateCompare !== 0) return dateCompare;
+        // Then by recent movement
+        const timeA = Math.max(
+          latestMovementDateMap.get(a.id) || 0,
+          a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+        );
+        const timeB = Math.max(
+          latestMovementDateMap.get(b.id) || 0,
+          b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+        );
+        if (timeB !== timeA) return timeB - timeA;
+        return a.name.localeCompare(b.name);
+      });
+    } else if (sortBy === 'recent') {
       result.sort((a, b) => {
         const timeA = a.updatedAt
           ? new Date(a.updatedAt).getTime()
@@ -944,7 +983,7 @@ export function InventoryManagement() {
     }
 
     return result;
-  }, [items, search, selectedCategory, sortBy, latestMovementDateMap]);
+  }, [masterCatalogData, catalogViewMode, search, selectedCategory, sortBy, latestMovementDateMap]);
 
   const lowStock = useMemo(() => items.filter(i => (i.currentStock || 0) <= (i.minStock || 0)), [items]);
 
@@ -1942,23 +1981,97 @@ export function InventoryManagement() {
       {tab === 'stock' && (
         <div className="space-y-4">
           <div className="pt-2">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
               <div>
                 <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'var(--font-heading)' }}>
                   Master Product Inventory & Catalog
                 </h3>
                 <p className="text-[11px] text-gray-500">
-                  Unified product catalog showing live cumulative stock, purchase cost & selling prices
+                  Unified product catalog with intelligent date serial arrangement and automatic present-month active stock detection
                 </p>
               </div>
-              <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-lg">
-                {filtered.length} Unique Products
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-lg">
+                  {filtered.length} Displayed Products
+                </span>
+                {masterCatalogData.duplicatesDetectedCount > 0 && (
+                  <span className="text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2.5 py-1 rounded-lg border border-amber-200">
+                    {masterCatalogData.duplicatesDetectedCount} Finished Past Records Ignored
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Intelligent View Mode Switcher (Active Stock vs Date Serial Hierarchy) */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-red-50/40 via-white to-gray-50 p-2.5 rounded-2xl border border-gray-200/90 shadow-sm mt-2 mb-1">
+              <div className="flex items-center gap-1.5 bg-gray-100/90 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCatalogViewMode('active-only');
+                    setSortBy('date-serial');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
+                    catalogViewMode === 'active-only'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  style={{ fontFamily: 'var(--font-heading)' }}
+                >
+                  <Sparkles size={13} className="text-emerald-600" />
+                  Active Present Stock ({masterCatalogData.activePresentItems.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCatalogViewMode('date-serial');
+                    setSortBy('date-serial');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
+                    catalogViewMode === 'date-serial'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  style={{ fontFamily: 'var(--font-heading)' }}
+                >
+                  <CalendarDays size={13} className="text-blue-600" />
+                  Date Serial Hierarchy ({masterCatalogData.processedItems.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCatalogViewMode('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
+                    catalogViewMode === 'all'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  style={{ fontFamily: 'var(--font-heading)' }}
+                >
+                  <Layers size={13} className="text-gray-600" />
+                  All Records ({items.length})
+                </button>
+              </div>
+
+              <div className="text-[11px] text-gray-600 flex items-center gap-1.5">
+                {catalogViewMode === 'active-only' ? (
+                  <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                    <CheckCircle2 size={13} className="text-emerald-600" /> Showing current active items (e.g. this month's water, boxes & raw stock). Old 0-stock entries ignored.
+                  </span>
+                ) : catalogViewMode === 'date-serial' ? (
+                  <span className="text-blue-700 font-semibold flex items-center gap-1">
+                    <Calendar size={13} className="text-blue-600" /> Arranged strictly by date: Today → Yesterday → This Month → Last Month → Older
+                  </span>
+                ) : (
+                  <span className="text-gray-500 font-medium">
+                    Showing all records including historical past duplicates with status badges.
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-              {/* Quick Category Filter Bar */}
-              <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-2 overflow-x-auto scrollbar-none">
+          {/* Quick Category Filter Bar */}
+          <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-2 overflow-x-auto scrollbar-none">
             <span className="text-[11px] font-black uppercase text-gray-400 px-2 tracking-wider">Categories:</span>
             <button
               onClick={() => setSelectedCategory('All')}
@@ -2042,9 +2155,10 @@ export function InventoryManagement() {
               <select
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value as any)}
-                style={{ ...inputSt, width: 'auto', minWidth: '190px' }}
+                style={{ ...inputSt, width: 'auto', minWidth: '200px' }}
                 title="Sort inventory products"
               >
+                <option value="date-serial">📅 Date Serial (Today → Oldest)</option>
                 <option value="recent">⚡ Recently Updated / Restocked</option>
                 <option value="name-asc">Product Name (A → Z)</option>
                 <option value="name-desc">Product Name (Z → A)</option>
@@ -2060,7 +2174,7 @@ export function InventoryManagement() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50/80 border-b border-gray-200">
-                  {['SKU', 'Product Details', 'Category / Type', 'Current Stock', 'Min Stock', 'Price (Cost / Sell)', 'Valuation', 'Last Activity', 'Status', 'Actions'].map(h => (
+                  {['SKU', 'Product Details', 'Date Serial', 'Category / Type', 'Current Stock', 'Min Stock', 'Price (Cost / Sell)', 'Valuation', 'Last Activity', 'Status', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'var(--font-heading)' }}>
                       {h}
                     </th>
@@ -2069,10 +2183,10 @@ export function InventoryManagement() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {state.isInitialLoading ? (
-                  Array.from({ length: 6 }).map((_, i) => <TableRowSkeleton key={i} columns={10} />)
+                  Array.from({ length: 6 }).map((_, i) => <TableRowSkeleton key={i} columns={11} />)
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-16 text-center text-gray-400 text-sm">
+                    <td colSpan={11} className="py-16 text-center text-gray-400 text-sm">
                       <Package size={36} className="mx-auto mb-2 text-gray-300" />
                       No inventory items found matching your filter criteria
                     </td>
@@ -2089,6 +2203,10 @@ export function InventoryManagement() {
                       if (lastMoveTime && Date.now() - lastMoveTime < 1000 * 60 * 60 * 24) return true;
                       return false;
                     })();
+
+                    const dateGroup = (item as ProcessedInventoryItem).dateSerialGroup || 'Older';
+                    const isPrimary = (item as ProcessedInventoryItem).isPrimaryActive ?? true;
+                    const isStaleDuplicate = (item as ProcessedInventoryItem).isStaleFinishedDuplicate ?? false;
 
                     return (
                       <tr key={item.id} className={`hover:bg-gray-50/70 transition-colors ${isUpdatedRecently ? 'bg-emerald-50/20' : ''}`}>
@@ -2107,10 +2225,46 @@ export function InventoryManagement() {
                                 Restocked
                               </span>
                             )}
+                            {isPrimary && (
+                              <span className="px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200" title="Active current stock prioritized for orders & kitchen">
+                                Active Present
+                              </span>
+                            )}
+                            {isStaleDuplicate && (
+                              <span className="px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase bg-amber-50 text-amber-800 border border-amber-200" title="Past finished entry superseded by active present month stock">
+                                Past Finished Duplicate
+                              </span>
+                            )}
                           </div>
                           {item.supplier && (
                             <span className="text-[11px] text-gray-400 block mt-0.5">Supplier: {item.supplier}</span>
                           )}
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          {dateGroup === 'Today' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              <Sparkles size={10} /> Today
+                            </span>
+                          ) : dateGroup === 'Yesterday' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-blue-100 text-blue-800 border border-blue-200">
+                              Yesterday
+                            </span>
+                          ) : dateGroup === 'This Month' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase bg-purple-100 text-purple-800 border border-purple-200">
+                              This Month
+                            </span>
+                          ) : dateGroup === 'Last Month' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                              Last Month
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-gray-100 text-gray-500">
+                              Older
+                            </span>
+                          )}
+                          <span className="block text-[10px] text-gray-400 font-mono mt-0.5">
+                            {(item as ProcessedInventoryItem).effectiveDate || item.lastPurchasedDate || item.addedDate}
+                          </span>
                         </td>
                         <td className="px-4 py-3.5">
                           <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-gray-100 text-gray-600">
