@@ -354,6 +354,40 @@ PrintJobSchema.index({ invoiceNumber: 1 });
 PrintJobSchema.index({ source: 1 });
 export const PrintJob = mongoose.model('PrintJob', PrintJobSchema);
 
+// ── 30-Day Deleted Orders Archive ──────────────────────────────────────────
+const DeletedOrderSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  originalOrderId: { type: String, index: true },
+  orderNumber: { type: String, index: true },
+  invoiceNumber: { type: String, index: true },
+  orderType: { type: String, default: 'POS' },
+  customerName: { type: String, default: '' },
+  customerPhone: { type: String, default: '' },
+  deliveryAddress: { type: String, default: '' },
+  tableNumber: { type: String, default: '' },
+  tableId: { type: String, default: '' },
+  items: { type: Array, default: [] },
+  subtotal: { type: Number, default: 0 },
+  discount: { type: Number, default: 0 },
+  deliveryFee: { type: Number, default: 0 },
+  total: { type: Number, default: 0 },
+  paymentMethod: { type: String, default: 'Cash' },
+  splitPayments: { type: Array, default: [] },
+  compDetails: { type: mongoose.Schema.Types.Mixed, default: undefined },
+  staffTabDetails: { type: mongoose.Schema.Types.Mixed, default: undefined },
+  orderCreatedAt: { type: String, default: '' },
+  deletedAt: { type: Date, default: Date.now, index: true },
+  deletedBy: { type: String, default: 'Admin' },
+  deletionReason: { type: String, default: 'Admin Deletion' },
+  restocked: { type: Boolean, default: true },
+  restockedItemsCount: { type: Number, default: 0 },
+  expiresAt: { type: Date, index: { expires: 0 } }, // MongoDB TTL: deletes 30 days after creation
+  rawOrderData: { type: mongoose.Schema.Types.Mixed, default: null }
+}, { timestamps: true });
+
+DeletedOrderSchema.index({ deletedAt: -1 });
+export const DeletedOrder = mongoose.model('DeletedOrder', DeletedOrderSchema);
+
 // ── Restaurant Settings (singleton doc for global config) ─────────────────
 const RestaurantSettingsSchema = new mongoose.Schema({
   key: { type: String, required: true, unique: true, default: 'main' },

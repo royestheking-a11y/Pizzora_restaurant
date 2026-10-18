@@ -59,6 +59,7 @@ export interface Order {
   createdAt: string;
   estimatedTime: string;
   orderNumber: string;
+  invoiceNumber?: string;
   isOnlineOrder?: boolean;
   source?: 'website' | 'pos' | 'table' | string;
   orderType?: string;
@@ -164,6 +165,7 @@ export interface TableOrder {
   customerPhone?: string;
   guestCount?: number;
   invoiceNumber?: string;
+  orderNumber?: string;
   paymentMethod?: string;
   splitPayments?: SplitPaymentItem[];
   compDetails?: CompDetails;
@@ -299,6 +301,47 @@ export interface UserAccount {
   createdAt?: string;
 }
 
+// ─── 30-Day Deleted Order Archive ─────────────────────────────────────────────
+export interface DeletedOrder {
+  id: string;
+  originalOrderId: string;
+  orderNumber: string;
+  invoiceNumber?: string;
+  orderType: string;
+  customerName: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  tableNumber?: string;
+  tableId?: string;
+  items: Array<{
+    item?: any;
+    menuItemId?: string;
+    id?: string;
+    name?: string;
+    quantity: number;
+    price: number;
+    variant?: string;
+    note?: string;
+    specialRequest?: string;
+  }>;
+  subtotal: number;
+  discount: number;
+  deliveryFee?: number;
+  total: number;
+  paymentMethod: string;
+  splitPayments?: Array<{ method: string; amount: number }>;
+  compDetails?: any;
+  staffTabDetails?: any;
+  orderCreatedAt?: string;
+  deletedAt: string;
+  deletedBy?: string;
+  deletionReason?: string;
+  restocked: boolean;
+  restockedItemsCount: number;
+  expiresAt?: string;
+  rawOrderData?: any;
+}
+
 // ─── Delivery Settings ────────────────────────────────────────────────────────
 
 export interface DeliverySettings {
@@ -369,6 +412,7 @@ interface AppState {
   stockMovements: StockMovement[];
   reviews: ItemReview[];
   users: UserAccount[];
+  deletedOrders: DeletedOrder[];
   deliverySettings: DeliverySettings;
   isAdminLoggedIn: boolean;
   cartOpen: boolean;
@@ -434,6 +478,11 @@ type Action =
   | { type: 'UPDATE_TABLE_ORDER'; payload: TableOrder }
   | { type: 'UPDATE_TABLE_ORDER_STATUS'; payload: { id: string; status: TableOrderStatus } }
   | { type: 'DELETE_TABLE_ORDER'; payload: string }
+  | { type: 'DELETE_ORDER_WITH_CLEANUP'; payload: { orderId?: string; orderNumber?: string; invoiceNumber?: string; deletedOrder?: any; deletedBy?: string; reason?: string } }
+  | { type: 'ADD_DELETED_ORDER'; payload: DeletedOrder }
+  | { type: 'SET_DELETED_ORDERS'; payload: DeletedOrder[] }
+  | { type: 'PURGE_DELETED_ORDER'; payload: string }
+  | { type: 'RESTORE_DELETED_ORDER'; payload: string }
   | { type: 'SYNC_ORDER_STATUSES'; payload: { id: string; status: OrderStatus }[] }
   | { type: 'SYNC_TABLE_ORDER_STATUSES'; payload: { id: string; status: TableOrderStatus }[] }
   // Waste tracking
@@ -551,6 +600,7 @@ const initialState: AppState = {
   stockMovements: [],
   reviews: [],
   users: [],
+  deletedOrders: [],
   deliverySettings: DEFAULT_DELIVERY_SETTINGS,
   isAdminLoggedIn: savedAdminLogin,
   cartOpen: false,
@@ -763,6 +813,44 @@ function deductInventoryForOrderClient(
   return { updatedInventory, movements };
 }
 
+function restockInventoryForOrderClient(
+  inventory: InventoryItem[],
+  menuItems: MenuItem[],
+  items: Array<{ item?: any; menuItemId?: string; id?: string; name?: string; quantity?: number }>,
+  orderInfo: { orderNumber?: string; id?: string; isTable?: boolean; tableNumber?: string | number; reason?: string }
+): { updatedInventory: InventoryItem[]; movements: StockMovement[] } {
+  let updatedInventory = [...inventory];
+  const movements: StockMovement[] = [];
+  const today = new Date().toLocaleDateString('en-CA');
+
+  for (const lineItem of items || []) {
+    const deductions = findRelatedInventoryDeductionsClient(lineItem, updatedInventory, menuItems);
+    for (const { inventoryItem: inv, quantityToDeduct, reason } of deductions) {
+      const idx = updatedInventory.findIndex(i => i.id === inv.id);
+      if (idx !== -1) {
+        const currentInv = updatedInventory[idx];
+        const newStock = (currentInv.currentStock || 0) + quantityToDeduct;
+        updatedInventory[idx] = { ...currentInv, currentStock: newStock };
+
+        movements.push({
+          id: `mv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          itemId: currentInv.id,
+          itemName: currentInv.name,
+          type: 'Return IN',
+          quantity: quantityToDeduct,
+          unitPrice: currentInv.costPrice || 0,
+          totalCost: quantityToDeduct * (currentInv.costPrice || 0),
+          date: today,
+          note: `Restocked from Deleted Order #${orderInfo.orderNumber || (orderInfo.id ? orderInfo.id.slice(-6) : 'POS')} - ${reason}${orderInfo.reason ? ` (${orderInfo.reason})` : ''}`,
+          orderNumber: orderInfo.orderNumber || (orderInfo.id ? orderInfo.id.slice(-6) : '')
+        });
+      }
+    }
+  }
+
+  return { updatedInventory, movements };
+}
+
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
 function reducer(state: AppState, action: Action): AppState {
@@ -789,6 +877,7 @@ function reducer(state: AppState, action: Action): AppState {
         stockMovements: action.payload.stockMovements ?? state.stockMovements ?? [],
         reviews: action.payload.reviews ?? state.reviews ?? [],
         users: action.payload.users ?? state.users ?? [],
+        deletedOrders: action.payload.deletedOrders ?? state.deletedOrders ?? [],
         deliverySettings: action.payload.deliverySettings ?? state.deliverySettings ?? DEFAULT_DELIVERY_SETTINGS,
       };
 
@@ -917,10 +1006,126 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
 
-    case 'DELETE_ORDER':
+    case 'DELETE_ORDER': {
+      const targetId = action.payload;
       return {
         ...state,
-        orders: state.orders.filter(o => o.id !== action.payload)
+        orders: state.orders.filter(o => o.id !== targetId),
+        tableOrders: state.tableOrders.filter(o => o.id !== targetId && o.invoiceNumber !== targetId && o.orderNumber !== targetId)
+      };
+    }
+
+    case 'DELETE_TABLE_ORDER': {
+      const targetId = action.payload;
+      return {
+        ...state,
+        tableOrders: state.tableOrders.filter(o => o.id !== targetId),
+        orders: state.orders.filter(o => o.id !== targetId && o.orderNumber !== targetId && o.invoiceNumber !== targetId)
+      };
+    }
+
+    case 'DELETE_ORDER_WITH_CLEANUP': {
+      const { orderId, orderNumber, invoiceNumber, deletedOrder, reason, deletedBy } = action.payload;
+      const targetId = orderId || deletedOrder?.originalOrderId || deletedOrder?.id;
+      const targetNum = orderNumber || deletedOrder?.orderNumber;
+      const targetInv = invoiceNumber || deletedOrder?.invoiceNumber;
+
+      const rawOrder = deletedOrder || 
+        state.orders.find(o => o.id === targetId || (targetNum && o.orderNumber === targetNum) || (targetInv && o.invoiceNumber === targetInv)) ||
+        state.tableOrders.find(o => o.id === targetId || (targetNum && o.orderNumber === targetNum) || (targetInv && o.invoiceNumber === targetInv));
+
+      const items = rawOrder?.items || [];
+      const restockResult = restockInventoryForOrderClient(
+        state.inventory,
+        state.menuItems,
+        items,
+        {
+          orderNumber: targetNum || rawOrder?.orderNumber || (targetId ? targetId.slice(-6) : ''),
+          id: targetId,
+          reason: reason || 'Order Deleted'
+        }
+      );
+
+      const newOrders = state.orders.filter(o => 
+        o.id !== targetId && (!targetNum || o.orderNumber !== targetNum) && (!targetInv || o.invoiceNumber !== targetInv)
+      );
+      const newTableOrders = state.tableOrders.filter(o => 
+        o.id !== targetId && (!targetNum || o.orderNumber !== targetNum) && (!targetInv || o.invoiceNumber !== targetInv)
+      );
+
+      const deletedRecord: DeletedOrder = deletedOrder || {
+        id: `del-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        originalOrderId: targetId || '',
+        orderNumber: targetNum || (targetId ? targetId.slice(-6) : ''),
+        invoiceNumber: targetInv || '',
+        orderType: rawOrder?.orderType || (rawOrder?.tableNumber ? 'Dine In' : 'POS'),
+        customerName: rawOrder?.customerName || (rawOrder?.tableNumber ? `Table ${rawOrder.tableNumber}` : 'Customer'),
+        customerPhone: rawOrder?.phone || rawOrder?.customerPhone || '',
+        deliveryAddress: rawOrder?.address || '',
+        tableNumber: rawOrder?.tableNumber || '',
+        tableId: rawOrder?.tableId || '',
+        items: items,
+        subtotal: rawOrder?.subtotal || 0,
+        discount: rawOrder?.discount || 0,
+        deliveryFee: rawOrder?.deliveryFee || 0,
+        total: rawOrder?.total || 0,
+        paymentMethod: rawOrder?.paymentMethod || 'Cash',
+        splitPayments: rawOrder?.splitPayments || [],
+        compDetails: rawOrder?.compDetails,
+        staffTabDetails: rawOrder?.staffTabDetails,
+        orderCreatedAt: String(rawOrder?.createdAt || ''),
+        deletedAt: new Date().toISOString(),
+        deletedBy: deletedBy || 'Admin',
+        deletionReason: reason || 'Admin Deletion',
+        restocked: true,
+        restockedItemsCount: restockResult.movements.length,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        rawOrderData: rawOrder
+      };
+
+      const newTables = state.tables.map(t => {
+        if (t.currentOrderId === targetId || (rawOrder?.tableNumber && String(t.tableNumber) === String(rawOrder.tableNumber))) {
+          return { ...t, status: 'Available' as const, currentOrderId: undefined };
+        }
+        return t;
+      });
+
+      return {
+        ...state,
+        orders: newOrders,
+        tableOrders: newTableOrders,
+        tables: newTables,
+        inventory: restockResult.updatedInventory,
+        stockMovements: [...restockResult.movements, ...state.stockMovements],
+        deletedOrders: [deletedRecord, ...state.deletedOrders.filter(d => d.id !== deletedRecord.id && d.originalOrderId !== targetId)]
+      };
+    }
+
+    case 'ADD_DELETED_ORDER':
+      if (state.deletedOrders.some(d => d.id === action.payload.id)) return state;
+      return { ...state, deletedOrders: [action.payload, ...state.deletedOrders] };
+
+    case 'SET_DELETED_ORDERS':
+      return { ...state, deletedOrders: action.payload };
+
+    case 'PURGE_DELETED_ORDER':
+      return {
+        ...state,
+        deletedOrders: state.deletedOrders.filter(d => 
+          d.id !== action.payload && 
+          (d as any)._id?.toString() !== action.payload?.toString() &&
+          d.orderNumber !== action.payload
+        )
+      };
+
+    case 'RESTORE_DELETED_ORDER':
+      return {
+        ...state,
+        deletedOrders: state.deletedOrders.filter(d => 
+          d.id !== action.payload && 
+          (d as any)._id?.toString() !== action.payload?.toString() &&
+          d.orderNumber !== action.payload
+        )
       };
 
     case 'SYNC_ORDER_STATUSES': {
@@ -1118,9 +1323,6 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
 
-    case 'DELETE_TABLE_ORDER':
-      return { ...state, tableOrders: state.tableOrders.filter(o => o.id !== action.payload) };
-
     // ── Waste Records ────────────────────────────────────────────────────────
     case 'ADD_WASTE_RECORD':
       return { ...state, wasteRecords: [action.payload, ...state.wasteRecords] };
@@ -1241,6 +1443,9 @@ interface AppContextType {
   updateDeliverySettings: (settings: DeliverySettings) => void;
   calcDeliveryFee: (distanceKm: number) => number;
   refreshAnalytics: () => Promise<void>;
+  deleteOrderWithCleanup: (orderOrId: any, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  restoreDeletedOrder: (deletedOrderId: string) => Promise<{ success: boolean; error?: string }>;
+  purgeDeletedOrder: (deletedOrderId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -1272,8 +1477,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const dispatch = async (action: Action) => {
     dispatchLocal(action);
 
-    // Actions that shouldn't be broadcasted (purely local UI state or user-specific session state)
-    const localOnly = ['SET_CART_OPEN', 'TOGGLE_CART', 'SET_NOTIFICATION', 'LOAD_FROM_STORAGE', 'SET_SOCKET_CONNECTED', 'SET_INITIAL_LOADING', 'ADD_TO_CART', 'REMOVE_FROM_CART', 'UPDATE_QUANTITY', 'CLEAR_CART', 'ADMIN_LOGIN', 'ADMIN_LOGOUT', 'SYNC_ORDER_STATUSES', 'SYNC_TABLE_ORDER_STATUSES'];
+    // Actions that shouldn't be broadcasted (purely local UI state or user-specific session state or REST-handled actions)
+    const localOnly = [
+      'SET_CART_OPEN', 'TOGGLE_CART', 'SET_NOTIFICATION', 'LOAD_FROM_STORAGE', 'SET_SOCKET_CONNECTED',
+      'SET_INITIAL_LOADING', 'ADD_TO_CART', 'REMOVE_FROM_CART', 'UPDATE_QUANTITY', 'CLEAR_CART',
+      'ADMIN_LOGIN', 'ADMIN_LOGOUT', 'SYNC_ORDER_STATUSES', 'SYNC_TABLE_ORDER_STATUSES',
+      'SET_DELETED_ORDERS', 'DELETE_ORDER_WITH_CLEANUP', 'RESTORE_DELETED_ORDER', 'PURGE_DELETED_ORDER', 'ADD_DELETED_ORDER'
+    ];
 
     if (!localOnly.includes(action.type)) {
       let success = false;
@@ -1639,6 +1849,131 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const calcDeliveryFeeCtx = (distanceKm: number) =>
     calcDeliveryFee(distanceKm, state.deliverySettings);
 
+  const deleteOrderWithCleanup = async (orderOrId: any, reason?: string) => {
+    try {
+      const orderId = typeof orderOrId === 'string' ? orderOrId : (orderOrId?.id || '');
+      const orderNumber = typeof orderOrId === 'object' ? (orderOrId.orderNumber || orderOrId.invoiceNumber) : '';
+      const invoiceNumber = typeof orderOrId === 'object' ? orderOrId.invoiceNumber : '';
+      const adminName = typeof window !== 'undefined' ? (sessionStorage.getItem('pizzora_admin_name') || 'Admin') : 'Admin';
+
+      // Optimistic client-side cleanup and instant restock
+      dispatch({
+        type: 'DELETE_ORDER_WITH_CLEANUP',
+        payload: {
+          orderId,
+          orderNumber,
+          invoiceNumber,
+          deletedOrder: typeof orderOrId === 'object' ? orderOrId : undefined,
+          deletedBy: adminName,
+          reason: reason || 'Admin Deletion'
+        }
+      });
+
+      // Backend cascading delete across Order and TableOrder collections
+      const token = typeof window !== 'undefined' ? (sessionStorage.getItem('pizzora_token') || localStorage.getItem('pizzora_token') || '') : '';
+      const res = await fetch(`${getBackendUrl()}/api/orders/delete-cascade`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          orderId,
+          orderNumber,
+          invoiceNumber,
+          deletedBy: adminName,
+          reason: reason || 'Admin Deletion'
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        console.warn('[deleteOrderWithCleanup] Server response:', data);
+      }
+      return { success: true, ...data };
+    } catch (err: any) {
+      console.error('[deleteOrderWithCleanup] Exception:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const restoreDeletedOrder = async (deletedOrderId: string) => {
+    try {
+      if (!deletedOrderId || deletedOrderId === 'undefined') {
+        showNotification('Invalid order ID', 'error');
+        return { success: false, error: 'Invalid order ID' };
+      }
+      const token = typeof window !== 'undefined' ? (sessionStorage.getItem('pizzora_token') || localStorage.getItem('pizzora_token') || '') : '';
+      const adminName = typeof window !== 'undefined' ? (sessionStorage.getItem('pizzora_admin_name') || 'Admin') : 'Admin';
+      const res = await fetch(`${getBackendUrl()}/api/orders/restore`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          deletedOrderId,
+          restoredBy: adminName
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.restoredOrder) {
+        dispatch({ type: 'RESTORE_DELETED_ORDER', payload: deletedOrderId });
+        const isTable = Boolean(data.restoredOrder.isTableOrder || data.restoredOrder.tableNumber || data.restoredOrder.tableId);
+        if (isTable) {
+          dispatch({ type: 'PLACE_TABLE_ORDER', payload: data.restoredOrder });
+          if (data.restoredOrder.tableId) {
+            dispatch({
+              type: 'SET_TABLE_STATUS',
+              payload: {
+                id: data.restoredOrder.tableId,
+                status: 'Ordering',
+                currentOrderId: data.restoredOrder.id,
+                occupiedSince: data.restoredOrder.createdAt || Date.now()
+              }
+            });
+          }
+        } else {
+          dispatch({ type: 'PLACE_ORDER', payload: data.restoredOrder });
+        }
+        showNotification('Order restored successfully and stock adjusted', 'success');
+        return { success: true };
+      }
+      showNotification(data.error || 'Failed to restore order', 'error');
+      return { success: false, error: data.error };
+    } catch (err: any) {
+      showNotification(err.message || 'Network error', 'error');
+      return { success: false, error: err.message };
+    }
+  };
+
+  const purgeDeletedOrder = async (deletedOrderId: string) => {
+    try {
+      if (!deletedOrderId || deletedOrderId === 'undefined') {
+        showNotification('Invalid order ID', 'error');
+        return { success: false, error: 'Invalid order ID' };
+      }
+      const token = typeof window !== 'undefined' ? (sessionStorage.getItem('pizzora_token') || localStorage.getItem('pizzora_token') || '') : '';
+      const res = await fetch(`${getBackendUrl()}/api/deleted-orders/${encodeURIComponent(deletedOrderId)}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        dispatch({ type: 'PURGE_DELETED_ORDER', payload: deletedOrderId });
+        showNotification('Record permanently purged from archive', 'info');
+        return { success: true };
+      }
+      showNotification(data.error || 'Failed to purge record', 'error');
+      return { success: false, error: data.error };
+    } catch (err: any) {
+      showNotification(err.message || 'Network error', 'error');
+      return { success: false, error: err.message };
+    }
+  };
+
   const cartTotal = state.cart.reduce((sum, c) => sum + c.item.price * c.quantity, 0);
   const cartCount = state.cart.reduce((sum, c) => sum + c.quantity, 0);
 
@@ -1668,6 +2003,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateDeliverySettings,
         calcDeliveryFee: calcDeliveryFeeCtx,
         refreshAnalytics,
+        deleteOrderWithCleanup,
+        restoreDeletedOrder,
+        purgeDeletedOrder,
       }}
     >
       {children}

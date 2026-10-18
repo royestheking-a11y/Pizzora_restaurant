@@ -67,19 +67,112 @@ async function fetchPrintJobs(search = '', source = 'all', days = '2', skip = 0,
   return { jobs: data.printJobs || [], total: data.total || 0 };
 }
 
-// Fetch order details from server state to reconstruct receipt if snapshot not stored
-async function fetchOrderById(orderId: string): Promise<any | null> {
+function extractCleanItems(rawItems: any[]): Array<{ name: string; quantity: number; price: number; variant?: string; note?: string }> {
+  if (!Array.isArray(rawItems)) return [];
+  return rawItems.map(ci => {
+    let name = '';
+    if (ci.item && typeof ci.item.name === 'string' && ci.item.name.trim() && ci.item.name.trim().toLowerCase() !== 'item') {
+      name = ci.item.name.trim();
+    } else if (typeof ci.name === 'string' && ci.name.trim() && ci.name.trim().toLowerCase() !== 'item') {
+      name = ci.name.trim();
+    } else if (ci.item && typeof ci.item.title === 'string' && ci.item.title.trim()) {
+      name = ci.item.title.trim();
+    } else if (typeof ci.title === 'string' && ci.title.trim()) {
+      name = ci.title.trim();
+    } else if (typeof ci.itemName === 'string' && ci.itemName.trim()) {
+      name = ci.itemName.trim();
+    } else if (typeof ci.productName === 'string' && ci.productName.trim()) {
+      name = ci.productName.trim();
+    } else {
+      name = (ci.name || ci.item?.name || 'Item').trim();
+    }
+
+    const numOrZero = (v: any) => {
+      const n = Number(v);
+      return !isNaN(n) && isFinite(n) ? n : 0;
+    };
+    const p1 = numOrZero(ci.price);
+    const p2 = ci.item ? numOrZero(ci.item.price) : 0;
+    const p3 = numOrZero(ci.unitPrice || ci.item?.unitPrice || ci.sellingPrice || ci.item?.sellingPrice);
+    const price = p1 > 0 ? p1 : (p2 > 0 ? p2 : (p3 > 0 ? p3 : 0));
+    const quantity = Math.max(1, numOrZero(ci.quantity || ci.qty || 1));
+    const variant = ci.variant || ci.selectedVariant?.name || (ci.item && ci.item.variant) || undefined;
+    const note = ci.note || ci.specialRequest || (ci.item && (ci.item.note || ci.item.specialRequest)) || undefined;
+
+    return { name, quantity, price, variant, note };
+  });
+}
+
+function isSnapshotClean(snapshot: any): boolean {
+  if (!snapshot || !Array.isArray(snapshot.items) || snapshot.items.length === 0) return false;
+  // If ANY item has dummy name 'Item' or 0 price while total > 0, consider it dirty/corrupt
+  const hasDummy = snapshot.items.some((i: any) =>
+    (!i.name || i.name.trim().toLowerCase() === 'item') && (!i.price || Number(i.price) === 0)
+  );
+  if (hasDummy) return false;
+  // If all items have 0 price but order total > 0, consider corrupt
+  const allZero = snapshot.items.every((i: any) => !i.price || Number(i.price) === 0);
+  if (allZero && (Number(snapshot.total) || 0) > 0) return false;
+  return true;
+}
+
+// Fetch order details from server state or lookup API to reconstruct receipt if snapshot not stored or corrupted
+async function fetchOrderById(orderId: string, invoiceNumber?: string): Promise<any | null> {
+  const token = getToken();
+  const cleanInv = (invoiceNumber || '').trim().replace(/^#/, '');
+
+  // 1. First attempt: Direct order lookup endpoint on backend
   try {
-    const token = getToken();
+    const qParam = encodeURIComponent(cleanInv || orderId || '');
+    if (qParam) {
+      const lookupRes = await fetch(`${BACKEND_URL}/api/orders/lookup?q=${qParam}`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (lookupRes.ok) {
+        const lData = await lookupRes.json();
+        if (lData.success && lData.order && Array.isArray(lData.order.items) && lData.order.items.length > 0) {
+          return lData.order;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Orders lookup failed, falling back:', err);
+  }
+
+  // 2. Second attempt: Order tracking endpoint
+  if (cleanInv) {
+    try {
+      const trackRes = await fetch(`${BACKEND_URL}/api/orders/track/${encodeURIComponent(cleanInv)}`);
+      if (trackRes.ok) {
+        const tData = await trackRes.json();
+        if (tData.success && tData.order && Array.isArray(tData.order.items) && tData.order.items.length > 0) {
+          return tData.order;
+        }
+      }
+    } catch (err) {
+      console.warn('Order track fallback error:', err);
+    }
+  }
+
+  // 3. Third attempt: In-memory state admin endpoint
+  try {
     const res = await fetch(`${BACKEND_URL}/api/state/admin`, {
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
     if (!res.ok) return null;
     const state = await res.json();
-    const regularOrder = state.orders?.find((o: any) => o.id === orderId);
+    const regularOrder = state.orders?.find((o: any) =>
+      (orderId && o.id === orderId) ||
+      (cleanInv && (o.orderNumber?.replace(/^#/, '') === cleanInv || o.invoiceNumber?.replace(/^#/, '') === cleanInv || o.id === cleanInv))
+    );
     if (regularOrder) return regularOrder;
-    const tableOrder = state.tableOrders?.find((o: any) => o.id === orderId);
+
+    const tableOrder = state.tableOrders?.find((o: any) =>
+      (orderId && o.id === orderId) ||
+      (cleanInv && (o.orderNumber?.replace(/^#/, '') === cleanInv || o.invoiceNumber?.replace(/^#/, '') === cleanInv || o.id === cleanInv))
+    );
     if (tableOrder) return tableOrder;
+
     return null;
   } catch {
     return null;
@@ -151,6 +244,27 @@ export function ReprintSystem() {
     loadJobs();
   }, [loadJobs]);
 
+  const handleOpenPreview = async (job: PrintJob) => {
+    if (isSnapshotClean(job.snapshot)) {
+      setPreviewJob(job);
+      return;
+    }
+    setPreviewJob(job);
+    const order = await fetchOrderById(job.orderId, job.invoiceNumber);
+    if (order && Array.isArray(order.items) && order.items.length > 0) {
+      const cleanItems = extractCleanItems(order.items);
+      const repairedJob: PrintJob = {
+        ...job,
+        snapshot: {
+          ...(job.snapshot || {}),
+          items: cleanItems,
+          total: order.total || job.total || 0,
+        }
+      };
+      setPreviewJob(repairedJob);
+    }
+  };
+
   const handleReprint = async (job: PrintJob, reason: string) => {
     setReprinting(job.id);
     setReprintResult(null);
@@ -159,8 +273,8 @@ export function ReprintSystem() {
     const settings = loadPrinterSettings();
     let invoiceData: InvoiceData;
 
-    // 1. If snapshot was saved directly in PrintJob, use it with 100% fidelity!
-    if (job.snapshot && job.snapshot.items && job.snapshot.items.length > 0) {
+    // 1. If snapshot was saved directly in PrintJob AND is clean (not dummy "Item" / 0.00), use it!
+    if (isSnapshotClean(job.snapshot)) {
       invoiceData = {
         ...job.snapshot,
         invoiceNumber: job.invoiceNumber,
@@ -168,23 +282,19 @@ export function ReprintSystem() {
         isRefund: false,
       };
     } else {
-      // 2. Fetch original order from DB state
-      const order = await fetchOrderById(job.orderId);
-      if (order) {
-        const isTable = Boolean(order.isTableOrder || (order.address && order.address.toLowerCase().includes('table')) || order.tableNumber || job.tableNo);
-        const items = (order.items || []).map((item: any) => ({
-          name: item.name || item.item?.name || 'Item',
-          quantity: item.quantity || 1,
-          price: item.price || item.item?.price || 0,
-          variant: item.variant,
-          note: item.note || item.specialRequest,
-        }));
+      // 2. Fetch original order from DB state or backend lookup
+      const order = await fetchOrderById(job.orderId, job.invoiceNumber);
+      if (order && Array.isArray(order.items) && order.items.length > 0) {
+        const tableMatch = (order.address || '').match(/table\s*(\d+)/i) || (order.orderType || '').match(/table\s*(\d+)/i) || (job.orderType || '').match(/table\s*(\d+)/i);
+        const resolvedTableNo = order.tableNumber ? String(order.tableNumber) : (tableMatch ? tableMatch[1] : (job.tableNo || ''));
+        const isTable = Boolean(order.isTableOrder || (order.address && order.address.toLowerCase().includes('table')) || resolvedTableNo);
+        const items = extractCleanItems(order.items);
         const itemsSubtotal = items.reduce((s: number, i: any) => s + (i.price * i.quantity), 0);
         const subtotal = order.subtotal !== undefined ? order.subtotal : itemsSubtotal;
         const deliveryFee = order.deliveryFee !== undefined
           ? Number(order.deliveryFee)
           : Math.max(0, (Number(order.total) || 0) - subtotal);
-        const orderTotalNum = Number(order.total) || Number(job.total) || 0;
+        const orderTotalNum = Number(order.total) || Number(job.total) || itemsSubtotal || 0;
         const discount = order.discount || 0;
         const isLegacyCombined = deliveryFee > 0 && orderTotalNum >= (subtotal - discount + deliveryFee - 0.5);
         const slipTotal = isLegacyCombined ? orderTotalNum : (orderTotalNum + deliveryFee);
@@ -192,9 +302,9 @@ export function ReprintSystem() {
         invoiceData = {
           invoiceNumber: job.invoiceNumber,
           orderId: job.orderId,
-          orderType: isTable ? `Dine In — Table ${order.tableNumber || job.tableNo || ''}` : (order.orderType || job.orderType || 'Delivery'),
-          tableNo: order.tableNumber ? String(order.tableNumber) : (job.tableNo || undefined),
-          customerName: order.customerName || job.customerName || undefined,
+          orderType: isTable ? (resolvedTableNo ? `Dine In — Table ${resolvedTableNo}` : 'Dine In') : (order.orderType || job.orderType || 'Delivery'),
+          tableNo: resolvedTableNo || undefined,
+          customerName: order.customerName || job.customerName || (isTable ? (resolvedTableNo ? `Table ${resolvedTableNo} Guest` : 'Table Guest') : undefined),
           customerPhone: order.phone || undefined,
           deliveryAddress: order.address || undefined,
           deliveryFee: deliveryFee > 0 ? deliveryFee : undefined,
@@ -210,8 +320,41 @@ export function ReprintSystem() {
           amountPaid: slipTotal,
           change: 0,
         };
+
+        // Self-heal: Save clean snapshot back to MongoDB print jobs collection so future reprints are instant & clean
+        const healedJobPayload = {
+          ...job,
+          tableNo: resolvedTableNo || job.tableNo,
+          orderType: invoiceData.orderType,
+          customerName: invoiceData.customerName,
+          total: slipTotal,
+          snapshot: invoiceData,
+        };
+        fetch(`${BACKEND_URL}/api/print-jobs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {})
+          },
+          body: JSON.stringify(healedJobPayload),
+        }).catch(e => console.warn('Self-heal print job save failed:', e));
       } else {
-        // 3. Fallback: reconstruct a clean receipt directly from PrintJob metadata so reprint never fails
+        // 3. Fallback: if snapshot has items with valid names even if prices were 0, try to calculate or keep names
+        const rawItems = job.snapshot?.items;
+        let fallbackItems: any[] = [];
+        if (Array.isArray(rawItems) && rawItems.length > 0) {
+          fallbackItems = extractCleanItems(rawItems);
+        }
+        if (fallbackItems.length === 0 || fallbackItems.every(i => !i.name || i.name === 'Item')) {
+          fallbackItems = [
+            {
+              name: `Order Receipt (${job.invoiceNumber})`,
+              quantity: 1,
+              price: job.total || 0,
+            }
+          ];
+        }
+
         invoiceData = {
           invoiceNumber: job.invoiceNumber,
           orderId: job.orderId,
@@ -220,13 +363,7 @@ export function ReprintSystem() {
           customerName: job.customerName || undefined,
           cashierName: job.printedBy || 'Cashier',
           dateTime: new Date(job.printedAt || Date.now()).toLocaleString(),
-          items: [
-            {
-              name: `Order Receipt (${job.invoiceNumber})`,
-              quantity: 1,
-              price: job.total || 0,
-            }
-          ],
+          items: fallbackItems,
           subtotal: job.total || 0,
           discount: 0,
           total: job.total || 0,
@@ -592,7 +729,7 @@ export function ReprintSystem() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {job.snapshot && (
                   <button
-                    onClick={() => setPreviewJob(job)}
+                    onClick={() => handleOpenPreview(job)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -671,12 +808,17 @@ export function ReprintSystem() {
                 Items
               </div>
               {(previewJob.snapshot?.items || []).length > 0 ? (
-                previewJob.snapshot.items.map((it: any, idx: number) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '4px 0', borderBottom: '1px dashed #E5E7EB' }}>
-                    <span>{it.quantity}x {it.name}</span>
-                    <span style={{ fontWeight: 600 }}>৳{(it.price * it.quantity).toFixed(2)}</span>
-                  </div>
-                ))
+                previewJob.snapshot.items.map((it: any, idx: number) => {
+                  const numOrZero = (v: any) => { const n = Number(v); return !isNaN(n) && isFinite(n) ? n : 0; };
+                  const price = numOrZero(it.price);
+                  const qty = Math.max(1, numOrZero(it.quantity));
+                  return (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '4px 0', borderBottom: '1px dashed #E5E7EB' }}>
+                      <span>{qty}x {it.name}</span>
+                      <span style={{ fontWeight: 600 }}>৳{(price * qty).toFixed(2)}</span>
+                    </div>
+                  );
+                })
               ) : (
                 <div style={{ fontSize: '12px', color: '#9CA3AF' }}>Item details not recorded in legacy print. Total: ৳{previewJob.total}</div>
               )}

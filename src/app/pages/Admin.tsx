@@ -28,6 +28,8 @@ import { RoleManagement } from '../components/admin/RoleManagement';
 import { DeliverySettingsPanel } from '../components/admin/DeliverySettingsPanel';
 import { ProductOrderAnalytics } from '../components/admin/ProductOrderAnalytics';
 import { OnlineOrderManagement, isWebsiteOnlineOrder } from '../components/admin/OnlineOrderManagement';
+import { DeleteOrderConfirmModal } from '../components/admin/DeleteOrderConfirmModal';
+import { DeletedOrdersManagement } from '../components/admin/DeletedOrdersManagement';
 import { Printer, RotateCcw, Truck, Globe } from 'lucide-react';
 import { printerService, loadPrinterSettings, logPrintJob, type InvoiceData } from '../utils/printerService';
 import { AdminStatSkeleton, AdminListSkeleton, TableRowSkeleton, POSCardSkeleton, ChartSkeleton } from '../components/Skeletons';
@@ -36,7 +38,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 // Mock auth - replaced by real auth
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AdminTab = 'dashboard' | 'sales' | 'online-orders' | 'orders' | 'product-analytics' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles' | 'delivery-settings';
+type AdminTab = 'dashboard' | 'sales' | 'online-orders' | 'orders' | 'product-analytics' | 'deleted-orders' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles' | 'delivery-settings';
 
 // ─── Input Style Helper ────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
@@ -827,22 +829,53 @@ export function Admin() {
     const isTable = Boolean(order.isTableOrder || (order.address && order.address.toLowerCase().includes('table')) || order.tableNumber);
     const isOnline = Boolean(order.isOnlineOrder || order.source === 'website' || (order.orderNumber && order.orderNumber.startsWith('PIZO')) || order.orderType === 'Delivery');
     const source: 'pos' | 'table' | 'online' | 'admin' = isTable ? 'table' : (isOnline ? 'online' : 'pos');
-    const invoiceNumber = order.orderNumber || (isTable ? `TBL-${order.tableNumber || ''}-${order.id?.slice(-6)}` : `PIZ-${order.id?.slice(-8)}`);
+    const tableMatch = (order.address || '').match(/table\s*(\d+)/i) || (order.orderType || '').match(/table\s*(\d+)/i);
+    const tableNo = order.tableNumber ? String(order.tableNumber) : (tableMatch ? tableMatch[1] : '');
+    const invoiceNumber = order.orderNumber || (isTable ? `TBL-${tableNo || '1'}-${order.id?.slice(-6)}` : `PIZ-${order.id?.slice(-8)}`);
 
-    const items = (order.items || []).map((ci: any) => ({
-      name: isTable ? (ci.name || 'Item') : (ci.item?.name || ci.name || 'Item'),
-      quantity: ci.quantity || 1,
-      price: isTable ? (ci.price || 0) : (ci.item?.price || ci.price || 0),
-      variant: ci.variant,
-      note: isTable ? ci.note : (ci.specialRequest || ci.note),
-    }));
+    const items = (order.items || []).map((ci: any) => {
+      let name = '';
+      if (ci.item && typeof ci.item.name === 'string' && ci.item.name.trim() && ci.item.name.trim().toLowerCase() !== 'item') {
+        name = ci.item.name.trim();
+      } else if (typeof ci.name === 'string' && ci.name.trim() && ci.name.trim().toLowerCase() !== 'item') {
+        name = ci.name.trim();
+      } else if (ci.item && typeof ci.item.title === 'string' && ci.item.title.trim()) {
+        name = ci.item.title.trim();
+      } else if (typeof ci.title === 'string' && ci.title.trim()) {
+        name = ci.title.trim();
+      } else if (typeof ci.itemName === 'string' && ci.itemName.trim()) {
+        name = ci.itemName.trim();
+      } else if (typeof ci.productName === 'string' && ci.productName.trim()) {
+        name = ci.productName.trim();
+      } else {
+        name = (ci.name || ci.item?.name || 'Item').trim();
+      }
+
+      const numOrZero = (v: any) => {
+        const n = Number(v);
+        return !isNaN(n) && isFinite(n) ? n : 0;
+      };
+      const p1 = numOrZero(ci.price);
+      const p2 = ci.item ? numOrZero(ci.item.price) : 0;
+      const p3 = numOrZero(ci.unitPrice || ci.item?.unitPrice || ci.sellingPrice || ci.item?.sellingPrice);
+      const price = p1 > 0 ? p1 : (p2 > 0 ? p2 : (p3 > 0 ? p3 : 0));
+      const quantity = Math.max(1, numOrZero(ci.quantity || ci.qty || 1));
+
+      return {
+        name,
+        quantity,
+        price,
+        variant: ci.variant || ci.selectedVariant?.name || (ci.item && ci.item.variant),
+        note: ci.note || ci.specialRequest || (ci.item && (ci.item.note || ci.item.specialRequest)),
+      };
+    });
 
     const itemsSubtotal = items.reduce((s: number, i: any) => s + (i.price * i.quantity), 0);
     const subtotal = order.subtotal !== undefined ? order.subtotal : itemsSubtotal;
     const deliveryFee = order.deliveryFee !== undefined
       ? Number(order.deliveryFee)
       : Math.max(0, (Number(order.total) || 0) - subtotal);
-    const customerName = order.customerName || order.displayTitle || (isTable ? `Table ${order.tableNumber || ''}` : 'Guest');
+    const customerName = order.customerName || order.displayTitle || (isTable ? (tableNo ? `Table ${tableNo} Guest` : 'Table Guest') : 'Guest');
     const customerPhone = order.phone || order.displayPhone || '';
     const deliveryAddress = order.address || '';
     const riderNote = order.notes || order.specialInstructions || '';
@@ -858,8 +891,8 @@ export function Admin() {
     const invoiceData: InvoiceData = {
       invoiceNumber,
       orderId: order.id,
-      orderType: isTable ? 'Dine In' : (order.orderType || (isOnline ? 'Home Delivery' : 'POS')),
-      tableNo: order.tableNumber ? String(order.tableNumber) : '',
+      orderType: isTable ? (tableNo ? `Dine In — Table ${tableNo}` : 'Dine In') : (order.orderType || (isOnline ? 'Home Delivery' : 'POS')),
+      tableNo: tableNo || undefined,
       customerName,
       customerPhone: customerPhone || undefined,
       deliveryAddress: deliveryAddress || undefined,
@@ -886,9 +919,9 @@ export function Admin() {
       status: 'success',
       paymentMethod: order.paymentMethod || 'Cash',
       total: slipTotal,
-      orderType: isTable ? 'Dine In' : (order.orderType || (isOnline ? 'Home Delivery' : 'POS')),
+      orderType: isTable ? (tableNo ? `Dine In — Table ${tableNo}` : 'Dine In') : (order.orderType || (isOnline ? 'Home Delivery' : 'POS')),
       customerName,
-      tableNo: order.tableNumber ? String(order.tableNumber) : '',
+      tableNo: tableNo || '',
       source,
       snapshot: invoiceData,
     }).catch(e => console.warn('[Admin] Failed to log print job:', e));
@@ -918,6 +951,9 @@ export function Admin() {
     message: string;
     onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
+
+  // Dedicated Cascading Order Deletion Modal State
+  const [orderToDelete, setOrderToDelete] = useState<any | null>(null);
 
   const adminRole = sessionStorage.getItem('pizzora_admin_role') || 'manager';
   const adminName = sessionStorage.getItem('pizzora_admin_name') || (adminRole === 'admin' ? 'Administrator' : 'Store Manager');
@@ -1147,6 +1183,7 @@ export function Admin() {
     { id: 'tables', icon: LayoutGrid, label: 'Table Management', badge: pendingTableOrders, section: 'Operations & POS' },
     { id: 'orders', icon: ShoppingBag, label: 'All Orders', badge: pendingOrders, section: 'Operations & POS' },
     { id: 'online-orders', icon: Truck, label: 'Home Delivery & Online', badge: pendingOnlineOrders, section: 'Operations & POS' },
+    { id: 'deleted-orders', icon: Trash2, label: 'Deleted Orders', badge: (state.deletedOrders?.length || undefined), section: 'Operations & POS' },
     { id: 'reservations', icon: Calendar, label: 'Reservations', badge: pendingReservations, section: 'Operations & POS' },
 
     // Finance & Stock
@@ -2373,6 +2410,20 @@ export function Admin() {
                       <span>Product Sales & Order Analytics</span>
                       <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-white/20 text-white font-extrabold">NEW</span>
                     </button>
+
+                    <button
+                      onClick={() => setActiveTab('deleted-orders')}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all text-gray-500 hover:text-red-600 bg-gray-50 hover:bg-red-50 border border-gray-200 ml-auto"
+                      style={{ fontFamily: 'var(--font-heading)' }}
+                    >
+                      <Trash2 size={13} className="text-red-500" />
+                      <span>Deleted Orders Archive</span>
+                      {(state.deletedOrders?.length || 0) > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-red-100 text-red-700">
+                          {state.deletedOrders.length}
+                        </span>
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -2468,22 +2519,9 @@ export function Admin() {
                                     </button>
                                     {adminRole === 'admin' && (
                                       <button
-                                        onClick={() => setDeleteConfirm({
-                                          isOpen: true,
-                                          title: 'Delete Order?',
-                                          message: `Are you sure you want to permanently delete order ${order.orderNumber || order.id.slice(-6)}? This action cannot be undone and will remove it from all revenue calculations immediately.`,
-                                          onConfirm: () => {
-                                            if (order.isTableOrder) {
-                                              dispatch({ type: 'DELETE_TABLE_ORDER', payload: order.id });
-                                            } else {
-                                              dispatch({ type: 'DELETE_ORDER', payload: order.id });
-                                            }
-                                            setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
-                                            showNotification('Order permanently deleted', 'success');
-                                          }
-                                        })}
+                                        onClick={() => setOrderToDelete(order)}
                                         className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
-                                        title="Delete Order Permanently"
+                                        title="Delete Order & Clear Payment"
                                       >
                                         <Trash2 size={14} />
                                       </button>
@@ -2597,6 +2635,9 @@ export function Admin() {
                 )}
               </div>
             )}
+
+            {/* ══ DELETED ORDERS ARCHIVE ═════════════════════ */}
+            {activeTab === 'deleted-orders' && <DeletedOrdersManagement />}
 
             {/* ══ INVENTORY ══════════════════════════════════ */}
             {activeTab === 'inventory' && <InventoryManagement />}
@@ -3453,6 +3494,13 @@ export function Admin() {
 
 
       {/* ── PRINT ONLY: THERMAL RECEIPT ─────────────────────────────────────── */}
+      {/* Dedicated Cascading Delete Order & Restock Modal */}
+      <DeleteOrderConfirmModal
+        order={orderToDelete}
+        isOpen={Boolean(orderToDelete)}
+        onClose={() => setOrderToDelete(null)}
+      />
+
       {/* Generic Delete Confirmation Modal */}
       {deleteConfirm.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -3485,10 +3533,14 @@ export function Admin() {
       {/* Hidden print area for thermal printer */}
       <div id="thermal-print-area" style={{ display: 'none' }}>
         {printOrder && (() => {
-          const isTable = printOrder.isTableOrder;
+          const isTable = Boolean(printOrder.isTableOrder || (printOrder.address && printOrder.address.toLowerCase().includes('table')) || printOrder.tableNumber);
           const subtotal = printOrder.items.reduce((sum: number, ci: any) => {
-            const price = isTable ? ci.price : ci.item?.price;
-            return sum + (price || 0) * ci.quantity;
+            const numOrZero = (v: any) => { const n = Number(v); return !isNaN(n) && isFinite(n) ? n : 0; };
+            const p1 = numOrZero(ci.price);
+            const p2 = ci.item ? numOrZero(ci.item.price) : 0;
+            const p3 = numOrZero(ci.unitPrice || ci.item?.unitPrice || ci.sellingPrice || ci.item?.sellingPrice);
+            const price = p1 > 0 ? p1 : (p2 > 0 ? p2 : (p3 > 0 ? p3 : 0));
+            return sum + price * (ci.quantity || 1);
           }, 0);
           const deliveryFee = Number(printOrder.deliveryFee || 0);
           const isLegacyCombined = deliveryFee > 0 && Number(printOrder.total) >= (subtotal + deliveryFee - 0.5);
@@ -3590,16 +3642,32 @@ export function Admin() {
 
               {/* Items */}
               {printOrder.items.map((ci: any, idx: number) => {
-                const itemName = isTable ? ci.name : ci.item?.name;
-                const itemPrice = isTable ? ci.price : ci.item?.price;
-                const note = isTable ? ci.note : ci.specialRequest;
+                let itemName = '';
+                if (ci.item && typeof ci.item.name === 'string' && ci.item.name.trim() && ci.item.name.trim().toLowerCase() !== 'item') {
+                  itemName = ci.item.name.trim();
+                } else if (typeof ci.name === 'string' && ci.name.trim() && ci.name.trim().toLowerCase() !== 'item') {
+                  itemName = ci.name.trim();
+                } else if (ci.item && typeof ci.item.title === 'string' && ci.item.title.trim()) {
+                  itemName = ci.item.title.trim();
+                } else if (typeof ci.title === 'string' && ci.title.trim()) {
+                  itemName = ci.title.trim();
+                } else {
+                  itemName = (ci.name || ci.item?.name || 'Item').trim();
+                }
+
+                const numOrZero = (v: any) => { const n = Number(v); return !isNaN(n) && isFinite(n) ? n : 0; };
+                const p1 = numOrZero(ci.price);
+                const p2 = ci.item ? numOrZero(ci.item.price) : 0;
+                const p3 = numOrZero(ci.unitPrice || ci.item?.unitPrice || ci.sellingPrice || ci.item?.sellingPrice);
+                const itemPrice = p1 > 0 ? p1 : (p2 > 0 ? p2 : (p3 > 0 ? p3 : 0));
+                const note = ci.note || ci.specialRequest || (ci.item && (ci.item.note || ci.item.specialRequest));
                 return (
                   <div key={idx} style={{ marginBottom: '4px', paddingBottom: '4px', borderBottom: '1px dotted #ccc' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <span style={{ flex: 3, wordBreak: 'break-word', paddingRight: '4px' }}>{itemName}</span>
-                      <span style={{ flex: 1, textAlign: 'center' }}>x{ci.quantity}</span>
+                      <span style={{ flex: 1, textAlign: 'center' }}>x{ci.quantity || 1}</span>
                       <span style={{ flex: 1, textAlign: 'right' }}>৳{itemPrice}</span>
-                      <span style={{ flex: 1, textAlign: 'right', fontWeight: 'bold' }}>৳{(itemPrice || 0) * ci.quantity}</span>
+                      <span style={{ flex: 1, textAlign: 'right', fontWeight: 'bold' }}>৳{itemPrice * (ci.quantity || 1)}</span>
                     </div>
                     {note && (
                       <div style={{ fontSize: '9px', color: '#555', paddingLeft: '4px' }}>↳ Note: {note}</div>

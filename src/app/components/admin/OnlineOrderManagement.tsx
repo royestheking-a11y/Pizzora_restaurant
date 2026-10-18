@@ -12,6 +12,7 @@ import { generatePremiumPDF } from '../../utils/pdfGenerator';
 import { ConfirmModal } from '../ConfirmModal';
 import { generateInvoiceNumber } from '../../utils/printerService';
 import { TakeHomeDeliveryModal } from './TakeHomeDeliveryModal';
+import { DeleteOrderConfirmModal } from './DeleteOrderConfirmModal';
 
 export function isWebsiteOnlineOrder(o: Order): boolean {
   if (!o) return false;
@@ -61,6 +62,7 @@ export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementPro
 
     // -- Take Home Delivery Order State ------------------------------------------
   const [showTakeOrderModal, setShowTakeOrderModal] = useState(false);
+  const [onlineOrderToDelete, setOnlineOrderToDelete] = useState<any | null>(null);
 
   const websiteCount = useMemo(() => (state.orders || []).filter(isWebsiteOnlineOrder).length, [state.orders]);
   const allDeliveryCount = useMemo(() => {
@@ -220,9 +222,11 @@ export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementPro
   };
 
   const handleDelete = (orderId: string) => {
-    dispatch({ type: 'DELETE_ORDER', payload: orderId });
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder(null);
+    const ord = (state.orders || []).find(o => o.id === orderId);
+    if (ord) {
+      setOnlineOrderToDelete(ord);
+    } else {
+      setOnlineOrderToDelete({ id: orderId, orderNumber: orderId.slice(-6) });
     }
   };
 
@@ -1131,12 +1135,15 @@ export function OnlineOrderManagement({ onPrintOrder }: OnlineOrderManagementPro
       />
 
       {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        isOpen={deleteConfirm.isOpen}
-        title={deleteConfirm.title}
-        message={deleteConfirm.message}
-        onConfirm={deleteConfirm.onConfirm}
-        onCancel={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+      <DeleteOrderConfirmModal
+        order={onlineOrderToDelete}
+        isOpen={Boolean(onlineOrderToDelete)}
+        onClose={() => setOnlineOrderToDelete(null)}
+        onSuccess={() => {
+          if (selectedOrder && (selectedOrder.id === onlineOrderToDelete?.id || selectedOrder.orderNumber === onlineOrderToDelete?.orderNumber)) {
+            setSelectedOrder(null);
+          }
+        }}
       />
     </div>
   );
@@ -1272,13 +1279,8 @@ function OrderCard({
 
           {adminRole === 'admin' && (
             <button
-              onClick={() => setDeleteConfirm({
-                isOpen: true,
-                title: 'Delete Online Order?',
-                message: `Permanently delete order #${order.orderNumber || order.id.slice(-6)}?`,
-                onConfirm: () => onDelete(order.id)
-              })}
-              title="Delete Order"
+              onClick={() => onDelete(order.id)}
+              title="Delete Order & Clear Payment"
               className="p-1.5 rounded-md bg-gray-100 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
             >
               <Trash2 size={12} />

@@ -16,7 +16,7 @@ import {
   CarouselSlide, RestaurantTable, TableOrder, WasteRecord,
   Employee, PayrollRecord, GalleryImage, Chef,
   ExpenseEntry, CashRegisterEntry, InventoryItem, StockMovement, ItemReview,
-  InvoiceCounter, PrintJob, UserAccount, RestaurantSettings
+  InvoiceCounter, PrintJob, UserAccount, RestaurantSettings, DeletedOrder
 } from './server/models/index.js';
 import { seedDatabaseIfEmpty } from './server/seed.js';
 
@@ -61,8 +61,8 @@ const pollingLimiter = rateLimit({
 });
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // limit each IP to 200 requests per windowMs
-  skip: (req) => req.originalUrl.includes('/orders/status') || req.originalUrl.includes('/tableOrders/status'),
+  max: 500, // limit each IP to 500 requests per windowMs
+  skip: (req) => req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === 'localhost' || req.originalUrl.includes('/orders/status') || req.originalUrl.includes('/tableOrders/status') || req.originalUrl.includes('/deleted-orders') || req.originalUrl.includes('/state/admin'),
   message: 'Too many requests from this IP, please try again later.'
 });
 const loginLimiter = rateLimit({
@@ -145,6 +145,85 @@ if (process.env.MONGO_URI) {
         }
       } catch (err) {
         console.error('[Migration] Failed to backfill CashRegisterEntry dates:', err);
+      }
+
+      // ── Self-healing migration: restore item names and prices on any corrupted PrintJobs ──
+      try {
+        const corruptedJobs = await PrintJob.find({
+          $or: [
+            { 'snapshot.items': { $elemMatch: { name: 'Item', price: 0 } } },
+            { 'snapshot.items': { $elemMatch: { price: 0 } } },
+            { 'snapshot.items': { $size: 0 } },
+            { snapshot: null }
+          ]
+        });
+        let autoRepaired = 0;
+        for (const job of corruptedJobs) {
+          const ord = await Order.findOne({
+            $or: [{ id: job.orderId }, { orderNumber: job.invoiceNumber }, { invoiceNumber: job.invoiceNumber }]
+          }).lean() || await TableOrder.findOne({
+            $or: [{ id: job.orderId }, { orderNumber: job.invoiceNumber }, { invoiceNumber: job.invoiceNumber }]
+          }).lean();
+
+          if (ord && Array.isArray(ord.items) && ord.items.length > 0) {
+            const fixedItems = ord.items.map(ci => {
+              let name = '';
+              if (ci.item && typeof ci.item.name === 'string' && ci.item.name.trim() && ci.item.name.trim().toLowerCase() !== 'item') {
+                name = ci.item.name.trim();
+              } else if (typeof ci.name === 'string' && ci.name.trim() && ci.name.trim().toLowerCase() !== 'item') {
+                name = ci.name.trim();
+              } else if (ci.item && typeof ci.item.title === 'string' && ci.item.title.trim()) {
+                name = ci.item.title.trim();
+              } else if (typeof ci.title === 'string' && ci.title.trim()) {
+                name = ci.title.trim();
+              } else {
+                name = (ci.name || ci.item?.name || 'Item').trim();
+              }
+
+              const numOrZero = (v) => { const n = Number(v); return !isNaN(n) && isFinite(n) ? n : 0; };
+              const p1 = numOrZero(ci.price);
+              const p2 = ci.item ? numOrZero(ci.item.price) : 0;
+              const p3 = numOrZero(ci.unitPrice || ci.item?.unitPrice || ci.sellingPrice || ci.item?.sellingPrice);
+              const price = p1 > 0 ? p1 : (p2 > 0 ? p2 : 0);
+              const quantity = Math.max(1, numOrZero(ci.quantity || ci.qty || 1));
+              const variant = ci.variant || ci.selectedVariant?.name || (ci.item && ci.item.variant) || '';
+              const note = ci.note || ci.specialRequest || (ci.item && (ci.item.note || ci.item.specialRequest)) || '';
+              return { name, quantity, price, variant, note };
+            });
+
+            const tableMatch = (ord.address || '').match(/table\s*(\d+)/i) || (job.orderType || '').match(/table\s*(\d+)/i);
+            const tableNo = ord.tableNumber ? String(ord.tableNumber) : (tableMatch ? tableMatch[1] : (job.tableNo || ''));
+            const isTable = Boolean(ord.isTableOrder || (ord.address && ord.address.toLowerCase().includes('table')) || tableNo);
+
+            job.snapshot = {
+              ...(job.snapshot || {}),
+              invoiceNumber: job.invoiceNumber,
+              orderId: ord.id || job.orderId,
+              orderType: isTable ? (tableNo ? `Dine In — Table ${tableNo}` : 'Dine In') : (job.orderType || 'POS'),
+              tableNo,
+              customerName: ord.customerName || job.customerName || (isTable ? `Table ${tableNo} Guest` : 'Guest'),
+              cashierName: job.printedBy || ord.cashierName || 'Staff',
+              dateTime: job.printedAt ? new Date(job.printedAt).toLocaleString() : new Date().toLocaleString(),
+              items: fixedItems,
+              subtotal: ord.subtotal || ord.total || job.total || 0,
+              discount: ord.discount || 0,
+              total: ord.total || job.total || 0,
+              paymentMethod: ord.paymentMethod || job.paymentMethod || 'Cash',
+              amountPaid: ord.total || job.total || 0,
+              change: 0,
+            };
+            job.tableNo = tableNo;
+            job.orderType = job.snapshot.orderType;
+            job.markModified('snapshot');
+            await job.save();
+            autoRepaired++;
+          }
+        }
+        if (autoRepaired > 0) {
+          console.log(`[AutoRepair] Successfully repaired ${autoRepaired} corrupted PrintJob snapshots with genuine items.`);
+        }
+      } catch (repErr) {
+        console.warn('[AutoRepair] PrintJob repair notice:', repErr.message);
       }
 
       // ── Clean up legacy demo tables & accidental HOME DELIVERY tables ──
@@ -282,7 +361,8 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
     const [
       orders, reservations, messages, cateringRequests, tables,
       tableOrders, wasteRecords, employees, payrollRecords,
-      expenses, cashRegister, inventory, stockMovements, users
+      expenses, cashRegister, inventory, stockMovements, users,
+      deletedOrders
     ] = await Promise.all([
       // Load all current month's orders + any still-active orders (guarantees Month, Week, Today match)
       Order.find({
@@ -314,12 +394,14 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
       InventoryItem.find().sort({ name: 1 }),       // All inventory items
       StockMovement.find().sort({ date: -1 }),      // All stock movements
       UserAccount.find().sort({ createdAt: -1 }),
+      DeletedOrder.find({}).sort({ deletedAt: -1 }).limit(500)
     ]);
 
     res.json({
       orders, reservations, messages, cateringRequests, tables,
       tableOrders, wasteRecords, employees, payrollRecords,
-      expenses, cashRegister, inventory, stockMovements, users
+      expenses, cashRegister, inventory, stockMovements, users,
+      deletedOrders
     });
   } catch (error) {
     console.error("Failed to load admin state", error);
@@ -478,6 +560,47 @@ app.get('/api/orders/history', authenticateJWT, async (req, res) => {
   }
 });
 
+app.get('/api/orders/lookup', async (req, res) => {
+  try {
+    const q = (req.query.q || req.query.id || req.query.invoiceNumber || '').trim();
+    if (!q) return res.status(400).json({ success: false, error: 'Query required' });
+    const clean = q.replace(/^#/, '');
+    const regex = new RegExp(`^#?${clean}$`, 'i');
+
+    let order = await Order.findOne({
+      $or: [
+        { id: q },
+        { id: clean },
+        { orderNumber: clean },
+        { orderNumber: regex },
+        { invoiceNumber: clean },
+        { invoiceNumber: regex },
+      ]
+    }).lean();
+
+    if (!order) {
+      order = await TableOrder.findOne({
+        $or: [
+          { id: q },
+          { id: clean },
+          { orderNumber: clean },
+          { orderNumber: regex },
+          { invoiceNumber: clean },
+          { invoiceNumber: regex },
+        ]
+      }).lean();
+    }
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    res.json({ success: true, order });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.get('/api/orders/track/:orderNumber', async (req, res) => {
   try {
     const { orderNumber } = req.params;
@@ -517,6 +640,74 @@ app.post('/api/tableOrders/status', async (req, res) => {
     res.json({ success: true, statuses: orders.map(o => ({ id: o.id, status: o.status })) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch statuses' });
+  }
+});
+
+// ── 30-Day Deleted Orders Archive Endpoints ──────────────────────────────
+app.post('/api/orders/delete-cascade', authenticateJWT, async (req, res) => {
+  try {
+    const { orderId, orderNumber, invoiceNumber, deletedBy, reason } = req.body;
+    const identifier = orderId || orderNumber || invoiceNumber;
+    if (!identifier) {
+      return res.status(400).json({ success: false, error: 'orderId or orderNumber required' });
+    }
+
+    const result = await deleteOrderCascade(identifier, deletedBy, reason);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json(result);
+  } catch (error) {
+    console.error('Error in /api/orders/delete-cascade:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/orders/restore', authenticateJWT, async (req, res) => {
+  try {
+    const { deletedOrderId, restoredBy } = req.body;
+    if (!deletedOrderId) {
+      return res.status(400).json({ success: false, error: 'deletedOrderId is required' });
+    }
+
+    const result = await restoreOrderCascade(deletedOrderId, restoredBy);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json(result);
+  } catch (error) {
+    console.error('Error in /api/orders/restore:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/deleted-orders', authenticateJWT, async (req, res) => {
+  try {
+    const rawDeleted = await DeletedOrder.find({}).sort({ deletedAt: -1 }).limit(500).lean();
+    const deletedOrders = rawDeleted.map(d => ({
+      ...d,
+      id: d.id || d._id?.toString()
+    }));
+    res.json({ success: true, deletedOrders, orders: deletedOrders });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to fetch deleted orders' });
+  }
+});
+
+app.delete('/api/deleted-orders/:id', authenticateJWT, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id || id === 'undefined') {
+      return res.status(400).json({ success: false, error: 'Invalid order ID' });
+    }
+    const query = mongoose.Types.ObjectId.isValid(id)
+      ? { $or: [{ id }, { _id: id }, { orderNumber: id }] }
+      : { $or: [{ id }, { orderNumber: id }] };
+    const deleteResult = await DeletedOrder.deleteOne(query);
+    io.emit('REMOTE_ACTION', { type: 'PURGE_DELETED_ORDER', payload: id });
+    res.json({ success: true, message: 'Deleted order permanently purged', deletedCount: deleteResult.deletedCount });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to purge deleted order' });
   }
 });
 
@@ -758,9 +949,243 @@ async function deductInventoryForOrder(order, isTableOrder = false) {
   }
 }
 
+async function restockInventoryForOrder(order, isTableOrder = false, deletionReason = 'Order deleted') {
+  try {
+    const items = order.items || [];
+    if (!items.length) return 0;
+
+    const [allInventory, allMenuItems] = await Promise.all([
+      InventoryItem.find(),
+      MenuItem.find()
+    ]);
+
+    let restockedCount = 0;
+    for (const lineItem of items) {
+      const deductions = findRelatedInventoryDeductions(lineItem, allInventory, allMenuItems);
+      for (const { inventoryItem: inv, quantityToDeduct, reason } of deductions) {
+        const currentItem = await InventoryItem.findOne({ id: inv.id });
+        const newStock = (currentItem ? (currentItem.currentStock || 0) : (inv.currentStock || 0)) + quantityToDeduct;
+        await InventoryItem.updateOne({ id: inv.id }, { $set: { currentStock: newStock } });
+
+        const movement = {
+          id: `mv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          itemId: inv.id,
+          itemName: inv.name,
+          type: 'Return IN',
+          quantity: quantityToDeduct,
+          date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' }),
+          note: `Restocked from Deleted Order #${order.orderNumber || (order.id ? order.id.slice(-6) : '')} - ${reason} (${deletionReason})`,
+          unitPrice: inv.costPrice || 0,
+          totalCost: quantityToDeduct * (inv.costPrice || 0),
+          orderNumber: order.orderNumber || (order.id ? order.id.slice(-6) : ''),
+        };
+        await StockMovement.create(movement);
+        restockedCount++;
+
+        // Notify admins in real-time
+        io.to('adminRoom').emit('REMOTE_ACTION', {
+          type: 'UPDATE_INVENTORY_ITEM',
+          payload: { ...(currentItem ? currentItem.toObject() : inv.toObject()), currentStock: newStock }
+        });
+        io.to('adminRoom').emit('REMOTE_ACTION', {
+          type: 'ADD_STOCK_MOVEMENT',
+          payload: movement
+        });
+      }
+    }
+    return restockedCount;
+  } catch (err) {
+    console.error('Error auto-restocking inventory for order:', err);
+    return 0;
+  }
+}
+
+async function deleteOrderCascade(identifier, deletedBy = 'Admin', reason = 'Admin Deletion') {
+  try {
+    const cleanId = String(identifier || '').trim();
+    const cleanNum = cleanId.replace(/^#/, '');
+
+    // 1. Look up order in Order and TableOrder
+    const [orderInOrders, orderInTable] = await Promise.all([
+      Order.findOne({
+        $or: [
+          { id: cleanId },
+          { id: cleanNum },
+          { orderNumber: cleanNum },
+          { orderNumber: `#${cleanNum}` },
+          { invoiceNumber: cleanNum },
+          { invoiceNumber: cleanId },
+        ]
+      }),
+      TableOrder.findOne({
+        $or: [
+          { id: cleanId },
+          { id: cleanNum },
+          { orderNumber: cleanNum },
+          { orderNumber: `#${cleanNum}` },
+          { invoiceNumber: cleanNum },
+          { invoiceNumber: cleanId },
+        ]
+      })
+    ]);
+
+    const rawOrder = orderInOrders || orderInTable;
+    if (!rawOrder) {
+      // If not found as full document, still do clean sweep by ID to clear any dangling records
+      await Promise.all([
+        Order.deleteMany({ $or: [{ id: cleanId }, { orderNumber: cleanNum }] }),
+        TableOrder.deleteMany({ $or: [{ id: cleanId }, { orderNumber: cleanNum }, { invoiceNumber: cleanNum }] })
+      ]);
+      return { success: true, message: 'Dangling order cleared', restockedCount: 0 };
+    }
+
+    const orderObj = rawOrder.toObject ? rawOrder.toObject() : rawOrder;
+    const targetId = orderObj.id || cleanId;
+    const orderNumber = orderObj.orderNumber || orderObj.invoiceNumber || targetId.slice(-6);
+    const invoiceNumber = orderObj.invoiceNumber || orderObj.orderNumber || targetId;
+
+    // 2. Restock inventory items for this order
+    const restockedCount = await restockInventoryForOrder(orderObj, Boolean(orderInTable), reason);
+
+    // 3. Create 30-Day DeletedOrder record in MongoDB
+    const deletedOrderId = `del-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days retention
+
+    const deletedOrderData = {
+      id: deletedOrderId,
+      originalOrderId: targetId,
+      orderNumber: orderNumber,
+      invoiceNumber: invoiceNumber,
+      orderType: orderObj.orderType || (orderInTable ? 'Dine In' : 'POS'),
+      customerName: orderObj.customerName || (orderObj.tableNumber ? `Table ${orderObj.tableNumber}` : 'Customer'),
+      customerPhone: orderObj.phone || orderObj.customerPhone || '',
+      deliveryAddress: orderObj.address || orderObj.deliveryAddress || '',
+      tableNumber: orderObj.tableNumber || '',
+      tableId: orderObj.tableId || '',
+      items: orderObj.items || [],
+      subtotal: orderObj.subtotal || 0,
+      discount: orderObj.discount || 0,
+      deliveryFee: orderObj.deliveryFee || 0,
+      total: orderObj.total || 0,
+      paymentMethod: orderObj.paymentMethod || 'Cash',
+      splitPayments: orderObj.splitPayments || [],
+      compDetails: orderObj.compDetails,
+      staffTabDetails: orderObj.staffTabDetails,
+      orderCreatedAt: String(orderObj.createdAt || ''),
+      deletedAt: new Date(),
+      deletedBy: deletedBy || 'Admin',
+      deletionReason: reason || 'Admin Deletion',
+      restocked: true,
+      restockedItemsCount: restockedCount,
+      expiresAt: expiresAt,
+      rawOrderData: orderObj,
+    };
+
+    await DeletedOrder.create(deletedOrderData);
+
+    // 4. Delete simultaneously from BOTH Order AND TableOrder collections
+    await Promise.all([
+      Order.deleteMany({
+        $or: [
+          { id: targetId },
+          { id: cleanId },
+          { orderNumber: orderNumber },
+          { orderNumber: cleanNum },
+          { invoiceNumber: invoiceNumber }
+        ]
+      }),
+      TableOrder.deleteMany({
+        $or: [
+          { id: targetId },
+          { id: cleanId },
+          { invoiceNumber: invoiceNumber },
+          { invoiceNumber: cleanNum },
+          { orderNumber: orderNumber },
+          { orderNumber: cleanNum }
+        ]
+      })
+    ]);
+
+    // 5. If table order was active, release table
+    if (orderObj.tableId || orderObj.tableNumber) {
+      await RestaurantTable.updateMany(
+        { $or: [{ id: orderObj.tableId }, { tableNumber: orderObj.tableNumber }] },
+        { $set: { status: 'Available', currentOrderId: null } }
+      );
+    }
+
+    // 6. Broadcast real-time socket events
+    io.emit('REMOTE_ACTION', { type: 'DELETE_ORDER', payload: targetId });
+    io.emit('REMOTE_ACTION', { type: 'DELETE_TABLE_ORDER', payload: targetId });
+    io.to('adminRoom').emit('REMOTE_ACTION', { type: 'ADD_DELETED_ORDER', payload: deletedOrderData });
+
+    return { success: true, deletedOrder: deletedOrderData, restockedCount };
+  } catch (err) {
+    console.error('Error cascading order delete:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function restoreOrderCascade(deletedOrderId, restoredBy = 'Admin') {
+  try {
+    const query = mongoose.Types.ObjectId.isValid(deletedOrderId)
+      ? { $or: [{ id: deletedOrderId }, { _id: deletedOrderId }] }
+      : { id: deletedOrderId };
+    const deletedDoc = await DeletedOrder.findOne(query);
+    if (!deletedDoc) {
+      return { success: false, error: 'Deleted order record not found in archive' };
+    }
+
+    const raw = deletedDoc.rawOrderData || deletedDoc.toObject();
+    const isTable = Boolean(deletedDoc.tableId || deletedDoc.tableNumber || raw.isTableOrder || raw.tableNumber);
+    raw.isTableOrder = isTable;
+
+    const targetOrderId = raw.id || raw.orderId || deletedDoc.originalOrderId || deletedDoc.id;
+    if (!raw.id) raw.id = targetOrderId;
+    if (!raw.orderNumber) raw.orderNumber = deletedDoc.orderNumber || deletedDoc.invoiceNumber;
+    if (!raw.invoiceNumber) raw.invoiceNumber = deletedDoc.invoiceNumber || deletedDoc.orderNumber;
+
+    // 1. Re-deduct inventory
+    await deductInventoryForOrder(raw, isTable);
+
+    // 2. Re-insert into live collection
+    if (isTable) {
+      await TableOrder.findOneAndUpdate({ id: raw.id }, raw, { upsert: true });
+      io.emit('REMOTE_ACTION', { type: 'PLACE_TABLE_ORDER', payload: raw });
+      if (raw.tableId || raw.tableNumber) {
+        const tableQuery = raw.tableId ? { id: raw.tableId } : { tableNumber: raw.tableNumber };
+        await RestaurantTable.updateOne(tableQuery, { $set: { status: 'Ordering', currentOrderId: raw.id } });
+        io.emit('REMOTE_ACTION', {
+          type: 'SET_TABLE_STATUS',
+          payload: { id: raw.tableId, status: 'Ordering', currentOrderId: raw.id, occupiedSince: raw.createdAt || Date.now() }
+        });
+      }
+    } else {
+      await Order.findOneAndUpdate({ id: raw.id }, raw, { upsert: true });
+      io.emit('REMOTE_ACTION', { type: 'PLACE_ORDER', payload: raw });
+    }
+
+    // 3. Remove from DeletedOrder archive
+    await DeletedOrder.deleteOne(query);
+    io.emit('REMOTE_ACTION', { type: 'PURGE_DELETED_ORDER', payload: deletedOrderId });
+
+    return { success: true, restoredOrder: raw };
+  } catch (err) {
+    console.error('Error restoring order:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 async function processDbAction(action) {
-  // Prevent NoSQL Injection (skip for actions with non-id payloads)
-  const skipIdCheck = ['REORDER_CAROUSEL_SLIDE'];
+  // Prevent NoSQL Injection (skip for actions with non-id payloads or array payloads)
+  const skipIdCheck = [
+    'REORDER_CAROUSEL_SLIDE',
+    'SET_DELETED_ORDERS',
+    'DELETE_ORDER_WITH_CLEANUP',
+    'RESTORE_DELETED_ORDER',
+    'PURGE_DELETED_ORDER',
+    'ADD_DELETED_ORDER'
+  ];
   if (
     !skipIdCheck.includes(action.type) &&
     (
@@ -782,6 +1207,14 @@ async function processDbAction(action) {
 
   // Persist to MongoDB before broadcasting
   switch (action.type) {
+    // Deleted Orders (handled via dedicated REST endpoints)
+    case 'SET_DELETED_ORDERS':
+    case 'DELETE_ORDER_WITH_CLEANUP':
+    case 'RESTORE_DELETED_ORDER':
+    case 'PURGE_DELETED_ORDER':
+    case 'ADD_DELETED_ORDER':
+      return;
+
     // Menu
     case 'ADD_MENU_ITEM': await MenuItem.create(action.payload); break;
     case 'UPDATE_MENU_ITEM': await MenuItem.findOneAndUpdate({ id: action.payload.id }, { $set: action.payload }, { new: true }); break;
@@ -828,9 +1261,10 @@ async function processDbAction(action) {
       await deductInventoryForOrder(action.payload, true);
       break;
     case 'UPDATE_TABLE_ORDER': await TableOrder.findOneAndUpdate({ id: action.payload.id }, { $set: action.payload }, { upsert: true, new: true }); break;
-    case 'UPDATE_TABLE_ORDER_STATUS': await TableOrder.findOneAndUpdate({ id: action.payload.id }, { status: action.payload.status }); break;
-    case 'DELETE_ORDER': await Order.findOneAndDelete({ id: action.payload }); break;
-    case 'DELETE_TABLE_ORDER': await TableOrder.findOneAndDelete({ id: action.payload }); break;
+    case 'DELETE_ORDER':
+    case 'DELETE_TABLE_ORDER':
+      await deleteOrderCascade(action.payload, 'Admin', 'Admin Action');
+      break;
 
     // Tables
     case 'ADD_TABLE': await RestaurantTable.create(action.payload); break;
@@ -1066,11 +1500,34 @@ app.post('/api/print-jobs/sync-missing', async (req, res) => {
     const parseItems = (rawItems) => {
       if (!Array.isArray(rawItems)) return [];
       return rawItems.map(ci => {
-        const name = ci.name || ci.item?.name || (typeof ci.title === 'string' ? ci.title : 'Item');
-        const price = (typeof ci.price === 'number') ? ci.price : ((ci.item && typeof ci.item.price === 'number') ? ci.item.price : 0);
-        const quantity = ci.quantity || ci.qty || 1;
-        const variant = ci.variant || ci.selectedVariant?.name || '';
-        const note = ci.note || ci.specialRequest || '';
+        let name = '';
+        if (ci.item && typeof ci.item.name === 'string' && ci.item.name.trim() && ci.item.name.trim().toLowerCase() !== 'item') {
+          name = ci.item.name.trim();
+        } else if (typeof ci.name === 'string' && ci.name.trim() && ci.name.trim().toLowerCase() !== 'item') {
+          name = ci.name.trim();
+        } else if (ci.item && typeof ci.item.title === 'string' && ci.item.title.trim()) {
+          name = ci.item.title.trim();
+        } else if (typeof ci.title === 'string' && ci.title.trim()) {
+          name = ci.title.trim();
+        } else if (typeof ci.itemName === 'string' && ci.itemName.trim()) {
+          name = ci.itemName.trim();
+        } else if (typeof ci.productName === 'string' && ci.productName.trim()) {
+          name = ci.productName.trim();
+        } else {
+          name = (ci.name || ci.item?.name || 'Item').trim();
+        }
+
+        const numOrZero = (v) => {
+          const n = Number(v);
+          return !isNaN(n) && isFinite(n) ? n : 0;
+        };
+        const p1 = numOrZero(ci.price);
+        const p2 = ci.item ? numOrZero(ci.item.price) : 0;
+        const p3 = numOrZero(ci.unitPrice || ci.item?.unitPrice || ci.sellingPrice || ci.item?.sellingPrice);
+        const price = p1 > 0 ? p1 : (p2 > 0 ? p2 : (p3 > 0 ? p3 : 0));
+        const quantity = Math.max(1, numOrZero(ci.quantity || ci.qty || 1));
+        const variant = ci.variant || ci.selectedVariant?.name || (ci.item && ci.item.variant) || '';
+        const note = ci.note || ci.specialRequest || (ci.item && (ci.item.note || ci.item.specialRequest)) || '';
         return { name, quantity, price, variant, note };
       });
     };
@@ -1105,27 +1562,39 @@ app.post('/api/print-jobs/sync-missing', async (req, res) => {
       const invNum = order.orderNumber || (isTable ? `TBL-${tableNo || '1'}-${String(order.id).slice(-6)}` : `PIZ-${String(order.id).slice(-8)}`);
       const items = parseItems(order.items);
 
-      const existingJob = existingJobMap.get(order.id) || (order.orderNumber ? existingJobMap.get(order.orderNumber) : null);
-
-      if (existingJob) {
-        // Repair snapshot if items had dummy names
-        const hasDummy = (existingJob.snapshot?.items || []).some(i => i.name === 'Item' && i.price === 0);
-        if (hasDummy && items.length > 0) {
-          await PrintJob.updateOne(
-            { _id: existingJob._id },
-            {
-              $set: {
-                tableNo: tableNo || existingJob.tableNo,
-                orderType: isTable ? `Dine In — Table ${tableNo}` : existingJob.orderType,
-                'snapshot.items': items,
-                'snapshot.tableNo': tableNo || existingJob.tableNo,
-                'snapshot.orderType': isTable ? `Dine In — Table ${tableNo}` : existingJob.orderType,
+      if (items.length > 0) {
+        // Repair any print jobs matching this orderId or invoiceNumber that have dummy items
+        const updateResult = await PrintJob.updateMany(
+          {
+            $and: [
+              { $or: [{ orderId: order.id }, { invoiceNumber: invNum }] },
+              {
+                $or: [
+                  { 'snapshot.items': { $elemMatch: { name: 'Item', price: 0 } } },
+                  { 'snapshot.items': { $elemMatch: { price: 0 } } },
+                  { 'snapshot.items': { $size: 0 } },
+                  { snapshot: null }
+                ]
               }
+            ]
+          },
+          {
+            $set: {
+              tableNo: tableNo || undefined,
+              orderType: isTable ? (tableNo ? `Dine In — Table ${tableNo}` : 'Dine In') : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
+              'snapshot.items': items,
+              'snapshot.tableNo': tableNo || undefined,
+              'snapshot.orderType': isTable ? (tableNo ? `Dine In — Table ${tableNo}` : 'Dine In') : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
             }
-          );
-          repairedCount++;
+          }
+        );
+        if (updateResult.modifiedCount > 0) {
+          repairedCount += updateResult.modifiedCount;
         }
-      } else {
+      }
+
+      const existingJob = existingJobMap.get(order.id) || (order.orderNumber ? existingJobMap.get(order.orderNumber) : null);
+      if (!existingJob) {
         // Insert missing job
         await PrintJob.create({
           id: `PJ_SYNC_${order.id || Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -1138,20 +1607,20 @@ app.post('/api/print-jobs/sync-missing', async (req, res) => {
           status: 'success',
           paymentMethod: order.paymentMethod || 'Cash',
           total: order.total || 0,
-          orderType: isTable ? `Dine In — Table ${tableNo}` : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
+          orderType: isTable ? (tableNo ? `Dine In — Table ${tableNo}` : 'Dine In') : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
           customerName: order.customerName || (isTable ? `Table ${tableNo || ''} Guest` : 'Guest'),
           tableNo,
           source,
           snapshot: {
             invoiceNumber: invNum,
             orderId: order.id,
-            orderType: isTable ? `Dine In — Table ${tableNo}` : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
+            orderType: isTable ? (tableNo ? `Dine In — Table ${tableNo}` : 'Dine In') : (order.orderType || (isOnline ? 'Online Order' : 'POS')),
             tableNo,
             customerName: order.customerName || (isTable ? `Table ${tableNo || ''} Guest` : 'Guest'),
             cashierName: order.cashierName || 'Staff',
             dateTime: new Date(order.createdAt || Date.now()).toLocaleString(),
             items,
-            subtotal: order.total || 0,
+            subtotal: order.subtotal || order.total || 0,
             discount: order.discount || 0,
             total: order.total || 0,
             paymentMethod: order.paymentMethod || 'Cash',
@@ -1166,29 +1635,43 @@ app.post('/api/print-jobs/sync-missing', async (req, res) => {
 
     // 2. Process active or kitchen table orders from TableOrder collection (e.g. Table 3, Table 2)
     for (const to of allTableOrders) {
-      const existingJob = existingJobMap.get(to.id) || (to.orderNumber ? existingJobMap.get(to.orderNumber) : null);
       const tableNo = String(to.tableNumber || to.tableId || '');
       const invNum = to.orderNumber || `TBL-${tableNo || '1'}-${String(to.id).slice(-6)}`;
       const items = parseItems(to.items);
       const createdAtIso = typeof to.createdAt === 'number' ? new Date(to.createdAt).toISOString() : (to.createdAt || new Date().toISOString());
 
-      if (existingJob) {
-        const hasDummy = (existingJob.snapshot?.items || []).some(i => i.name === 'Item' && i.price === 0);
-        if (hasDummy && items.length > 0) {
-          await PrintJob.updateOne(
-            { _id: existingJob._id },
-            {
-              $set: {
-                tableNo,
-                orderType: `Dine In — Table ${tableNo}`,
-                'snapshot.items': items,
-                'snapshot.tableNo': tableNo,
+      if (items.length > 0) {
+        const updateResult = await PrintJob.updateMany(
+          {
+            $and: [
+              { $or: [{ orderId: to.id }, { invoiceNumber: invNum }] },
+              {
+                $or: [
+                  { 'snapshot.items': { $elemMatch: { name: 'Item', price: 0 } } },
+                  { 'snapshot.items': { $elemMatch: { price: 0 } } },
+                  { 'snapshot.items': { $size: 0 } },
+                  { snapshot: null }
+                ]
               }
+            ]
+          },
+          {
+            $set: {
+              tableNo,
+              orderType: `Dine In — Table ${tableNo}`,
+              'snapshot.items': items,
+              'snapshot.tableNo': tableNo,
+              'snapshot.orderType': `Dine In — Table ${tableNo}`,
             }
-          );
-          repairedCount++;
+          }
+        );
+        if (updateResult.modifiedCount > 0) {
+          repairedCount += updateResult.modifiedCount;
         }
-      } else {
+      }
+
+      const existingJob = existingJobMap.get(to.id) || (to.orderNumber ? existingJobMap.get(to.orderNumber) : null);
+      if (!existingJob) {
         await PrintJob.create({
           id: `PJ_SYNC_${to.id}_${Math.random().toString(36).substring(2, 6)}`,
           invoiceNumber: invNum,
@@ -1213,7 +1696,7 @@ app.post('/api/print-jobs/sync-missing', async (req, res) => {
             cashierName: 'Staff',
             dateTime: new Date(createdAtIso).toLocaleString(),
             items,
-            subtotal: to.total || 0,
+            subtotal: to.subtotal || to.total || 0,
             discount: to.discount || 0,
             total: to.total || 0,
             paymentMethod: to.paymentMethod || 'Table Check',

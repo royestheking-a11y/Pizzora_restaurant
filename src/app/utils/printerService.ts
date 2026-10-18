@@ -59,6 +59,42 @@ const DEFAULT_SETTINGS: PrinterSettings = {
   copies: 1,
 };
 
+export function sanitizeInvoice(rawInvoice: InvoiceData): InvoiceData {
+  if (!rawInvoice) return rawInvoice;
+  const invoice = { ...rawInvoice };
+  const items = Array.isArray(invoice.items) ? [...invoice.items] : [];
+
+  // Check if all items are dummy (e.g., name is 'Item' or empty, and price is 0)
+  const isAllDummy = items.length === 0 || items.every(i => 
+    (!i.name || i.name.trim().toLowerCase() === 'item') && (!i.price || Number(i.price) === 0)
+  );
+
+  if (isAllDummy && (invoice.total > 0 || invoice.subtotal > 0)) {
+    const totalQty = items.reduce((sum, i) => sum + (Number(i.quantity) || 1), 0) || 1;
+    const finalAmount = invoice.subtotal || invoice.total || 0;
+    invoice.items = [{
+      name: `Order Items (${totalQty} ${totalQty > 1 ? 'Items' : 'Item'})`,
+      quantity: totalQty,
+      price: Math.round((finalAmount / totalQty) * 100) / 100,
+    }];
+  } else {
+    invoice.items = items.map(item => {
+      const hasValidName = item.name && item.name.trim().toLowerCase() !== 'item';
+      const cleanName = hasValidName
+        ? item.name.trim()
+        : (Number(item.price) > 0 ? `Item (Tk ${item.price})` : 'Menu Selection');
+      return {
+        ...item,
+        name: cleanName,
+        quantity: Number(item.quantity) || 1,
+        price: Number(item.price) || 0,
+      };
+    });
+  }
+
+  return invoice;
+}
+
 // ─── Settings helpers (persisted to localStorage) ────────────────────────────
 export function loadPrinterSettings(): PrinterSettings {
   try {
@@ -248,7 +284,8 @@ class QZTrayService {
   private lineBreak(count = 1): string[] { return Array(count).fill('\n'); }
 
   // ─── Receipt Builder ─────────────────────────────────────────────────────────
-  buildReceiptData(invoice: InvoiceData, settings: PrinterSettings): (string | { hex: string })[] {
+  buildReceiptData(rawInvoice: InvoiceData, settings: PrinterSettings): (string | { hex: string })[] {
+    const invoice = sanitizeInvoice(rawInvoice);
     const width = settings.paperWidth === '58mm' ? 32 : 48;
     const sep = '-'.repeat(width);
     const dbl = '='.repeat(width);
@@ -400,7 +437,7 @@ class QZTrayService {
 
   // ─── Main print method ───────────────────────────────────────────────────────
   async printReceipt(
-    invoice: InvoiceData,
+    rawInvoice: InvoiceData,
     settings?: PrinterSettings,
     options?: {
       skipAutoLog?: boolean;
@@ -409,6 +446,7 @@ class QZTrayService {
       source?: 'pos' | 'table' | 'online' | 'admin';
     }
   ): Promise<{ success: boolean; error?: string }> {
+    const invoice = sanitizeInvoice(rawInvoice);
     const s = settings || loadPrinterSettings();
     let finalResult: { success: boolean; error?: string };
 
@@ -497,7 +535,8 @@ class QZTrayService {
   }
 
   // ─── Kitchen Order Ticket (KOT) Builder ──────────────────────────────────────
-  buildKOTData(invoice: InvoiceData, settings: PrinterSettings): (string | { hex: string })[] {
+  buildKOTData(rawInvoice: InvoiceData, settings: PrinterSettings): (string | { hex: string })[] {
+    const invoice = sanitizeInvoice(rawInvoice);
     const width = settings.paperWidth === '58mm' ? 32 : 48;
     const sep = '-'.repeat(width);
     const dbl = '='.repeat(width);
@@ -758,7 +797,8 @@ function escapeHtml(str: string = ''): string {
     .replace(/'/g, '&#039;');
 }
 
-export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSettings): string {
+export function generateReceiptHtml(rawInvoice: InvoiceData, settings: PrinterSettings): string {
+  const invoice = sanitizeInvoice(rawInvoice);
   const is58 = settings.paperWidth === '58mm';
   const widthMm = is58 ? '58mm' : '80mm';
   // Safe printable area: 68mm for 80mm rolls (print head is 72mm max), 46mm for 58mm rolls
@@ -1121,7 +1161,8 @@ export function generateReceiptHtml(invoice: InvoiceData, settings: PrinterSetti
 </html>`;
 }
 
-export function generateKOTHtml(invoice: InvoiceData, settings: PrinterSettings): string {
+export function generateKOTHtml(rawInvoice: InvoiceData, settings: PrinterSettings): string {
+  const invoice = sanitizeInvoice(rawInvoice);
   const is58 = settings.paperWidth === '58mm';
   const widthMm = is58 ? '58mm' : '80mm';
   const contentWidth = is58 ? '46mm' : '68mm';
