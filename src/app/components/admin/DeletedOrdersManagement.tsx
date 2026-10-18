@@ -280,37 +280,49 @@ export function DeletedOrdersManagement() {
         </div>
       </div>
 
-      {/* Control Bar: Search & Filters */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col md:flex-row gap-3 items-center justify-between">
-        <div className="flex flex-1 items-center gap-2 w-full md:w-auto">
-          <div className="relative flex-1 max-w-md">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* Control Bar: Search & Filters (Mobile Responsive) */}
+      <div className="bg-white rounded-2xl p-3.5 sm:p-4 shadow-sm border border-gray-100 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+        {/* Search Bar & Date Filter Pills */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 w-full">
+          {/* Search Input */}
+          <div className="relative flex-1 w-full min-w-0">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search by order #, customer, table, reason, staff..."
+              placeholder="Search by order #, customer, table, reason..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500"
+              className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all bg-gray-50/50 focus:bg-white"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-lg"
+              >
+                <X size={13} />
+              </button>
+            )}
           </div>
 
-          {/* Date Filter */}
-          <div className="inline-flex items-center gap-1 bg-gray-100/90 p-0.5 rounded-lg border border-gray-200/50">
+          {/* Date Filter Pills (Guaranteed single-line with smooth horizontal touch-scroll on mobile) */}
+          <div className="flex items-center gap-1 bg-gray-100/90 p-1 rounded-xl border border-gray-200/50 overflow-x-auto no-scrollbar shrink-0 max-w-full">
             {(['today', 'yesterday', '7days', '30days', 'all'] as const).map(f => {
               const label = f === 'today' ? 'Today' : f === 'yesterday' ? 'Yesterday' : f === '7days' ? '7 Days' : f === '30days' ? '30 Days' : 'All';
               const count = dateCounts[f];
               return (
                 <button
                   key={f}
+                  type="button"
                   onClick={() => setDateFilter(f)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition-all whitespace-nowrap shrink-0 ${
                     dateFilter === f
                       ? 'bg-white text-red-600 shadow-xs font-bold'
                       : 'text-gray-500 hover:text-gray-800'
                   }`}
                 >
-                  <span>{label}</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-extrabold ${
+                  <span className="whitespace-nowrap">{label}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-extrabold shrink-0 ${
                     dateFilter === f ? 'bg-red-50 text-red-600' : 'bg-gray-200 text-gray-600'
                   }`}>
                     {count}
@@ -321,12 +333,13 @@ export function DeletedOrdersManagement() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+        {/* Secondary Controls: Payment Select & Export Button */}
+        <div className="flex items-center gap-2 w-full lg:w-auto justify-between lg:justify-end shrink-0 pt-2 lg:pt-0 border-t border-gray-100 lg:border-t-0">
           {/* Payment Filter */}
           <select
             value={paymentFilter}
             onChange={e => setPaymentFilter(e.target.value)}
-            className="px-2.5 py-1.5 text-[11px] rounded-xl border border-gray-200 font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="flex-1 sm:flex-initial px-3 py-2 text-[11px] rounded-xl border border-gray-200 font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
           >
             <option value="all">All Payments</option>
             <option value="cash">Cash</option>
@@ -338,23 +351,24 @@ export function DeletedOrdersManagement() {
 
           {/* Export Button */}
           <button
+            type="button"
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 hover:bg-black text-white text-[11px] font-semibold transition-all shadow-sm active:scale-95"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-900 hover:bg-black text-white text-[11px] font-semibold transition-all shadow-sm active:scale-95 shrink-0 whitespace-nowrap"
           >
             <Download size={13} />
-            Export Audit
+            <span>Export Audit</span>
           </button>
         </div>
       </div>
 
       {/* Main Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
           <div>
             <h3 className="text-base font-bold text-gray-900">Deleted Orders Archive</h3>
             <p className="text-xs text-gray-400">Showing {filteredOrders.length} deleted records (cleared from reports & auto-restocked)</p>
           </div>
-          <span className="px-3 py-1 rounded-full text-xs font-black bg-red-50 text-red-600 border border-red-100">
+          <span className="px-3 py-1 rounded-full text-xs font-black bg-red-50 text-red-600 border border-red-100 shrink-0">
             Audit Trail Active
           </span>
         </div>
