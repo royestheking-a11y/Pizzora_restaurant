@@ -29,6 +29,7 @@ export function DeletedOrdersManagement() {
   const [viewingOrder, setViewingOrder] = useState<DeletedOrder | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [purgingId, setPurgingId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'restore' | 'purge'; order: DeletedOrder } | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   // Restrict permanent deletion actions to admin role only
