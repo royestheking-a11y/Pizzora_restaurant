@@ -696,6 +696,9 @@ app.get('/api/deleted-orders', authenticateJWT, async (req, res) => {
 
 app.delete('/api/deleted-orders/:id', authenticateJWT, async (req, res) => {
   try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Forbidden: Only administrators can permanently delete archived records' });
+    }
     const { id } = req.params;
     if (!id || id === 'undefined') {
       return res.status(400).json({ success: false, error: 'Invalid order ID' });

@@ -29,8 +29,13 @@ export function DeletedOrdersManagement() {
   const [viewingOrder, setViewingOrder] = useState<DeletedOrder | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [purgingId, setPurgingId] = useState<string | null>(null);
-  const [confirmAction, setConfirmAction] = useState<{ type: 'restore' | 'purge'; order: DeletedOrder } | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
+
+  // Restrict permanent deletion actions to admin role only
+  const adminRole = typeof window !== 'undefined'
+    ? (sessionStorage.getItem('pizzora_admin_role') || localStorage.getItem('pizzora_admin_role') || 'manager')
+    : 'manager';
+  const isAdmin = adminRole === 'admin';
 
   // Sync latest deleted orders from DB on component mount
   useEffect(() => {
@@ -165,6 +170,10 @@ export function DeletedOrdersManagement() {
   };
 
   const handlePurgeClick = (order: DeletedOrder) => {
+    if (!isAdmin) {
+      showNotification('Access denied: Only administrators can permanently delete records.', 'error');
+      return;
+    }
     const validOrder = {
       ...order,
       id: order.id || (order as any)._id?.toString() || order.orderNumber
@@ -175,6 +184,11 @@ export function DeletedOrdersManagement() {
   const handleExecuteConfirm = async () => {
     if (!confirmAction) return;
     const { type, order } = confirmAction;
+    if (type === 'purge' && !isAdmin) {
+      showNotification('Access denied: Only administrators can permanently delete records.', 'error');
+      setConfirmAction(null);
+      return;
+    }
     const targetId = order.id || (order as any)._id?.toString() || order.orderNumber;
     setIsActionLoading(true);
     try {
@@ -498,18 +512,20 @@ export function DeletedOrdersManagement() {
                               <RotateCcw size={14} />
                             )}
                           </button>
-                          <button
-                            onClick={() => handlePurgeClick(order)}
-                            disabled={purgingId === rowId}
-                            className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors disabled:opacity-50"
-                            title="Permanently Purge Record Now"
-                          >
-                            {purgingId === rowId ? (
-                              <Loader2 size={14} className="animate-spin text-red-600" />
-                            ) : (
-                              <Trash2 size={14} />
-                            )}
-                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handlePurgeClick(order)}
+                              disabled={purgingId === rowId}
+                              className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors disabled:opacity-50"
+                              title="Permanently Purge Record Now (Admin Only)"
+                            >
+                              {purgingId === rowId ? (
+                                <Loader2 size={14} className="animate-spin text-red-600" />
+                              ) : (
+                                <Trash2 size={14} />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
