@@ -24,7 +24,7 @@ import { useApp, DeletedOrder } from '../../context/AppContext';
 export function DeletedOrdersManagement() {
   const { state, dispatch, restoreDeletedOrder, purgeDeletedOrder, showNotification } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
-  const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'all'>('yesterday');
+  const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'all'>('today');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [viewingOrder, setViewingOrder] = useState<DeletedOrder | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
