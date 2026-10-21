@@ -113,9 +113,20 @@ export function DeliverySettingsPanel() {
     setError('');
     setIsSaving(true);
     try {
-      await updateDeliverySettings(form);
+      const sanitizedAreas = (form.customAreas || []).map(a => ({
+        id: a.id,
+        name: a.name.trim(),
+        fee: Math.max(0, typeof a.fee === 'number' ? a.fee : (parseFloat(String(a.fee)) || 0)),
+        distKm: a.distKm !== undefined && a.distKm !== null && !isNaN(Number(a.distKm)) ? Number(a.distKm) : undefined,
+      }));
+      const payloadToSave: DeliverySettings = {
+        ...form,
+        customAreas: sanitizedAreas,
+      };
+      await updateDeliverySettings(payloadToSave);
+      setForm(payloadToSave);
       setSaved(true);
-      setTimeout(() => setSaved(false), 3500);
+      setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
       setError(e?.message || 'Failed to save delivery settings');
     } finally {
@@ -266,7 +277,7 @@ export function DeliverySettingsPanel() {
           {saved && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs font-semibold">
               <CheckCircle2 size={14} />
-              <span>Saved to MongoDB!</span>
+              <span>Saved</span>
             </div>
           )}
           <button
@@ -765,9 +776,12 @@ export function DeliverySettingsPanel() {
                           type="number"
                           min="0"
                           step="5"
-                          value={area.fee}
-                          onChange={e => handleUpdateArea(area.id, { fee: Math.max(0, parseFloat(e.target.value) || 0) })}
-                          className="w-12 text-center font-extrabold text-sm text-[#F9002B] bg-transparent focus:outline-none"
+                          value={area.fee === 0 ? 0 : (area.fee || '')}
+                          onChange={e => {
+                            const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                            handleUpdateArea(area.id, { fee: isNaN(val) ? 0 : Math.max(0, val) });
+                          }}
+                          className="w-14 text-center font-extrabold text-sm text-[#F9002B] bg-transparent focus:outline-none"
                           title="Click to edit delivery fee"
                         />
                       </div>
@@ -787,11 +801,42 @@ export function DeliverySettingsPanel() {
               )}
             </div>
 
+            {/* Bottom Actions Bar */}
+            <div className="mt-5 flex items-center justify-between gap-3 pt-4 border-t border-gray-100">
+              <div className="text-xs text-gray-500 font-medium">
+                {(form.customAreas || []).length} delivery zones configured
+              </div>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-bold text-xs transition-all hover:shadow-lg active:scale-95"
+                style={{
+                  background: isSaving ? '#9CA3AF' : 'linear-gradient(135deg, #F9002B, #C8001F)',
+                  fontFamily: 'var(--font-heading)',
+                  boxShadow: isSaving ? 'none' : '0 4px 14px rgba(249,0,43,0.25)',
+                  cursor: isSaving ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {isSaving ? (
+                  <>
+                    <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={14} />
+                    <span>Save Delivery Settings</span>
+                  </>
+                )}
+              </button>
+            </div>
+
             {/* Bottom Info note */}
-            <div className="mt-5 p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-start gap-2">
+            <div className="mt-3 p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-start gap-2">
               <ShieldCheck size={16} className="text-amber-600 shrink-0 mt-0.5" />
               <p className="text-[11px] text-amber-900 leading-relaxed">
-                <strong>Remember to click "Save Delivery Settings":</strong> After editing or adding 20, 30, or 40+ areas, click the save button. All changes immediately sync to customer checkout dropdown in real-time.
+                Click <strong>"Save Delivery Settings"</strong> after editing or adding locations. All changes immediately sync and store to the database.
               </p>
             </div>
           </div>
