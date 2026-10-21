@@ -17,7 +17,7 @@ import {
   Coins,
   ShieldCheck,
 } from 'lucide-react';
-import { useApp, DeliverySettings, calcDeliveryFee } from '../../context/AppContext';
+import { useApp, DeliverySettings, calcDeliveryFee, FIXED_RESTAURANT_LOCATION } from '../../context/AppContext';
 
 const fieldStyle: React.CSSProperties = {
   width: '100%',
@@ -45,14 +45,25 @@ const focusHandlers = {
 
 export function DeliverySettingsPanel() {
   const { state, updateDeliverySettings } = useApp();
-  const [form, setForm] = useState<DeliverySettings>({ ...state.deliverySettings });
+  const [form, setForm] = useState<DeliverySettings>({
+    ...state.deliverySettings,
+    restaurantLat: state.deliverySettings.restaurantLat || FIXED_RESTAURANT_LOCATION.lat,
+    restaurantLng: state.deliverySettings.restaurantLng || FIXED_RESTAURANT_LOCATION.lng,
+    locationName: state.deliverySettings.locationName || 'WV46+W8, Sylhet (Subidbazar Point)',
+  });
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [geoState, setGeoState] = useState<'idle' | 'locating' | 'located' | 'error'>('idle');
 
   // Sync if state changes from remote
   useEffect(() => {
-    setForm({ ...state.deliverySettings });
+    setForm({
+      ...state.deliverySettings,
+      restaurantLat: state.deliverySettings.restaurantLat || FIXED_RESTAURANT_LOCATION.lat,
+      restaurantLng: state.deliverySettings.restaurantLng || FIXED_RESTAURANT_LOCATION.lng,
+      locationName: state.deliverySettings.locationName || 'WV46+W8, Sylhet (Subidbazar Point)',
+    });
   }, [state.deliverySettings]);
 
   const validate = (): string => {
@@ -63,13 +74,31 @@ export function DeliverySettingsPanel() {
     return '';
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const err = validate();
     if (err) { setError(err); return; }
     setError('');
-    updateDeliverySettings(form);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setIsSaving(true);
+    try {
+      await updateDeliverySettings(form);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3500);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to save delivery settings');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /** Hardcode/apply official restaurant location (WV46+W8 Sylhet) */
+  const applyFixedLocation = () => {
+    setForm(f => ({
+      ...f,
+      restaurantLat: FIXED_RESTAURANT_LOCATION.lat,
+      restaurantLng: FIXED_RESTAURANT_LOCATION.lng,
+      locationName: 'WV46+W8, Sylhet (Subidbazar Point)',
+    }));
+    setGeoState('located');
   };
 
   /** Use browser Geolocation to auto-fill restaurant coordinates */
@@ -279,12 +308,45 @@ export function DeliverySettingsPanel() {
           </a>
         </div>
 
+        {/* Official Fixed Location Banner */}
+        <div
+          className="p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+          style={{ background: 'linear-gradient(135deg, rgba(249,0,43,0.05), rgba(200,0,31,0.08))', border: '1.5px solid rgba(249,0,43,0.2)' }}
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', color: 'white' }}>
+              <MapPin size={18} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-gray-900 text-sm" style={{ fontFamily: 'var(--font-heading)' }}>
+                  Fixed Location: WV46+W8 Sylhet
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-[#F9002B]">
+                  Official Pin
+                </span>
+              </div>
+              <p className="text-xs text-gray-600 mt-0.5">
+                Subidbazar Point, Mitali Complex, Sylhet &middot; GPS: 24.90725, 91.8608
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={applyFixedLocation}
+            className="px-3.5 py-2 rounded-lg text-xs font-bold text-white transition-all hover:scale-105 shrink-0"
+            style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', fontFamily: 'var(--font-heading)', boxShadow: '0 3px 10px rgba(249,0,43,0.25)' }}
+          >
+            Apply Fixed WV46+W8 Pin
+          </button>
+        </div>
+
         {/* Auto-detect restaurant location button */}
         <button
           type="button"
           onClick={detectRestaurantLocation}
           disabled={geoState === 'locating'}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold transition-all"
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all"
           style={{
             background: geoState === 'located' ? 'rgba(22,163,74,0.08)' : 'rgba(59,130,246,0.07)',
             border: geoState === 'located' ? '1.5px solid rgba(22,163,74,0.3)' : '1.5px solid rgba(59,130,246,0.2)',
@@ -302,12 +364,12 @@ export function DeliverySettingsPanel() {
           ) : geoState === 'located' ? (
             <>
               <CheckCircle2 size={16} />
-              <span>Location set from device GPS!</span>
+              <span>Location set to GPS coordinates!</span>
             </>
           ) : (
             <>
               <LocateFixed size={16} />
-              <span>Use My Current Location (I am at the restaurant)</span>
+              <span>Or Auto-Detect Using My Current Device GPS</span>
             </>
           )}
         </button>
@@ -315,7 +377,7 @@ export function DeliverySettingsPanel() {
         {geoState === 'error' && (
           <div className="flex items-center gap-2 p-3 rounded-xl" style={{ background: 'rgba(249,0,43,0.05)', border: '1px solid rgba(249,0,43,0.15)' }}>
             <AlertCircle size={14} style={{ color: '#F9002B', flexShrink: 0 }} />
-            <span style={{ color: '#6B7280', fontSize: '12px' }}>Could not detect location. Please enter coordinates manually below.</span>
+            <span style={{ color: '#6B7280', fontSize: '12px' }}>Could not detect location. Please click "Apply Fixed WV46+W8 Pin" above.</span>
           </div>
         )}
 
@@ -329,7 +391,7 @@ export function DeliverySettingsPanel() {
               type="number" step="0.000001"
               value={form.restaurantLat ?? ''}
               onChange={e => setForm(f => ({ ...f, restaurantLat: parseFloat(e.target.value) || 0 }))}
-              placeholder="e.g. 24.8965"
+              placeholder="e.g. 24.90725"
               style={fieldStyle}
               {...focusHandlers}
             />
@@ -343,7 +405,7 @@ export function DeliverySettingsPanel() {
               type="number" step="0.000001"
               value={form.restaurantLng ?? ''}
               onChange={e => setForm(f => ({ ...f, restaurantLng: parseFloat(e.target.value) || 0 }))}
-              placeholder="e.g. 91.8744"
+              placeholder="e.g. 91.8608"
               style={fieldStyle}
               {...focusHandlers}
             />
@@ -356,7 +418,7 @@ export function DeliverySettingsPanel() {
         >
           <Info size={14} style={{ color: '#F9002B', flexShrink: 0, marginTop: '2px' }} />
           <p style={{ color: '#6B7280', fontSize: '12px', lineHeight: 1.6 }}>
-            <strong>How to get Google Maps coordinates:</strong> Open <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" style={{ color: '#2563EB', fontWeight: 600 }}>Google Maps</a>, right-click on the restaurant entrance, and click the numbers at the top of the menu to copy latitude and longitude.
+            <strong>Restaurant location is fixed to:</strong> Plus Code <code>WV46+W8, Sylhet</code> (Subidbazar Point, Mitali Complex). All customer checkout deliveries measure straight-line distance directly from this pin.
           </p>
         </div>
       </div>
@@ -378,11 +440,27 @@ export function DeliverySettingsPanel() {
       {/* Save Button */}
       <button
         onClick={handleSave}
+        disabled={isSaving}
         className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-white font-semibold transition-all hover:shadow-xl hover:-translate-y-0.5 mb-6"
-        style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', fontFamily: 'var(--font-heading)', fontSize: '15px', boxShadow: '0 6px 20px rgba(249,0,43,0.25)' }}
+        style={{
+          background: isSaving ? '#9CA3AF' : 'linear-gradient(135deg, #F9002B, #C8001F)',
+          fontFamily: 'var(--font-heading)',
+          fontSize: '15px',
+          boxShadow: isSaving ? 'none' : '0 6px 20px rgba(249,0,43,0.25)',
+          cursor: isSaving ? 'not-allowed' : 'pointer'
+        }}
       >
-        <Save size={16} />
-        Save Delivery Settings
+        {isSaving ? (
+          <>
+            <span style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+            <span>Saving Settings...</span>
+          </>
+        ) : (
+          <>
+            <Save size={16} />
+            <span>Save Delivery Settings</span>
+          </>
+        )}
       </button>
 
       {/* Live Preview Table */}

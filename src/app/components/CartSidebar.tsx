@@ -1,6 +1,6 @@
-import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
+import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, Package, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { useApp } from '../context/AppContext';
+import { useApp, isPizzaBox } from '../context/AppContext';
 
 export function CartSidebar() {
   const { state, dispatch, removeFromCart, updateQuantity, cartTotal, cartCount } = useApp();
@@ -78,62 +78,112 @@ export function CartSidebar() {
               </button>
             </div>
           ) : (
-            state.cart.map(cartItem => (
-              <div
-                key={cartItem.item.id}
-                className="flex gap-3 p-3 rounded-xl border transition-all hover:shadow-sm"
-                style={{ borderColor: 'rgba(249,0,43,0.08)', backgroundColor: '#FAFAFA' }}
-              >
-                <img
-                  src={cartItem.item.image}
-                  alt={cartItem.item.name}
-                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <h3 className="truncate" style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '14px', color: '#111' }}>
-                    {cartItem.item.name}
-                  </h3>
-                  <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '2px' }}>
-                    ৳{cartItem.item.price}
-                  </p>
-                  <div className="flex items-center justify-between mt-2">
-                    <div
-                      className="flex items-center gap-2 rounded-full px-2 py-1"
-                      style={{ backgroundColor: 'rgba(249,0,43,0.06)' }}
-                    >
-                      <button
-                        onClick={() => updateQuantity(cartItem.item.id, cartItem.quantity - 1)}
-                        className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-white transition-colors"
-                        style={{ color: '#F9002B' }}
+            state.cart.map(cartItem => {
+              const isBox = Boolean(cartItem.isAutoBox || isPizzaBox(cartItem.item));
+              return (
+                <div
+                  key={cartItem.item.id}
+                  className="flex gap-3 p-3 rounded-xl border transition-all hover:shadow-sm"
+                  style={{
+                    borderColor: isBox ? 'rgba(245, 158, 11, 0.3)' : 'rgba(249,0,43,0.08)',
+                    backgroundColor: isBox ? '#FFFDF5' : '#FAFAFA'
+                  }}
+                >
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={cartItem.item.image}
+                      alt={cartItem.item.name}
+                      className="w-16 h-16 rounded-lg object-cover"
+                    />
+                    {isBox && (
+                      <span
+                        className="absolute -top-1 -right-1 p-1 rounded-full shadow-sm bg-amber-500 text-white"
+                        title="Auto-added Pizza Packaging"
                       >
-                        <Minus size={10} />
-                      </button>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#111', minWidth: '16px', textAlign: 'center' }}>
-                        {cartItem.quantity}
+                        <Lock size={10} />
                       </span>
-                      <button
-                        onClick={() => updateQuantity(cartItem.item.id, cartItem.quantity + 1)}
-                        className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-white transition-colors"
-                        style={{ color: '#F9002B' }}
-                      >
-                        <Plus size={10} />
-                      </button>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-1">
+                      <h3 className="truncate" style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '14px', color: '#111' }}>
+                        {cartItem.item.name}
+                      </h3>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span style={{ fontWeight: 700, fontSize: '14px', color: '#F9002B' }}>
-                        ৳{cartItem.item.price * cartItem.quantity}
-                      </span>
-                      <button
-                        onClick={() => removeFromCart(cartItem.item.id)}
-                        className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 size={12} style={{ color: '#EF4444' }} />
-                      </button>
+                    {isBox ? (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-full">
+                          <Package size={10} /> Auto Box {cartItem.forPizzaSize ? `(${cartItem.forPizzaSize}″)` : ''}
+                        </span>
+                      </div>
+                    ) : cartItem.variant ? (
+                      <p style={{ fontSize: '12px', color: '#F9002B', fontWeight: 600, marginTop: '2px' }}>
+                        Size: {cartItem.variant}
+                      </p>
+                    ) : null}
+                    <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '2px' }}>
+                      ৳{cartItem.item.price}
+                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                      {isBox ? (
+                        <div
+                          className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold text-gray-600 border border-gray-200"
+                          style={{ backgroundColor: '#F3F4F6' }}
+                          title="Quantity automatically matches your ordered pizzas"
+                        >
+                          <Lock size={10} className="text-gray-400" />
+                          <span>Qty: {cartItem.quantity}</span>
+                        </div>
+                      ) : (
+                        <div
+                          className="flex items-center gap-2 rounded-full px-2 py-1"
+                          style={{ backgroundColor: 'rgba(249,0,43,0.06)' }}
+                        >
+                          <button
+                            onClick={() => updateQuantity(cartItem.item.id, cartItem.quantity - 1)}
+                            className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-white transition-colors"
+                            style={{ color: '#F9002B' }}
+                          >
+                            <Minus size={10} />
+                          </button>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#111', minWidth: '16px', textAlign: 'center' }}>
+                            {cartItem.quantity}
+                          </span>
+                          <button
+                            onClick={() => updateQuantity(cartItem.item.id, cartItem.quantity + 1)}
+                            className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-white transition-colors"
+                            style={{ color: '#F9002B' }}
+                          >
+                            <Plus size={10} />
+                          </button>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontWeight: 700, fontSize: '14px', color: '#F9002B' }}>
+                          ৳{cartItem.item.price * cartItem.quantity}
+                        </span>
+                        {!isBox ? (
+                          <button
+                            onClick={() => removeFromCart(cartItem.item.id)}
+                            className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-50 transition-colors"
+                            title="Remove item"
+                          >
+                            <Trash2 size={12} style={{ color: '#EF4444' }} />
+                          </button>
+                        ) : (
+                          <span
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-gray-300 cursor-not-allowed"
+                            title="Pizza box cannot be removed while pizza is in cart"
+                          >
+                            <Lock size={12} />
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 

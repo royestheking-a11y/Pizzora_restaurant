@@ -298,7 +298,7 @@ app.get('/api/state/public', async (req, res) => {
     // Get delivery settings (auto-create with defaults if missing)
     const settings = await RestaurantSettings.findOneAndUpdate(
       { key: 'main' },
-      { $setOnInsert: { key: 'main', deliverySettings: { baseFee: 40, baseKm: 2, extraPerKm: 10 } } },
+      { $setOnInsert: { key: 'main', deliverySettings: { baseFee: 40, baseKm: 2, extraPerKm: 10, restaurantLat: 24.90725, restaurantLng: 91.8608, locationName: 'WV46+W8, Sylhet (Subidbazar Point)' } } },
       { upsert: true, new: true }
     );
     const state = {
@@ -308,7 +308,8 @@ app.get('/api/state/public', async (req, res) => {
       chefs: await Chef.find(),
       reviews: await ItemReview.find().sort({ date: -1 }).limit(20),
       tables: await RestaurantTable.find().sort({ tableNumber: 1 }),
-      deliverySettings: settings?.deliverySettings ?? { baseFee: 40, baseKm: 2, extraPerKm: 10 },
+      deliverySettings: normalizeDeliverySettings(settings?.deliverySettings),
+      pixelSettings: normalizePixelSettings(settings?.pixelSettings),
     };
     res.json(state);
   } catch (error) {
@@ -317,11 +318,146 @@ app.get('/api/state/public', async (req, res) => {
   }
 });
 
+// Helper to ensure G-0LZDNZQDYE (pre-installed GA4) is always populated and valid
+function normalizePixelSettings(raw) {
+  const p = raw ? (raw.toObject ? raw.toObject() : raw) : {};
+  return {
+    enabled: p.enabled !== undefined ? p.enabled : true,
+    metaPixelId: p.metaPixelId || '',
+    metaPixelEnabled: p.metaPixelEnabled !== undefined ? p.metaPixelEnabled : true,
+    metaTestEventCode: p.metaTestEventCode || '',
+    metaAccessToken: p.metaAccessToken || '',
+    metaCapiEnabled: p.metaCapiEnabled !== undefined ? p.metaCapiEnabled : true,
+    googleTagId: (p.googleTagId && p.googleTagId.trim()) ? p.googleTagId.trim() : 'G-0LZDNZQDYE',
+    googleTagEnabled: p.googleTagEnabled !== undefined ? p.googleTagEnabled : true,
+    tiktokPixelId: p.tiktokPixelId || '',
+    tiktokPixelEnabled: p.tiktokPixelEnabled !== undefined ? p.tiktokPixelEnabled : false,
+    trackPageView: p.trackPageView !== undefined ? p.trackPageView : true,
+    trackViewContent: p.trackViewContent !== undefined ? p.trackViewContent : true,
+    trackAddToCart: p.trackAddToCart !== undefined ? p.trackAddToCart : true,
+    trackInitiateCheckout: p.trackInitiateCheckout !== undefined ? p.trackInitiateCheckout : true,
+    trackPurchase: p.trackPurchase !== undefined ? p.trackPurchase : true,
+    trackLeadOrReservation: p.trackLeadOrReservation !== undefined ? p.trackLeadOrReservation : true,
+    trackContact: p.trackContact !== undefined ? p.trackContact : true,
+    customHeadScript: p.customHeadScript || '',
+  };
+}
+
+// Helper to ensure delivery settings has valid formula & WV46+W8 Sylhet GPS defaults
+function normalizeDeliverySettings(raw) {
+  const ds = raw ? (raw.toObject ? raw.toObject() : raw) : {};
+  return {
+    baseFee: typeof ds.baseFee === 'number' ? ds.baseFee : 40,
+    baseKm: typeof ds.baseKm === 'number' ? ds.baseKm : 2,
+    extraPerKm: typeof ds.extraPerKm === 'number' ? ds.extraPerKm : 10,
+    restaurantLat: typeof ds.restaurantLat === 'number' && ds.restaurantLat !== 0 ? ds.restaurantLat : 24.90725,
+    restaurantLng: typeof ds.restaurantLng === 'number' && ds.restaurantLng !== 0 ? ds.restaurantLng : 91.8608,
+    locationName: ds.locationName || 'WV46+W8, Sylhet (Subidbazar Point)',
+  };
+}
+
+// ── Pixel Settings API ────────────────────────────────────────────────────────
+app.get('/api/settings/pixel', async (req, res) => {
+  try {
+    const settings = await RestaurantSettings.findOne({ key: 'main' });
+    res.json(normalizePixelSettings(settings?.pixelSettings));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch pixel settings' });
+  }
+});
+
+app.put('/api/settings/pixel', authenticateJWT, async (req, res) => {
+  try {
+    const pixelSettings = normalizePixelSettings(req.body);
+    const updated = await RestaurantSettings.findOneAndUpdate(
+      { key: 'main' },
+      { $set: { pixelSettings } },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, pixelSettings: updated.pixelSettings });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update pixel settings' });
+  }
+});
+
+// ── Server-Side Pixel Conversions API (CAPI) Endpoint ─────────────────────────
+app.post('/api/pixel/event', async (req, res) => {
+  try {
+    const { eventName, payload, eventId, testEventCode } = req.body;
+    const settings = await RestaurantSettings.findOne({ key: 'main' });
+    const pixelSettings = settings?.pixelSettings;
+
+    const pixelId = (pixelSettings?.metaPixelId || '').trim();
+    const accessToken = (pixelSettings?.metaAccessToken || '').trim();
+    const effectiveTestCode = (testEventCode || pixelSettings?.metaTestEventCode || '').trim();
+
+    // If access token and pixel ID are provided, forward to Meta Graph API Conversions endpoint
+    if (pixelId && accessToken && pixelSettings?.metaCapiEnabled !== false) {
+      try {
+        const metaUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(pixelId)}/events?access_token=${encodeURIComponent(accessToken)}`;
+        const metaBody = {
+          data: [
+            {
+              event_name: eventName,
+              event_time: Math.floor(Date.now() / 1000),
+              event_id: eventId || `srv_${Date.now()}`,
+              event_source_url: req.headers.referer || 'https://pizzora.bd',
+              action_source: 'website',
+              user_data: {
+                client_ip_address: req.ip,
+                client_user_agent: req.headers['user-agent']
+              },
+              custom_data: payload || {}
+            }
+          ],
+          ...(effectiveTestCode ? { test_event_code: effectiveTestCode } : {})
+        };
+
+        const metaResponse = await fetch(metaUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(metaBody)
+        });
+        const metaResult = await metaResponse.json();
+        return res.json({
+          success: metaResponse.ok,
+          metaResponse: metaResult,
+          eventId,
+          mode: 'graph-api-sent',
+          message: metaResponse.ok
+            ? 'Event successfully received and forwarded to Meta Conversions API (CAPI)'
+            : (metaResult?.error?.message || 'Meta CAPI returned an error')
+        });
+      } catch (graphErr) {
+        return res.json({
+          success: false,
+          eventId,
+          mode: 'graph-api-error',
+          message: graphErr?.message || 'Failed connecting to Meta Graph API'
+        });
+      }
+    }
+
+    // If no access token configured yet, CAPI proxy successfully logs and validates payload
+    return res.json({
+      success: true,
+      eventId,
+      mode: 'server-verified',
+      message: pixelId
+        ? 'Server endpoint verified. Add Meta Access Token in Settings to enable direct Graph API CAPI forwarding.'
+        : 'Pixel ID not yet configured on server.'
+    });
+  } catch (error) {
+    console.error('Server CAPI error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ── Delivery Settings API ─────────────────────────────────────────────────────
 app.get('/api/settings/delivery', async (req, res) => {
   try {
     const settings = await RestaurantSettings.findOne({ key: 'main' });
-    res.json(settings?.deliverySettings ?? { baseFee: 40, baseKm: 2, extraPerKm: 10 });
+    res.json(normalizeDeliverySettings(settings?.deliverySettings));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch delivery settings' });
   }
@@ -329,15 +465,24 @@ app.get('/api/settings/delivery', async (req, res) => {
 
 app.put('/api/settings/delivery', authenticateJWT, async (req, res) => {
   try {
-    const { baseFee, baseKm, extraPerKm } = req.body;
+    const { baseFee, baseKm, extraPerKm, restaurantLat, restaurantLng, locationName } = req.body;
     if ([baseFee, baseKm, extraPerKm].some(v => typeof v !== 'number' || v < 0)) {
-      return res.status(400).json({ error: 'Invalid delivery settings' });
+      return res.status(400).json({ error: 'Invalid delivery settings: fees must be non-negative numbers' });
     }
+    const updateObj = {
+      baseFee: Number(baseFee),
+      baseKm: Number(baseKm) > 0 ? Number(baseKm) : 2,
+      extraPerKm: Number(extraPerKm),
+      restaurantLat: typeof restaurantLat === 'number' && restaurantLat !== 0 ? restaurantLat : 24.90725,
+      restaurantLng: typeof restaurantLng === 'number' && restaurantLng !== 0 ? restaurantLng : 91.8608,
+      locationName: locationName || 'WV46+W8, Sylhet (Subidbazar Point)',
+    };
     const updated = await RestaurantSettings.findOneAndUpdate(
       { key: 'main' },
-      { $set: { deliverySettings: { baseFee, baseKm, extraPerKm } } },
+      { $set: { deliverySettings: updateObj } },
       { upsert: true, new: true }
     );
+    io.emit('REMOTE_ACTION', { type: 'UPDATE_DELIVERY_SETTINGS', payload: updated.deliverySettings });
     res.json({ success: true, deliverySettings: updated.deliverySettings });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update delivery settings' });
@@ -1375,10 +1520,21 @@ async function processDbAction(action) {
     case 'DELETE_USER': await UserAccount.findOneAndDelete({ id: action.payload }); break;
 
     // Delivery Settings
-    case 'UPDATE_DELIVERY_SETTINGS':
+    case 'UPDATE_DELIVERY_SETTINGS': {
+      const normalized = normalizeDeliverySettings(action.payload);
       await RestaurantSettings.findOneAndUpdate(
         { key: 'main' },
-        { $set: { deliverySettings: action.payload } },
+        { $set: { deliverySettings: normalized } },
+        { upsert: true, new: true }
+      );
+      break;
+    }
+
+    // Pixel Settings
+    case 'UPDATE_PIXEL_SETTINGS':
+      await RestaurantSettings.findOneAndUpdate(
+        { key: 'main' },
+        { $set: { pixelSettings: action.payload } },
         { upsert: true, new: true }
       );
       break;
@@ -1745,7 +1901,11 @@ app.post('/api/dispatch', async (req, res) => {
     }
 
     await processDbAction(action);
-    io.to('adminRoom').emit('REMOTE_ACTION', action);
+    if (action.type === 'UPDATE_DELIVERY_SETTINGS' || action.type === 'UPDATE_PIXEL_SETTINGS') {
+      io.emit('REMOTE_ACTION', action);
+    } else {
+      io.to('adminRoom').emit('REMOTE_ACTION', action);
+    }
     res.json({ success: true });
   } catch (error) {
     console.error("HTTP DB Error on action:", req.body?.action?.type, error);
@@ -1768,8 +1928,12 @@ io.on('connection', (socket) => {
 
       await processDbAction(action);
       
-      // Broadcast to all admins securely
-      socket.to('adminRoom').emit('REMOTE_ACTION', action);
+      // Broadcast settings to all clients, admin actions to admins
+      if (action.type === 'UPDATE_DELIVERY_SETTINGS' || action.type === 'UPDATE_PIXEL_SETTINGS') {
+        io.emit('REMOTE_ACTION', action);
+      } else {
+        socket.to('adminRoom').emit('REMOTE_ACTION', action);
+      }
       if (typeof callback === 'function') callback({ success: true });
     } catch (dbError) {
       console.error("DB Error on action:", action.type, dbError);

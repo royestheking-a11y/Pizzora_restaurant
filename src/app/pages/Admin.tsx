@@ -26,6 +26,7 @@ import { PrinterSettings } from '../components/admin/PrinterSettings';
 import { ReprintSystem } from '../components/admin/ReprintSystem';
 import { RoleManagement } from '../components/admin/RoleManagement';
 import { DeliverySettingsPanel } from '../components/admin/DeliverySettingsPanel';
+import { PixelSettingsPanel } from '../components/admin/PixelSettingsPanel';
 import { ProductOrderAnalytics } from '../components/admin/ProductOrderAnalytics';
 import { OnlineOrderManagement, isWebsiteOnlineOrder } from '../components/admin/OnlineOrderManagement';
 import { DeleteOrderConfirmModal } from '../components/admin/DeleteOrderConfirmModal';
@@ -38,7 +39,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 // Mock auth - replaced by real auth
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AdminTab = 'dashboard' | 'sales' | 'online-orders' | 'orders' | 'product-analytics' | 'deleted-orders' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles' | 'delivery-settings';
+type AdminTab = 'dashboard' | 'sales' | 'online-orders' | 'orders' | 'product-analytics' | 'deleted-orders' | 'reservations' | 'menu' | 'chefs' | 'gallery' | 'messages' | 'tables' | 'payments' | 'inventory' | 'expense' | 'payroll' | 'cash-register' | 'manual-invoice' | 'printer-settings' | 'reprint' | 'roles' | 'delivery-settings' | 'pixel-settings';
 
 // ─── Input Style Helper ────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
@@ -1202,6 +1203,7 @@ export function Admin() {
     { id: 'reprint', icon: RotateCcw, label: 'Reprint System', section: 'Restaurant & System' },
     { id: 'printer-settings', icon: Printer, label: 'Printer Settings', section: 'Restaurant & System' },
     { id: 'delivery-settings', icon: Truck, label: 'Delivery Charges', section: 'Restaurant & System' },
+    { id: 'pixel-settings', icon: Activity, label: 'Pixel & Analytics', section: 'Restaurant & System' },
     ...(adminRole === 'admin' ? [{ id: 'roles' as AdminTab, icon: ShieldCheck, label: 'Role Management', section: 'Restaurant & System' }] : []),
   ];
 
@@ -2650,6 +2652,7 @@ export function Admin() {
             {activeTab === 'reprint' && <ReprintSystem />}
             {activeTab === 'roles' && adminRole === 'admin' && <RoleManagement />}
             {activeTab === 'delivery-settings' && <DeliverySettingsPanel />}
+            {activeTab === 'pixel-settings' && <PixelSettingsPanel />}
             {/* ══ TABLE MANAGEMENT ════════════════════════════ */}
             {activeTab === 'tables' && <TableManagement />}
 

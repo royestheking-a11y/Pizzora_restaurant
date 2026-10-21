@@ -392,9 +392,32 @@ export const DeletedOrder = mongoose.model('DeletedOrder', DeletedOrderSchema);
 const RestaurantSettingsSchema = new mongoose.Schema({
   key: { type: String, required: true, unique: true, default: 'main' },
   deliverySettings: {
-    baseFee:    { type: Number, default: 40 },   // ৳ for first baseKm
-    baseKm:     { type: Number, default: 2 },    // km covered by baseFee
-    extraPerKm: { type: Number, default: 10 },   // ৳ per additional km
+    baseFee:       { type: Number, default: 40 },   // ৳ for first baseKm
+    baseKm:        { type: Number, default: 2 },    // km covered by baseFee
+    extraPerKm:    { type: Number, default: 10 },   // ৳ per additional km
+    restaurantLat: { type: Number, default: 24.90725 }, // Pizzora GPS Lat (WV46+W8 Sylhet)
+    restaurantLng: { type: Number, default: 91.8608 },  // Pizzora GPS Lng (WV46+W8 Sylhet)
+    locationName:  { type: String, default: 'WV46+W8, Sylhet (Subidbazar Point)' },
+  },
+  pixelSettings: {
+    enabled: { type: Boolean, default: true },
+    metaPixelId: { type: String, default: '' },
+    metaPixelEnabled: { type: Boolean, default: true },
+    metaTestEventCode: { type: String, default: '' },
+    metaAccessToken: { type: String, default: '' },
+    metaCapiEnabled: { type: Boolean, default: true },
+    googleTagId: { type: String, default: 'G-0LZDNZQDYE' },
+    googleTagEnabled: { type: Boolean, default: true },
+    tiktokPixelId: { type: String, default: '' },
+    tiktokPixelEnabled: { type: Boolean, default: false },
+    trackPageView: { type: Boolean, default: true },
+    trackViewContent: { type: Boolean, default: true },
+    trackAddToCart: { type: Boolean, default: true },
+    trackInitiateCheckout: { type: Boolean, default: true },
+    trackPurchase: { type: Boolean, default: true },
+    trackLeadOrReservation: { type: Boolean, default: true },
+    trackContact: { type: Boolean, default: true },
+    customHeadScript: { type: String, default: '' },
   },
 }, { strict: false });
 export const RestaurantSettings = mongoose.model('RestaurantSettings', RestaurantSettingsSchema);

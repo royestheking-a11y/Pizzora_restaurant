@@ -3,7 +3,8 @@ import React, { createContext, useContext, useReducer, useEffect, useCallback, R
 import { io, Socket } from 'socket.io-client';
 import { MenuItem, menuItems as defaultMenuItems, galleryImages as defaultGalleryImages, GalleryImage, Chef, chefs as defaultChefs } from '../data/restaurantData';
 import { pickActivePresentItem, normalizeProductKey } from '../utils/inventoryIntelligence';
-export type { MenuItem, GalleryImage, Chef };
+import { PixelSettings, DEFAULT_PIXEL_SETTINGS, pixelService } from '../utils/pixelService';
+export type { MenuItem, GalleryImage, Chef, PixelSettings };
 
 // ─── Existing Types ────────────────────────────────────────────────────────────
 
@@ -12,9 +13,12 @@ export interface CartItem {
   quantity: number;
   specialRequest?: string;
   size?: string;
+  variant?: string;
   crust?: string;
   spiceLevel?: string;
   specialInstructions?: string;
+  isAutoBox?: boolean;
+  forPizzaSize?: '8' | '10' | '12';
 }
 
 export type OrderStatus = 'Pending' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
@@ -350,14 +354,22 @@ export interface DeliverySettings {
   extraPerKm: number; // ৳ per additional km beyond baseKm
   restaurantLat: number;  // Restaurant GPS latitude
   restaurantLng: number;  // Restaurant GPS longitude
+  locationName?: string;  // Restaurant location name / Plus code
 }
 
-/** Calculate delivery fee: flat baseFee for first baseKm, then +extraPerKm/km */
-export function calcDeliveryFee(distanceKm: number, settings: DeliverySettings): number {
+/**
+ * Calculate dynamic delivery fee:
+ * - Flat baseFee for distances within baseKm
+ * - For extra distance beyond baseKm, rounded up to the nearest km and multiplied by extraPerKm
+ */
+export function calcDeliveryFee(distanceKm: number, settings?: DeliverySettings): number {
   if (distanceKm <= 0) return 0;
-  if (distanceKm <= settings.baseKm) return settings.baseFee;
-  const extra = Math.ceil((distanceKm - settings.baseKm) * settings.extraPerKm);
-  return settings.baseFee + extra;
+  const baseFee = Number(settings?.baseFee ?? 40);
+  const baseKm = Number(settings?.baseKm ?? 2);
+  const extraPerKm = Number(settings?.extraPerKm ?? 10);
+  if (distanceKm <= baseKm) return baseFee;
+  const extraKm = Math.ceil(distanceKm - baseKm);
+  return baseFee + (extraKm * extraPerKm);
 }
 
 /**
@@ -380,14 +392,176 @@ export function haversineDistance(
   return Math.round(R * c * 10) / 10; // rounded to 1 decimal place
 }
 
-// Pizzora Sylhet – Zindabazar area (update from admin if needed)
-const DEFAULT_DELIVERY_SETTINGS: DeliverySettings = {
+// Pizzora Sylhet Fixed Location: Subidbazar Point (Google Map Plus Code: WV46+W8 Sylhet)
+export const FIXED_RESTAURANT_LOCATION = {
+  lat: 24.90725,
+  lng: 91.8608,
+  plusCode: 'WV46+W8',
+  address: 'Subidbazar Point, Mitali Complex, Sylhet',
+};
+
+export const DEFAULT_DELIVERY_SETTINGS: DeliverySettings = {
   baseFee: 40,
   baseKm: 2,
   extraPerKm: 10,
-  restaurantLat: 24.8965,   // Sylhet city centre
-  restaurantLng: 91.8744,
+  restaurantLat: FIXED_RESTAURANT_LOCATION.lat,   // Fixed GPS: 24.90725 (WV46+W8 Sylhet)
+  restaurantLng: FIXED_RESTAURANT_LOCATION.lng,   // Fixed GPS: 91.8608  (WV46+W8 Sylhet)
+  locationName: 'WV46+W8, Sylhet (Subidbazar Point)',
 };
+
+// ─── Pizza Box Auto-Packaging Engine ──────────────────────────────────────────
+
+export const PIZZA_BOX_CONFIG = {
+  '8': {
+    id: '1792147264111',
+    name: 'Pizza Box 8″',
+    size: '8' as const,
+    price: 10,
+    image: 'https://res.cloudinary.com/b1ehiqmk/image/upload/v1792147234/pizzora/colcdxb33pb5qxusfk76.jpg',
+    description: 'Food-grade heat-retaining packaging box for 8" pizza',
+  },
+  '10': {
+    id: '1792147205313',
+    name: 'Pizza Box 10″',
+    size: '10' as const,
+    price: 15,
+    image: 'https://res.cloudinary.com/b1ehiqmk/image/upload/v1792147188/pizzora/jzcqsnudrrhmeybg8u6i.jpg',
+    description: 'Food-grade heat-retaining packaging box for 10" pizza',
+  },
+  '12': {
+    id: '1792146985188',
+    name: 'Pizza Box 12″',
+    size: '12' as const,
+    price: 20,
+    image: 'https://res.cloudinary.com/b1ehiqmk/image/upload/v1792146909/pizzora/kq7hvviqwefr0ttrjbvz.jpg',
+    description: 'Food-grade heat-retaining packaging box for 12" pizza',
+  },
+} as const;
+
+export function isPizzaBox(item?: { id?: string; name?: string; category?: string } | null): boolean {
+  if (!item) return false;
+  if (item.id === '1792147264111' || item.id === '1792147205313' || item.id === '1792146985188') return true;
+  return /pizza\s*box/i.test(item.name || '');
+}
+
+export function getPizzaBoxSize(item?: { id?: string; name?: string } | null): '8' | '10' | '12' | null {
+  if (!isPizzaBox(item)) return null;
+  const str = `${item?.id || ''} ${item?.name || ''}`;
+  if (item?.id === '1792146985188' || /(?:^|\D)12(?:\D|$)/.test(str)) return '12';
+  if (item?.id === '1792147205313' || /(?:^|\D)10(?:\D|$)/.test(str)) return '10';
+  if (item?.id === '1792147264111' || /(?:^|\D)8(?:\D|$)/.test(str)) return '8';
+  return '8';
+}
+
+/** Detects whether a cart item is a pizza and determines its size ('8', '10', '12') */
+export function detectPizzaItemSize(cartItem: { item?: MenuItem; size?: string; variant?: string; specialRequest?: string; isAutoBox?: boolean }): '8' | '10' | '12' | null {
+  const item = cartItem.item;
+  if (!item) return null;
+  if (cartItem.isAutoBox || isPizzaBox(item)) return null;
+
+  const cat = (item.category || '').trim();
+  const isPizzaCat = /pizza/i.test(cat);
+  const isPizzaName = /pizza/i.test(item.name || '');
+  if (!isPizzaCat && !isPizzaName) return null;
+
+  // Ignore extra items
+  if (/cheese\s*stick|extra\s*cheese|extra\s*sauce/i.test(item.name || '')) return null;
+
+  const textToScan = `${cartItem.size || ''} ${cartItem.variant || ''} ${cartItem.specialRequest || ''} ${item.name || ''}`.toLowerCase();
+
+  if (/(?:^|\D)12\s*(?:"|″|''|inch|inc|\b)/i.test(textToScan)) return '12';
+  if (/(?:^|\D)10\s*(?:"|″|''|inch|inc|\b)/i.test(textToScan)) return '10';
+  if (/(?:^|\D)8\s*(?:"|″|''|inch|inc|\b)/i.test(textToScan)) return '8';
+
+  // Default baseline for any pizza item without explicit size
+  return '8';
+}
+
+export function findBoxMenuItem(size: '8' | '10' | '12', allMenuItems: MenuItem[] = []): MenuItem {
+  const cfg = PIZZA_BOX_CONFIG[size];
+  const found = allMenuItems.find(m =>
+    m.id === cfg.id ||
+    (m.category === 'Pizza' && new RegExp(`pizza\\s*box.*${size}`, 'i').test(m.name))
+  );
+  if (found) return found;
+
+  return {
+    id: cfg.id,
+    name: cfg.name,
+    slug: `pizza-box-${size}`,
+    category: 'Pizza',
+    price: cfg.price,
+    image: cfg.image,
+    description: cfg.description,
+    ingredients: [],
+    nutrition: { calories: 0, protein: '0g', carbs: '0g', fat: '0g' },
+    spiceLevel: 'Mild',
+    rating: 5,
+    reviewCount: 0,
+    isVeg: true,
+    isSpicy: false,
+    isPopular: false,
+    prepTime: '00',
+    serves: '1 Box',
+    showOnWebsite: false,
+  };
+}
+
+/**
+ * Ensures the cart always contains the exact matching Pizza Box for every ordered pizza.
+ * Boxes cannot be removed while matching pizzas exist in the cart.
+ */
+export function syncCartBoxes(cart: CartItem[], allMenuItems: MenuItem[] = []): CartItem[] {
+  // 1. Separate regular items from auto-boxes
+  const regularItems = cart.filter(c => !isPizzaBox(c.item) && !c.isAutoBox);
+
+  // 2. Count pizza quantities by size
+  let count8 = 0;
+  let count10 = 0;
+  let count12 = 0;
+
+  for (const c of regularItems) {
+    const size = detectPizzaItemSize(c);
+    if (size === '8') count8 += c.quantity;
+    else if (size === '10') count10 += c.quantity;
+    else if (size === '12') count12 += c.quantity;
+  }
+
+  const result: CartItem[] = [...regularItems];
+
+  // 3. Add auto box for each size if count > 0
+  if (count8 > 0) {
+    result.push({
+      item: findBoxMenuItem('8', allMenuItems),
+      quantity: count8,
+      isAutoBox: true,
+      forPizzaSize: '8',
+      specialRequest: 'Auto-added packaging box for 8" pizza',
+    });
+  }
+
+  if (count10 > 0) {
+    result.push({
+      item: findBoxMenuItem('10', allMenuItems),
+      quantity: count10,
+      isAutoBox: true,
+      forPizzaSize: '10',
+      specialRequest: 'Auto-added packaging box for 10" pizza',
+    });
+  }
+
+  if (count12 > 0) {
+    result.push({
+      item: findBoxMenuItem('12', allMenuItems),
+      quantity: count12,
+      isAutoBox: true,
+      forPizzaSize: '12',
+      specialRequest: 'Auto-added packaging box for 12" pizza',
+    });
+  }
+
+  return result;
+}
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -414,6 +588,7 @@ interface AppState {
   users: UserAccount[];
   deletedOrders: DeletedOrder[];
   deliverySettings: DeliverySettings;
+  pixelSettings: PixelSettings;
   isAdminLoggedIn: boolean;
   cartOpen: boolean;
   notification: { message: string; type: 'success' | 'error' | 'info' } | null;
@@ -436,7 +611,7 @@ interface AppState {
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
 type Action =
-  | { type: 'ADD_TO_CART'; payload: { item: MenuItem; quantity: number; specialRequest?: string } }
+  | { type: 'ADD_TO_CART'; payload: { item: MenuItem; quantity: number; specialRequest?: string; size?: string; variant?: string } }
   | { type: 'REMOVE_FROM_CART'; payload: string }
   | { type: 'UPDATE_QUANTITY'; payload: { id: string; quantity: number } }
   | { type: 'CLEAR_CART' }
@@ -525,7 +700,9 @@ type Action =
   | { type: 'UPDATE_USER'; payload: UserAccount }
   | { type: 'DELETE_USER'; payload: string }
   // Delivery Settings
-  | { type: 'UPDATE_DELIVERY_SETTINGS'; payload: DeliverySettings };
+  | { type: 'UPDATE_DELIVERY_SETTINGS'; payload: DeliverySettings }
+  // Pixel Settings
+  | { type: 'UPDATE_PIXEL_SETTINGS'; payload: PixelSettings };
 
 // ─── Default Carousel Slides ──────────────────────────────────────────────────
 
@@ -602,6 +779,7 @@ const initialState: AppState = {
   users: [],
   deletedOrders: [],
   deliverySettings: DEFAULT_DELIVERY_SETTINGS,
+  pixelSettings: DEFAULT_PIXEL_SETTINGS,
   isAdminLoggedIn: savedAdminLogin,
   cartOpen: false,
   notification: null,
@@ -863,7 +1041,6 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         ...action.payload,
-        cart: state.cart, // Preserve the local cart, do not overwrite from DB
         isAdminLoggedIn: state.isAdminLoggedIn, // Preserve admin login state
         // Guarantee new fields always have safe defaults even if old localStorage had none
         tables: action.payload.tables ?? state.tables,
@@ -878,43 +1055,105 @@ function reducer(state: AppState, action: Action): AppState {
         reviews: action.payload.reviews ?? state.reviews ?? [],
         users: action.payload.users ?? state.users ?? [],
         deletedOrders: action.payload.deletedOrders ?? state.deletedOrders ?? [],
-        deliverySettings: action.payload.deliverySettings ?? state.deliverySettings ?? DEFAULT_DELIVERY_SETTINGS,
+        cart: syncCartBoxes(action.payload.cart ?? state.cart ?? [], action.payload.menuItems ?? state.menuItems ?? []),
+        deliverySettings: action.payload.deliverySettings ? {
+          ...DEFAULT_DELIVERY_SETTINGS,
+          ...action.payload.deliverySettings,
+          restaurantLat: typeof action.payload.deliverySettings.restaurantLat === 'number' && action.payload.deliverySettings.restaurantLat !== 0
+            ? action.payload.deliverySettings.restaurantLat
+            : DEFAULT_DELIVERY_SETTINGS.restaurantLat,
+          restaurantLng: typeof action.payload.deliverySettings.restaurantLng === 'number' && action.payload.deliverySettings.restaurantLng !== 0
+            ? action.payload.deliverySettings.restaurantLng
+            : DEFAULT_DELIVERY_SETTINGS.restaurantLng,
+        } : (state.deliverySettings ?? DEFAULT_DELIVERY_SETTINGS),
+        pixelSettings: action.payload.pixelSettings ?? state.pixelSettings ?? DEFAULT_PIXEL_SETTINGS,
       };
 
     case 'ADD_TO_CART': {
-      const existing = state.cart.find(c => c.item.id === action.payload.item.id);
-      if (existing) {
-        return {
-          ...state,
-          cart: state.cart.map(c =>
-            c.item.id === action.payload.item.id
-              ? { ...c, quantity: c.quantity + action.payload.quantity }
-              : c
-          ),
-        };
+      const p = action.payload;
+      const pizzaSize = p.size || p.variant || detectPizzaItemSize({ item: p.item });
+      const itemKey = `${p.item.id}_${pizzaSize || ''}_${p.item.price}`;
+
+      const existingIndex = state.cart.findIndex(c => {
+        const cSize = c.size || c.variant || detectPizzaItemSize(c);
+        const cKey = `${c.item.id}_${cSize || ''}_${c.item.price}`;
+        return cKey === itemKey;
+      });
+
+      let updatedCart: CartItem[];
+      if (existingIndex >= 0) {
+        updatedCart = state.cart.map((c, idx) =>
+          idx === existingIndex
+            ? { ...c, quantity: c.quantity + p.quantity }
+            : c
+        );
+      } else {
+        updatedCart = [
+          ...state.cart,
+          {
+            item: p.item,
+            quantity: p.quantity,
+            specialRequest: p.specialRequest,
+            size: p.size,
+            variant: p.variant,
+          },
+        ];
       }
+
       return {
         ...state,
-        cart: [...state.cart, {
-          item: action.payload.item,
-          quantity: action.payload.quantity,
-          specialRequest: action.payload.specialRequest,
-        }],
+        cart: syncCartBoxes(updatedCart, state.menuItems),
       };
     }
 
-    case 'REMOVE_FROM_CART':
-      return { ...state, cart: state.cart.filter(c => c.item.id !== action.payload) };
+    case 'REMOVE_FROM_CART': {
+      const targetId = action.payload;
+      const target = state.cart.find(c => c.item.id === targetId);
 
-    case 'UPDATE_QUANTITY':
+      // If user tries to directly remove a pizza box while matching pizzas exist, prevent it
+      if (target && (isPizzaBox(target.item) || target.isAutoBox)) {
+        const boxSize = getPizzaBoxSize(target.item) || target.forPizzaSize;
+        const matchingPizzasExist = state.cart.some(
+          c => !isPizzaBox(c.item) && !c.isAutoBox && detectPizzaItemSize(c) === boxSize
+        );
+        if (matchingPizzasExist) {
+          return state;
+        }
+      }
+
+      const remaining = state.cart.filter(c => c.item.id !== targetId);
       return {
         ...state,
-        cart: state.cart.map(c =>
-          c.item.id === action.payload.id
-            ? { ...c, quantity: Math.max(1, action.payload.quantity) }
-            : c
-        ),
+        cart: syncCartBoxes(remaining, state.menuItems),
       };
+    }
+
+    case 'UPDATE_QUANTITY': {
+      const { id, quantity } = action.payload;
+      const target = state.cart.find(c => c.item.id === id);
+
+      // If user tries to decrease a pizza box below the required pizzas, lock it
+      if (target && (isPizzaBox(target.item) || target.isAutoBox)) {
+        const boxSize = getPizzaBoxSize(target.item) || target.forPizzaSize;
+        const requiredCount = state.cart
+          .filter(c => !isPizzaBox(c.item) && !c.isAutoBox && detectPizzaItemSize(c) === boxSize)
+          .reduce((sum, c) => sum + c.quantity, 0);
+
+        if (quantity < requiredCount) {
+          return state;
+        }
+      }
+
+      const updated = state.cart.map(c =>
+        c.item.id === id
+          ? { ...c, quantity: Math.max(1, quantity) }
+          : c
+      );
+      return {
+        ...state,
+        cart: syncCartBoxes(updated, state.menuItems),
+      };
+    }
 
     case 'CLEAR_CART':
       return { ...state, cart: [] };
@@ -1412,6 +1651,9 @@ function reducer(state: AppState, action: Action): AppState {
     case 'UPDATE_DELIVERY_SETTINGS':
       return { ...state, deliverySettings: action.payload };
 
+    case 'UPDATE_PIXEL_SETTINGS':
+      return { ...state, pixelSettings: action.payload };
+
     default:
       return state;
   }
@@ -1422,7 +1664,7 @@ function reducer(state: AppState, action: Action): AppState {
 interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<Action>;
-  addToCart: (item: MenuItem, quantity?: number, specialRequest?: string) => void;
+  addToCart: (item: MenuItem, quantity?: number, specialRequest?: string, sizeOrVariant?: string) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -1441,6 +1683,7 @@ interface AppContextType {
   deleteEmployee: (id: string) => void;
   addPayrollRecord: (record: PayrollRecord) => void;
   updateDeliverySettings: (settings: DeliverySettings) => void;
+  updatePixelSettings: (settings: PixelSettings) => void;
   calcDeliveryFee: (distanceKm: number) => number;
   refreshAnalytics: () => Promise<void>;
   deleteOrderWithCleanup: (orderOrId: any, reason?: string) => Promise<{ success: boolean; error?: string }>;
@@ -1454,8 +1697,14 @@ const AppContext = createContext<AppContextType | null>(null);
 
 let socket: Socket | null = null;
 export const getBackendUrl = () => {
-  if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
+      if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+    }
+  } catch (e) {
+    // ignore in environments without import.meta
+  }
   
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
@@ -1465,8 +1714,9 @@ export const getBackendUrl = () => {
     if (host.match(/^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/)) {
       return `http://${host}:3001`;
     }
+    return window.location.origin;
   }
-  return window.location.origin;
+  return 'http://localhost:3001';
 };
 export const SOCKET_URL = getBackendUrl();
 
@@ -1703,15 +1953,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_NOTIFICATION', payload: { message, type } });
   };
 
-  const addToCart = (item: MenuItem, quantity = 1, specialRequest?: string) => {
-    dispatch({ type: 'ADD_TO_CART', payload: { item, quantity, specialRequest } });
+  const addToCart = (item: MenuItem, quantity = 1, specialRequest?: string, sizeOrVariant?: string) => {
+    dispatch({ type: 'ADD_TO_CART', payload: { item, quantity, specialRequest, size: sizeOrVariant, variant: sizeOrVariant } });
+    pixelService.trackAddToCart(item, quantity);
   };
 
   const removeFromCart = (id: string) => {
+    const target = state.cart.find(c => c.item.id === id);
+    if (target && (isPizzaBox(target.item) || target.isAutoBox)) {
+      const boxSize = getPizzaBoxSize(target.item) || target.forPizzaSize;
+      const matchingPizzas = state.cart.filter(c => !isPizzaBox(c.item) && !c.isAutoBox && detectPizzaItemSize(c) === boxSize);
+      if (matchingPizzas.length > 0) {
+        showNotification(`Pizza Box ${boxSize}″ is required for food-safe delivery and cannot be removed.`, 'info');
+        return;
+      }
+    }
     dispatch({ type: 'REMOVE_FROM_CART', payload: id });
   };
 
   const updateQuantity = (id: string, quantity: number) => {
+    const target = state.cart.find(c => c.item.id === id);
+    if (target && (isPizzaBox(target.item) || target.isAutoBox)) {
+      const boxSize = getPizzaBoxSize(target.item) || target.forPizzaSize;
+      const requiredCount = state.cart
+        .filter(c => !isPizzaBox(c.item) && !c.isAutoBox && detectPizzaItemSize(c) === boxSize)
+        .reduce((sum, c) => sum + c.quantity, 0);
+
+      if (quantity < requiredCount) {
+        showNotification(`Pizza Box ${boxSize}″ quantity is automatically linked to your ${requiredCount} ordered pizza${requiredCount > 1 ? 's' : ''}.`, 'info');
+        return;
+      }
+    }
     dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } });
   };
 
@@ -1841,9 +2113,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showNotification('Salary slip generated', 'success');
   };
 
-  const updateDeliverySettings = (settings: DeliverySettings) => {
+  const updateDeliverySettings = async (settings: DeliverySettings) => {
     dispatch({ type: 'UPDATE_DELIVERY_SETTINGS', payload: settings });
-    showNotification('Delivery settings updated', 'success');
+
+    // Fail-safe REST persistence directly to MongoDB
+    try {
+      const token = sessionStorage.getItem('pizzora_token') || localStorage.getItem('pizzora_token');
+      await fetch(`${SOCKET_URL}/api/settings/delivery`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(settings),
+      });
+    } catch (e) {
+      // socket dispatch already queued / handled
+    }
+
+    showNotification('Delivery settings saved successfully', 'success');
+  };
+
+  const updatePixelSettings = async (settings: PixelSettings) => {
+    dispatch({ type: 'UPDATE_PIXEL_SETTINGS', payload: settings });
+    pixelService.initFromSettings(settings);
+
+    // Fail-safe REST persistence directly to MongoDB
+    try {
+      const token = sessionStorage.getItem('pizzora_token');
+      await fetch(`${SOCKET_URL}/api/settings/pixel`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(settings),
+      });
+    } catch (e) {
+      // socket dispatch already queued / handled
+    }
+
+    showNotification('Pixel & analytics settings updated', 'success');
   };
 
   const calcDeliveryFeeCtx = (distanceKm: number) =>
@@ -2001,6 +2311,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteEmployee,
         addPayrollRecord,
         updateDeliverySettings,
+        updatePixelSettings,
         calcDeliveryFee: calcDeliveryFeeCtx,
         refreshAnalytics,
         deleteOrderWithCleanup,
@@ -2013,10 +2324,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+// ─── Resilient Fallback & Hook ───────────────────────────────────────────────
 
-export function useApp() {
+const fallbackAppContext: AppContextType = {
+  state: initialState,
+  dispatch: () => {},
+  addToCart: () => {},
+  removeFromCart: () => {},
+  updateQuantity: () => {},
+  clearCart: () => {},
+  cartTotal: 0,
+  cartCount: 0,
+  showNotification: () => {},
+  placeTableOrder: () => {},
+  updateTableOrder: () => {},
+  updateTableOrderStatus: () => {},
+  setTableStatus: () => {},
+  clearAndFreeTable: () => {},
+  addWasteRecord: () => {},
+  deleteWasteRecord: () => {},
+  addEmployee: () => {},
+  updateEmployee: () => {},
+  deleteEmployee: () => {},
+  addPayrollRecord: () => {},
+  updateDeliverySettings: () => {},
+  updatePixelSettings: () => {},
+  calcDeliveryFee: () => 0,
+  refreshAnalytics: async () => {},
+  deleteOrderWithCleanup: async () => ({ success: false, error: 'Context unavailable' }),
+  restoreDeletedOrder: async () => ({ success: false, error: 'Context unavailable' }),
+  purgeDeletedOrder: async () => ({ success: false, error: 'Context unavailable' }),
+};
+
+export function useApp(): AppContextType {
   const ctx = useContext(AppContext);
-  if (!ctx) throw new Error('useApp must be used within AppProvider');
+  if (!ctx) {
+    console.warn('[AppContext] useApp was accessed outside of AppProvider; returning resilient fallback state.');
+    return fallbackAppContext;
+  }
   return ctx;
 }

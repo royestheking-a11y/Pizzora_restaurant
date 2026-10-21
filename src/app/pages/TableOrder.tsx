@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useApp, SOCKET_URL } from '../context/AppContext';
 import type { TableOrder as TableOrderData } from '../context/AppContext';
+import { pixelService } from '../utils/pixelService';
 
 const spiceColors: Record<string, string> = {
   Mild: '#16A34A',
@@ -176,6 +177,15 @@ export function TableOrder() {
       customerNote,
     };
     placeTableOrder(order);
+
+    // Track Purchase event for Meta Pixel & Analytics
+    pixelService.trackPurchase({
+      orderNumber: `TBL-${tableId}-${order.id.slice(-6)}`,
+      id: order.id,
+      total: cartTotal,
+      items: cart.map(c => ({ item: c.item, quantity: c.quantity })),
+      customerName: `Table ${tableId} Guest`,
+    });
 
     // Save purchased item IDs for review eligibility
     try {

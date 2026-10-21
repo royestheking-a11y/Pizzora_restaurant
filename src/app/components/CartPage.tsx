@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import {
   X, Plus, Minus, Trash2, ShoppingBag, ArrowRight,
-  ChevronLeft, Tag, Gift, Truck, Shield, Star,
+  ChevronLeft, Tag, Gift, Truck, Shield, Star, Package, Lock,
 } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { useApp } from '../context/AppContext';
+import { useApp, isPizzaBox } from '../context/AppContext';
 
 const PROMO_CODES: Record<string, number> = {
   PIZZORA10: 10,
@@ -160,94 +160,134 @@ export function CartPage() {
 
                 {/* Scrollable Items */}
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(249,0,43,0.15) transparent' }}>
-                  {state.cart.map((cartItem, index) => (
-                    <div
-                      key={cartItem.item.id}
-                      className="flex gap-4 p-4 rounded-2xl transition-all"
-                      style={{
-                        background: removingId === cartItem.item.id ? 'rgba(239,68,68,0.04)' : '#F9F5F0',
-                        border: `1px solid ${removingId === cartItem.item.id ? 'rgba(239,68,68,0.15)' : 'rgba(249,0,43,0.07)'}`,
-                        opacity: removingId === cartItem.item.id ? 0.4 : 1,
-                        transform: removingId === cartItem.item.id ? 'translateX(16px)' : 'translateX(0)',
-                        transition: 'all 0.28s ease',
-                      }}
-                    >
-                      {/* Image */}
-                      <div className="relative flex-shrink-0">
-                        <img
-                          src={cartItem.item.image}
-                          alt={cartItem.item.name}
-                          className="w-20 h-20 rounded-xl object-cover shadow-sm"
-                          style={{ border: '1px solid rgba(249,0,43,0.08)' }}
-                        />
-                        {cartItem.item.badge && (
-                          <span
-                            className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-md text-xs font-bold"
-                            style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', color: 'white', fontSize: '9px' }}
-                          >
-                            {cartItem.item.badge}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <h4 style={{ color: '#111', fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', marginBottom: '3px' }}>
-                          {cartItem.item.name}
-                        </h4>
-                        {cartItem.item.category && (
-                          <p style={{ color: '#F9002B', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
-                            {cartItem.item.category}
-                          </p>
-                        )}
-                        <p style={{ color: '#9CA3AF', fontSize: '13px' }}>৳{cartItem.item.price} each</p>
-
-                        {/* Controls */}
-                        <div className="flex items-center justify-between mt-3">
-                          {/* Qty */}
-                          <div
-                            className="flex items-center rounded-xl overflow-hidden"
-                            style={{ border: '1.5px solid rgba(249,0,43,0.15)', background: 'white' }}
-                          >
-                            <button
-                              onClick={() => updateQuantity(cartItem.item.id, cartItem.quantity - 1)}
-                              className="w-8 h-8 flex items-center justify-center transition-colors hover:bg-gray-50"
-                              style={{ color: '#F9002B' }}
-                            >
-                              <Minus size={12} />
-                            </button>
+                  {state.cart.map((cartItem) => {
+                    const isBox = Boolean(cartItem.isAutoBox || isPizzaBox(cartItem.item));
+                    return (
+                      <div
+                        key={cartItem.item.id}
+                        className="flex gap-4 p-4 rounded-2xl transition-all"
+                        style={{
+                          background: removingId === cartItem.item.id ? 'rgba(239,68,68,0.04)' : isBox ? '#FFFDF5' : '#F9F5F0',
+                          border: `1px solid ${removingId === cartItem.item.id ? 'rgba(239,68,68,0.15)' : isBox ? 'rgba(245, 158, 11, 0.3)' : 'rgba(249,0,43,0.07)'}`,
+                          opacity: removingId === cartItem.item.id ? 0.4 : 1,
+                          transform: removingId === cartItem.item.id ? 'translateX(16px)' : 'translateX(0)',
+                          transition: 'all 0.28s ease',
+                        }}
+                      >
+                        {/* Image */}
+                        <div className="relative flex-shrink-0">
+                          <img
+                            src={cartItem.item.image}
+                            alt={cartItem.item.name}
+                            className="w-20 h-20 rounded-xl object-cover shadow-sm"
+                            style={{ border: '1px solid rgba(249,0,43,0.08)' }}
+                          />
+                          {isBox ? (
                             <span
-                              className="w-8 h-8 flex items-center justify-center"
-                              style={{ color: '#111', fontWeight: 700, fontSize: '14px', borderLeft: '1px solid rgba(249,0,43,0.1)', borderRight: '1px solid rgba(249,0,43,0.1)' }}
+                              className="absolute -top-1.5 -right-1.5 px-2 py-0.5 rounded-md text-xs font-bold flex items-center gap-1 shadow-sm"
+                              style={{ background: '#F59E0B', color: 'white', fontSize: '9px' }}
                             >
-                              {cartItem.quantity}
+                              <Lock size={9} /> BOX
                             </span>
-                            <button
-                              onClick={() => updateQuantity(cartItem.item.id, cartItem.quantity + 1)}
-                              className="w-8 h-8 flex items-center justify-center transition-colors hover:bg-gray-50"
-                              style={{ color: '#F9002B' }}
+                          ) : cartItem.item.badge ? (
+                            <span
+                              className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-md text-xs font-bold"
+                              style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', color: 'white', fontSize: '9px' }}
                             >
-                              <Plus size={12} />
-                            </button>
-                          </div>
+                              {cartItem.item.badge}
+                            </span>
+                          ) : null}
+                        </div>
 
-                          {/* Price + Delete */}
-                          <div className="flex items-center gap-3">
-                            <span style={{ color: '#F9002B', fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '16px' }}>
-                              ৳{cartItem.item.price * cartItem.quantity}
-                            </span>
-                            <button
-                              onClick={() => handleRemove(cartItem.item.id)}
-                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-red-50"
-                              style={{ border: '1px solid rgba(239,68,68,0.15)' }}
-                            >
-                              <Trash2 size={12} style={{ color: '#EF4444' }} />
-                            </button>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <h4 style={{ color: '#111', fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '15px', marginBottom: '3px' }}>
+                            {cartItem.item.name}
+                          </h4>
+                          {isBox ? (
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-100/70 px-2.5 py-0.5 rounded-full">
+                                <Package size={11} /> Auto Delivery Packaging {cartItem.forPizzaSize ? `(${cartItem.forPizzaSize}″)` : ''}
+                              </span>
+                            </div>
+                          ) : cartItem.variant ? (
+                            <p style={{ color: '#F9002B', fontSize: '12px', fontWeight: 600, marginBottom: '2px' }}>
+                              Size: {cartItem.variant}
+                            </p>
+                          ) : cartItem.item.category ? (
+                            <p style={{ color: '#F9002B', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                              {cartItem.item.category}
+                            </p>
+                          ) : null}
+                          <p style={{ color: '#9CA3AF', fontSize: '13px' }}>৳{cartItem.item.price} each</p>
+
+                          {/* Controls */}
+                          <div className="flex items-center justify-between mt-3">
+                            {/* Qty */}
+                            {isBox ? (
+                              <div
+                                className="flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-200"
+                                title="Quantity automatically matches your ordered pizzas"
+                              >
+                                <Lock size={12} className="text-gray-400" />
+                                <span>Qty: {cartItem.quantity} (Auto)</span>
+                              </div>
+                            ) : (
+                              <div
+                                className="flex items-center rounded-xl overflow-hidden"
+                                style={{ border: '1.5px solid rgba(249,0,43,0.15)', background: 'white' }}
+                              >
+                                <button
+                                  onClick={() => updateQuantity(cartItem.item.id, cartItem.quantity - 1)}
+                                  className="w-8 h-8 flex items-center justify-center transition-colors hover:bg-gray-50"
+                                  style={{ color: '#F9002B' }}
+                                >
+                                  <Minus size={12} />
+                                </button>
+                                <span
+                                  className="w-8 h-8 flex items-center justify-center"
+                                  style={{ color: '#111', fontWeight: 700, fontSize: '14px', borderLeft: '1px solid rgba(249,0,43,0.1)', borderRight: '1px solid rgba(249,0,43,0.1)' }}
+                                >
+                                  {cartItem.quantity}
+                                </span>
+                                <button
+                                  onClick={() => updateQuantity(cartItem.item.id, cartItem.quantity + 1)}
+                                  className="w-8 h-8 flex items-center justify-center transition-colors hover:bg-gray-50"
+                                  style={{ color: '#F9002B' }}
+                                >
+                                  <Plus size={12} />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Price + Delete */}
+                            <div className="flex items-center gap-3">
+                              <span style={{ color: '#F9002B', fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '16px' }}>
+                                ৳{cartItem.item.price * cartItem.quantity}
+                              </span>
+                              {!isBox ? (
+                                <button
+                                  onClick={() => handleRemove(cartItem.item.id)}
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-red-50"
+                                  style={{ border: '1px solid rgba(239,68,68,0.15)' }}
+                                  title="Remove item"
+                                >
+                                  <Trash2 size={12} style={{ color: '#EF4444' }} />
+                                </button>
+                              ) : (
+                                <span
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 cursor-not-allowed"
+                                  title="Pizza box cannot be removed while pizza is in cart"
+                                >
+                                  <Lock size={12} />
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Trust Row */}

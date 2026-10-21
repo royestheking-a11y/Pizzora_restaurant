@@ -1,16 +1,32 @@
-import { useState, ReactNode } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, Link } from 'react-router';
 import {
   ArrowLeft, Check, ShoppingBag, CreditCard, Truck,
   Clock, MapPin, Phone, User, FileText, ChevronRight, Package, Navigation, LocateFixed, AlertCircle,
 } from 'lucide-react';
-import { useApp, PaymentMethod, haversineDistance } from '../context/AppContext';
+import { useApp, PaymentMethod, haversineDistance, isPizzaBox } from '../context/AppContext';
+import { pixelService } from '../utils/pixelService';
 
 const paymentMethods: { id: PaymentMethod; label: string; icon: ReactNode; desc: string }[] = [
   { id: 'Cash on Delivery', label: 'Cash on Delivery', icon: <div className="w-9 h-9 flex items-center justify-center rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 font-extrabold text-xl shadow-sm">৳</div>, desc: 'Pay when your order arrives' },
   { id: 'bKash',            label: 'bKash',            icon: <img src="/payment/Bkash.jpg" alt="bKash" className="w-full h-full object-contain rounded-xl" style={{ padding: '6px' }} />, desc: 'Pay securely via bKash mobile banking' },
   { id: 'Nagad',            label: 'Nagad',            icon: <img src="/payment/Nagad.jpg" alt="Nagad" className="w-full h-full object-contain rounded-xl" style={{ padding: '4px' }} />, desc: 'Pay securely via Nagad mobile banking' },
   { id: 'Card',             label: 'Card Payment',     icon: <div className="flex flex-col items-center justify-center h-full w-full gap-0.5" style={{ padding: '6px' }}><img src="/payment/Visa-Logo.png" alt="Visa" className="h-3.5 object-contain" /><img src="/payment/mastercard-featured-image-1080x628.jpg" alt="MasterCard" className="h-4 object-contain" /></div>, desc: 'Pay securely via Visa or MasterCard' },
+];
+
+export const SYLHET_DELIVERY_ZONES = [
+  { name: 'Subidbazar / Mitali Complex (Restaurant Area)', distKm: 0.5 },
+  { name: 'Amberkhana Point', distKm: 1.2 },
+  { name: 'Pathantula / Modina Market', distKm: 1.8 },
+  { name: 'Chowhatta / Rikabibazar', distKm: 2.3 },
+  { name: 'Zindabazar', distKm: 2.8 },
+  { name: 'Kumarpara / Mira Bazar', distKm: 3.5 },
+  { name: 'Shibganj', distKm: 4.8 },
+  { name: 'Upashohor', distKm: 5.2 },
+  { name: 'Akhalia / SUST Campus', distKm: 5.0 },
+  { name: 'Tilagarh / MC College', distKm: 6.1 },
+  { name: 'South Surma / Kadamtoli', distKm: 6.5 },
+  { name: 'Airport Road / Osmani Airport', distKm: 7.5 },
 ];
 
 const STEPS = ['Delivery Info', 'Payment', 'Confirm'];
@@ -21,6 +37,7 @@ export function Checkout() {
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash on Delivery');
   const [form, setForm] = useState({ name: '', phone: '', address: '', city: 'Sylhet', notes: '' });
+  const [selectedZone, setSelectedZone] = useState<string>('');
   const [distanceKm, setDistanceKm] = useState<string>('');
   const [geoState, setGeoState] = useState<'idle' | 'locating' | 'located' | 'error'>('idle');
   const [geoError, setGeoError] = useState('');
@@ -28,6 +45,13 @@ export function Checkout() {
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [orderId, setOrderId] = useState('');
+
+  // Track InitiateCheckout when visiting checkout with items
+  useEffect(() => {
+    if (state.cart.length > 0 && step === 1) {
+      pixelService.trackInitiateCheckout(state.cart, cartTotal);
+    }
+  }, []);
 
   const parsedDistance = parseFloat(distanceKm) || 0;
   const ds = state.deliverySettings;
@@ -49,8 +73,8 @@ export function Checkout() {
         const { latitude, longitude } = pos.coords;
         const dist = haversineDistance(
           latitude, longitude,
-          ds.restaurantLat ?? 24.8965,
-          ds.restaurantLng ?? 91.8744
+          ds?.restaurantLat && ds.restaurantLat !== 0 ? ds.restaurantLat : 24.90725,
+          ds?.restaurantLng && ds.restaurantLng !== 0 ? ds.restaurantLng : 91.8608
         );
         setDistanceKm(String(dist));
         setUserCoords({ lat: latitude, lng: longitude });
@@ -127,6 +151,16 @@ export function Checkout() {
       };
       dispatch({ type: 'PLACE_ORDER', payload: order });
       
+      // Track Purchase event for Meta Pixel & Analytics
+      pixelService.trackPurchase({
+        orderNumber: id,
+        id: order.id,
+        total: cartTotal,
+        items: state.cart,
+        customerName: form.name,
+        phone: form.phone,
+      });
+
       // Save purchased item IDs for review eligibility
       try {
         const purchasedIds = state.cart.map(c => c.item.id);
@@ -467,7 +501,7 @@ export function Checkout() {
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-600 mt-1">
-                                  Measured from Pizzora (Subidbazar Point) &middot; Delivery Charge: <strong className="text-gray-900 font-bold">৳{delivery}</strong>
+                                  Measured from Pizzora (WV46+W8 Sylhet, Subidbazar Point) &middot; Delivery Charge: <strong className="text-gray-900 font-bold">৳{delivery}</strong>
                                 </p>
                               </div>
                             </div>
@@ -541,11 +575,48 @@ export function Checkout() {
                             <div className="text-xs" style={{ color: '#F9002B' }}>
                               <p className="font-bold">{geoError}</p>
                               <p className="mt-1 opacity-90">
-                                Please allow Location access in your browser or phone settings, then click the button above again.
+                                You can choose your Sylhet delivery destination from the dropdown below.
                               </p>
                             </div>
                           </div>
                         )}
+
+                        {/* Alternative Sylhet Delivery Area Selector */}
+                        <div className="mt-3.5 pt-3 border-t border-gray-100">
+                          <label style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '11px', color: '#6B7280', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            Or Select Your Sylhet Delivery Area:
+                          </label>
+                          <select
+                            value={selectedZone}
+                            onChange={e => {
+                              const zoneName = e.target.value;
+                              setSelectedZone(zoneName);
+                              const found = SYLHET_DELIVERY_ZONES.find(z => z.name === zoneName);
+                              if (found) {
+                                setDistanceKm(String(found.distKm));
+                                setGeoState('located');
+                                setStep1Error(null);
+                              }
+                            }}
+                            className="w-full text-xs font-semibold py-2.5 px-3 rounded-xl border transition-all cursor-pointer"
+                            style={{
+                              borderColor: selectedZone ? 'rgba(22,163,74,0.4)' : 'rgba(249,0,43,0.15)',
+                              background: selectedZone ? 'rgba(22,163,74,0.05)' : '#F9FAFB',
+                              color: '#111',
+                              outline: 'none',
+                            }}
+                          >
+                            <option value="">-- Choose your area in Sylhet --</option>
+                            {SYLHET_DELIVERY_ZONES.map(z => {
+                              const fee = calcDeliveryFee(z.distKm);
+                              return (
+                                <option key={z.name} value={z.name}>
+                                  {z.name} (~{z.distKm} km) — Delivery: ৳{fee}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
                       </div>
 
                       {/* Rates Breakdown */}
@@ -617,7 +688,7 @@ export function Checkout() {
                         return;
                       }
                       if (geoState !== 'located' || !distanceKm || parsedDistance <= 0) {
-                        setStep1Error('GPS Location Required: You must click "Auto-Detect My Location (GPS)" above to choose and verify your delivery location before continuing to payment.');
+                        setStep1Error('Delivery Location Required: Please click "Auto-Detect My Location (GPS)" or select your delivery area in Sylhet above.');
                         return;
                       }
                       setStep1Error(null);
@@ -761,9 +832,16 @@ export function Checkout() {
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="truncate" style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '13px', color: '#111' }}>
-                        {cartItem.item.name}
-                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="truncate" style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '13px', color: '#111' }}>
+                          {cartItem.item.name}
+                        </p>
+                        {(isPizzaBox(cartItem.item) || cartItem.isAutoBox) && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                            Packaging
+                          </span>
+                        )}
+                      </div>
                       <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
                         ৳{cartItem.item.price} × {cartItem.quantity}
                       </p>

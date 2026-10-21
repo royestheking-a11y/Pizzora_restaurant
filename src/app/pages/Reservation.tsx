@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Check, Calendar, Clock, Users, Phone, Mail, MapPin } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SEO } from '../components/SEO';
+import { pixelService } from '../utils/pixelService';
 
 export function Reservation() {
   const [form, setForm] = useState({
@@ -23,6 +24,13 @@ export function Reservation() {
         createdAt: new Date().toISOString(),
       };
       dispatch({ type: 'ADD_RESERVATION', payload: reservation });
+      pixelService.trackLead({
+        name: form.name,
+        phone: form.phone,
+        guests: parseInt(form.guests),
+        date: `${form.date} ${form.time}`,
+        type: 'Table Reservation',
+      });
       setSuccess(true);
       setLoading(false);
     }, 1500);

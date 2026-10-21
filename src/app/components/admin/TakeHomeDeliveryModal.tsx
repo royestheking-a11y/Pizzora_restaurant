@@ -4,7 +4,7 @@ import {
   Clock, CreditCard, Sparkles, AlertCircle, Printer, FileText, Check, CheckCircle2,
   Loader2
 } from 'lucide-react';
-import { useApp, Order, OrderStatus, MenuItem } from '../../context/AppContext';
+import { useApp, Order, OrderStatus, MenuItem, calcDeliveryFee } from '../../context/AppContext';
 import { generateInvoiceNumber, printerService, loadPrinterSettings, type InvoiceData } from '../../utils/printerService';
 
 export interface TakeHomeDeliveryModalProps {
@@ -14,20 +14,21 @@ export interface TakeHomeDeliveryModalProps {
 }
 
 export const SYLHET_AREAS = [
-  { name: 'Zindabazar', fee: 40 },
-  { name: 'Amberkhana', fee: 50 },
-  { name: 'Subidbazar', fee: 50 },
-  { name: 'Shibganj', fee: 60 },
-  { name: 'Upashohor', fee: 60 },
-  { name: 'Kumarpara', fee: 40 },
-  { name: 'Chowhatta', fee: 40 },
-  { name: 'Mira Bazar', fee: 50 },
-  { name: 'Lamabazar', fee: 50 },
-  { name: 'Tilagarh', fee: 70 },
-  { name: 'South Surma / Kadamtoli', fee: 80 },
-  { name: 'Akhalia / SUST', fee: 80 },
-  { name: 'Airport Road', fee: 90 },
-  { name: 'Custom Area', fee: 50 },
+  { name: 'Subidbazar / Mitali Complex (Nearby)', distKm: 0.5, fee: 40 },
+  { name: 'Amberkhana Point', distKm: 1.2, fee: 40 },
+  { name: 'Pathantula / Modina Market', distKm: 1.8, fee: 40 },
+  { name: 'Chowhatta / Rikabibazar', distKm: 2.3, fee: 50 },
+  { name: 'Zindabazar', distKm: 2.8, fee: 50 },
+  { name: 'Kumarpara', distKm: 3.5, fee: 60 },
+  { name: 'Mira Bazar', distKm: 3.5, fee: 60 },
+  { name: 'Lamabazar', distKm: 2.5, fee: 50 },
+  { name: 'Shibganj', distKm: 4.8, fee: 70 },
+  { name: 'Upashohor', distKm: 5.2, fee: 80 },
+  { name: 'Akhalia / SUST', distKm: 5.0, fee: 70 },
+  { name: 'Tilagarh / MC College', distKm: 6.1, fee: 90 },
+  { name: 'South Surma / Kadamtoli', distKm: 6.5, fee: 90 },
+  { name: 'Airport Road', distKm: 7.5, fee: 100 },
+  { name: 'Custom Area', distKm: 2.0, fee: 40 },
 ];
 
 export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeHomeDeliveryModalProps) {
@@ -36,8 +37,8 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [area, setArea] = useState('Zindabazar');
-  const [fee, setFee] = useState<number>(40);
+  const [area, setArea] = useState('Subidbazar / Mitali Complex (Nearby)');
+  const [fee, setFee] = useState<number>(state.deliverySettings?.baseFee ?? 40);
   const [paymentMethod, setPaymentMethod] = useState<'Cash on Delivery' | 'bKash' | 'Nagad' | 'Card' | 'Staff Tab' | 'Complimentary'>('Cash on Delivery');
   const [riderNote, setRiderNote] = useState('');
   const [selectedItems, setSelectedItems] = useState<{ item: MenuItem; quantity: number; note?: string }[]>([]);
@@ -74,7 +75,7 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
     setArea(areaName);
     const found = SYLHET_AREAS.find(a => a.name === areaName);
     if (found) {
-      setFee(found.fee);
+      setFee(calcDeliveryFee(found.distKm, state.deliverySettings));
     }
   };
 
@@ -463,11 +464,14 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
                   onChange={e => handleSelectArea(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs bg-white text-gray-900 focus:outline-none focus:border-emerald-500 font-medium"
                 >
-                  {SYLHET_AREAS.map(a => (
-                    <option key={a.name} value={a.name}>
-                      {a.name} (৳{a.fee})
-                    </option>
-                  ))}
+                  {SYLHET_AREAS.map(a => {
+                    const dynamicFee = calcDeliveryFee(a.distKm, state.deliverySettings);
+                    return (
+                      <option key={a.name} value={a.name}>
+                        {a.name} (~{a.distKm} km — ৳{dynamicFee})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

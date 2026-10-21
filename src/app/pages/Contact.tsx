@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Phone, Mail, MapPin, Clock, MessageCircle, Send, Check, Facebook, Instagram, Twitter, Youtube } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SEO } from '../components/SEO';
+import { pixelService } from '../utils/pixelService';
 
 const TikTokSVG = ({ size, style }: { size: number, style?: any }) => (
   <svg viewBox="0 0 448 512" fill="currentColor" width={size} height={size} style={style}><path d="M448,209.91a210.06,210.06,0,0,1-122.77-39.25V349.38A162.55,162.55,0,1,1,185,188.31V278.2a74.62,74.62,0,1,0,52.23,71.18V0l88,0a121.18,121.18,0,0,0,1.86,22.17h0A122.18,122.18,0,0,0,381,102.39a121.43,121.43,0,0,0,67,20.14Z"/></svg>
@@ -39,6 +40,7 @@ export function Contact() {
         isRead: false,
       };
       dispatch({ type: 'ADD_MESSAGE', payload: msg });
+      pixelService.trackContact({ name: form.name, subject: form.subject });
       setSuccess(true);
       setLoading(false);
       showNotification('Message sent! We\'ll reply within 24 hours.', 'success');

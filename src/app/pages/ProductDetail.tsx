@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
-import { Star, Minus, Plus, ShoppingCart, ChevronRight, Flame, Clock, Users, Leaf, ArrowLeft, Heart, ThumbsUp, Send, MessageSquare, Lock, CheckCircle, ShoppingBag } from 'lucide-react';
-import { useApp, ItemReview } from '../context/AppContext';
+import { Star, Minus, Plus, ShoppingCart, ChevronRight, Flame, Clock, Users, Leaf, ArrowLeft, Heart, ThumbsUp, Send, MessageSquare, Lock, CheckCircle, ShoppingBag, Package } from 'lucide-react';
+import { useApp, ItemReview, detectPizzaItemSize, isPizzaBox } from '../context/AppContext';
 import { SEO } from '../components/SEO';
 import { optimizeCloudinaryUrl } from '../utils/image';
+import { pixelService } from '../utils/pixelService';
 
 function StarRating({ rating, size = 16 }: { rating: number; size?: number }) {
   return (
@@ -41,6 +42,34 @@ export function ProductDetail() {
 
   const item = state.menuItems.find(m => m.slug === slug);
   const related = state.menuItems.filter(m => m.category === item?.category && m.id !== item?.id && m.showOnWebsite !== false).slice(0, 3);
+
+  // ── Variant & Pizza Packaging State ──
+  const [selectedVariant, setSelectedVariant] = useState<{ name: string; price: number } | null>(null);
+
+  useEffect(() => {
+    if (item?.variants && item.variants.length > 0) {
+      setSelectedVariant(item.variants[0]);
+    } else {
+      setSelectedVariant(null);
+    }
+  }, [item?.id]);
+
+  const activePrice = selectedVariant ? selectedVariant.price : (item?.price || 0);
+  const pizzaSize = selectedVariant
+    ? (selectedVariant.name.includes('12') ? '12' : selectedVariant.name.includes('10') ? '10' : '8')
+    : (item ? detectPizzaItemSize({ item }) : null);
+
+  // Track ViewContent for Meta Pixel / Analytics
+  useEffect(() => {
+    if (item) {
+      pixelService.trackViewContent({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+      });
+    }
+  }, [item?.id]);
 
   // ── Check if this browser has ordered this item ──
   const [hasOrdered, setHasOrdered] = useState(false);
@@ -272,12 +301,49 @@ export function ProductDetail() {
               )}
             </div>
 
+            {/* Size Variants (if pizza has sizes: 8", 10", 12") */}
+            {item.variants && item.variants.length > 0 && (
+              <div className="mb-6">
+                <label style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '14px', color: '#374151', display: 'block', marginBottom: '8px' }}>
+                  Select Pizza Size:
+                </label>
+                <div className="flex flex-wrap gap-2.5">
+                  {item.variants.map((v) => {
+                    const isSelected = selectedVariant?.name === v.name;
+                    return (
+                      <button
+                        key={v.name}
+                        type="button"
+                        onClick={() => setSelectedVariant(v)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all cursor-pointer"
+                        style={{
+                          background: isSelected ? 'linear-gradient(135deg, #F9002B, #C8001F)' : 'white',
+                          color: isSelected ? 'white' : '#1F2937',
+                          border: isSelected ? '2px solid transparent' : '1.5px solid rgba(249,0,43,0.18)',
+                          boxShadow: isSelected ? '0 4px 14px rgba(249,0,43,0.25)' : 'none',
+                          fontFamily: 'var(--font-heading)',
+                          fontSize: '13.5px',
+                        }}
+                      >
+                        <span>{v.name}</span>
+                        <span style={{ fontSize: '13px', opacity: isSelected ? 0.95 : 0.75, fontWeight: isSelected ? 800 : 600 }}>
+                          ৳{v.price}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Price */}
-            <div className="mb-6 py-4 px-5 rounded-2xl" style={{ backgroundColor: 'rgba(249,0,43,0.05)' }}>
+            <div className="mb-5 py-4 px-5 rounded-2xl" style={{ backgroundColor: 'rgba(249,0,43,0.05)' }}>
               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 900, fontSize: '36px', color: '#F9002B' }}>
-                ৳{item.price}
+                ৳{activePrice}
               </span>
-              <span style={{ color: '#6B7280', fontSize: '14px', marginLeft: '8px' }}>per {item.serves.includes('Persons') ? 'portion' : 'serving'}</span>
+              <span style={{ color: '#6B7280', fontSize: '14px', marginLeft: '8px' }}>
+                {selectedVariant ? `for ${selectedVariant.name}` : `per ${item.serves?.includes('Persons') ? 'portion' : 'serving'}`}
+              </span>
             </div>
 
             {/* Quantity */}
@@ -309,7 +375,7 @@ export function ProductDetail() {
                   </button>
                 </div>
                 <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '20px', color: '#F9002B' }}>
-                  = ৳{item.price * quantity}
+                  = ৳{activePrice * quantity}
                 </span>
               </div>
             </div>
@@ -332,16 +398,27 @@ export function ProductDetail() {
             {/* Buttons */}
             <div className="flex gap-3">
               <button
-                onClick={() => { addToCart(item, quantity, specialRequest); }}
-                className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-semibold border-2 transition-all hover:shadow-md"
+                onClick={() => {
+                  const itemToOrder = selectedVariant
+                    ? { ...item, price: activePrice, variant: selectedVariant.name }
+                    : item;
+                  addToCart(itemToOrder, quantity, specialRequest, selectedVariant?.name);
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-semibold border-2 transition-all hover:shadow-md cursor-pointer"
                 style={{ borderColor: '#F9002B', color: '#F9002B', fontFamily: 'var(--font-heading)' }}
               >
                 <ShoppingCart size={18} />
                 Add to Cart
               </button>
               <button
-                onClick={() => { addToCart(item, quantity, specialRequest); navigate('/checkout'); }}
-                className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-white transition-all hover:shadow-xl hover:-translate-y-0.5"
+                onClick={() => {
+                  const itemToOrder = selectedVariant
+                    ? { ...item, price: activePrice, variant: selectedVariant.name }
+                    : item;
+                  addToCart(itemToOrder, quantity, specialRequest, selectedVariant?.name);
+                  navigate('/checkout');
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-white transition-all hover:shadow-xl hover:-translate-y-0.5 cursor-pointer"
                 style={{ background: 'linear-gradient(135deg, #F9002B, #C8001F)', fontFamily: 'var(--font-heading)' }}
               >
                 Order Now

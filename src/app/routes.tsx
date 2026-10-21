@@ -2,6 +2,7 @@ import { createBrowserRouter, Outlet } from 'react-router';
 import { AppProvider } from './context/AppContext';
 import { OfflineBanner } from './components/OfflineBanner';
 import { GlobalNotificationToast } from './components/GlobalNotificationToast';
+import { PixelTracker } from './components/PixelTracker';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { About } from './pages/About';
@@ -20,11 +21,12 @@ import { NotFound } from './pages/NotFound';
 
 function Root() {
   return (
-    <AppProvider>
+    <>
+      <PixelTracker />
       <OfflineBanner />
       <GlobalNotificationToast />
       <Outlet />
-    </AppProvider>
+    </>
   );
 }
 
