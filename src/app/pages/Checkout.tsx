@@ -4,7 +4,7 @@ import {
   ArrowLeft, Check, ShoppingBag, CreditCard, Truck,
   Clock, MapPin, Phone, User, FileText, ChevronRight, Package, Navigation, LocateFixed, AlertCircle,
 } from 'lucide-react';
-import { useApp, PaymentMethod, haversineDistance, isPizzaBox } from '../context/AppContext';
+import { useApp, PaymentMethod, haversineDistance, isPizzaBox, DEFAULT_SYLHET_CUSTOM_AREAS } from '../context/AppContext';
 import { pixelService } from '../utils/pixelService';
 
 const paymentMethods: { id: PaymentMethod; label: string; icon: ReactNode; desc: string }[] = [
@@ -14,20 +14,7 @@ const paymentMethods: { id: PaymentMethod; label: string; icon: ReactNode; desc:
   { id: 'Card',             label: 'Card Payment',     icon: <div className="flex flex-col items-center justify-center h-full w-full gap-0.5" style={{ padding: '6px' }}><img src="/payment/Visa-Logo.png" alt="Visa" className="h-3.5 object-contain" /><img src="/payment/mastercard-featured-image-1080x628.jpg" alt="MasterCard" className="h-4 object-contain" /></div>, desc: 'Pay securely via Visa or MasterCard' },
 ];
 
-export const SYLHET_DELIVERY_ZONES = [
-  { name: 'Subidbazar / Mitali Complex (Restaurant Area)', distKm: 0.5 },
-  { name: 'Amberkhana Point', distKm: 1.2 },
-  { name: 'Pathantula / Modina Market', distKm: 1.8 },
-  { name: 'Chowhatta / Rikabibazar', distKm: 2.3 },
-  { name: 'Zindabazar', distKm: 2.8 },
-  { name: 'Kumarpara / Mira Bazar', distKm: 3.5 },
-  { name: 'Shibganj', distKm: 4.8 },
-  { name: 'Upashohor', distKm: 5.2 },
-  { name: 'Akhalia / SUST Campus', distKm: 5.0 },
-  { name: 'Tilagarh / MC College', distKm: 6.1 },
-  { name: 'South Surma / Kadamtoli', distKm: 6.5 },
-  { name: 'Airport Road / Osmani Airport', distKm: 7.5 },
-];
+export const SYLHET_DELIVERY_ZONES = DEFAULT_SYLHET_CUSTOM_AREAS;
 
 const STEPS = ['Delivery Info', 'Payment', 'Confirm'];
 
@@ -38,6 +25,7 @@ export function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash on Delivery');
   const [form, setForm] = useState({ name: '', phone: '', address: '', city: 'Sylhet', notes: '' });
   const [selectedZone, setSelectedZone] = useState<string>('');
+  const [selectedAreaFee, setSelectedAreaFee] = useState<number | null>(null);
   const [distanceKm, setDistanceKm] = useState<string>('');
   const [geoState, setGeoState] = useState<'idle' | 'locating' | 'located' | 'error'>('idle');
   const [geoError, setGeoError] = useState('');
@@ -53,13 +41,21 @@ export function Checkout() {
     }
   }, []);
 
+  const customAreas = (state.deliverySettings?.customAreas && state.deliverySettings.customAreas.length > 0)
+    ? state.deliverySettings.customAreas
+    : DEFAULT_SYLHET_CUSTOM_AREAS;
+
   const parsedDistance = parseFloat(distanceKm) || 0;
   const ds = state.deliverySettings;
-  const delivery = cartTotal > 0 ? calcDeliveryFee(Math.max(parsedDistance, 0.1)) : 0;
+  const delivery = cartTotal > 0
+    ? (selectedAreaFee !== null ? selectedAreaFee : calcDeliveryFee(Math.max(parsedDistance, 0.1)))
+    : 0;
   const grandTotal = cartTotal + delivery;
 
   /** Use browser Geolocation API to auto-detect customer distance from restaurant (MANDATORY) */
   const detectLocation = () => {
+    setSelectedZone('');
+    setSelectedAreaFee(null);
     if (!navigator.geolocation) {
       setGeoState('error');
       setGeoError('Your browser does not support GPS location.');
@@ -142,7 +138,7 @@ export function Checkout() {
         paymentMethod,
         customerName: form.name,
         phone: form.phone,
-        address: `${form.address}, ${form.city}`,
+        address: selectedZone ? `${form.address}, ${selectedZone}, ${form.city}` : `${form.address}, ${form.city}`,
         createdAt: new Date().toISOString(),
         estimatedTime: '30-45 minutes',
         isOnlineOrder: true,
@@ -591,11 +587,14 @@ export function Checkout() {
                             onChange={e => {
                               const zoneName = e.target.value;
                               setSelectedZone(zoneName);
-                              const found = SYLHET_DELIVERY_ZONES.find(z => z.name === zoneName);
+                              const found = customAreas.find(z => z.name === zoneName);
                               if (found) {
-                                setDistanceKm(String(found.distKm));
+                                setSelectedAreaFee(found.fee);
+                                setDistanceKm(String(found.distKm || ds.baseKm || 2));
                                 setGeoState('located');
                                 setStep1Error(null);
+                              } else {
+                                setSelectedAreaFee(null);
                               }
                             }}
                             className="w-full text-xs font-semibold py-2.5 px-3 rounded-xl border transition-all cursor-pointer"
@@ -607,11 +606,12 @@ export function Checkout() {
                             }}
                           >
                             <option value="">-- Choose your area in Sylhet --</option>
-                            {SYLHET_DELIVERY_ZONES.map(z => {
-                              const fee = calcDeliveryFee(z.distKm);
+                            {customAreas.map(z => {
+                              const feeDisplay = z.fee !== undefined ? z.fee : calcDeliveryFee(z.distKm || ds.baseKm);
+                              const distText = z.distKm ? ` (~${z.distKm} km)` : '';
                               return (
-                                <option key={z.name} value={z.name}>
-                                  {z.name} (~{z.distKm} km) — Delivery: ৳{fee}
+                                <option key={z.id || z.name} value={z.name}>
+                                  {z.name}{distText} — Delivery: ৳{feeDisplay}
                                 </option>
                               );
                             })}
@@ -687,7 +687,7 @@ export function Checkout() {
                         setStep1Error('Please enter your delivery street address / landmark.');
                         return;
                       }
-                      if (geoState !== 'located' || !distanceKm || parsedDistance <= 0) {
+                      if (!selectedZone && (geoState !== 'located' || !distanceKm || parsedDistance <= 0)) {
                         setStep1Error('Delivery Location Required: Please click "Auto-Detect My Location (GPS)" or select your delivery area in Sylhet above.');
                         return;
                       }

@@ -343,9 +343,37 @@ function normalizePixelSettings(raw) {
   };
 }
 
-// Helper to ensure delivery settings has valid formula & WV46+W8 Sylhet GPS defaults
+const DEFAULT_SYLHET_AREAS = [
+  { id: 'area-1', name: 'Subidbazar / Mitali Complex (Restaurant Area)', fee: 40, distKm: 0.5 },
+  { id: 'area-2', name: 'Amberkhana Point', fee: 40, distKm: 1.2 },
+  { id: 'area-3', name: 'Pathantula / Modina Market', fee: 40, distKm: 1.8 },
+  { id: 'area-4', name: 'Chowhatta / Rikabibazar', fee: 50, distKm: 2.3 },
+  { id: 'area-5', name: 'Zindabazar', fee: 50, distKm: 2.8 },
+  { id: 'area-6', name: 'Kumarpara / Mira Bazar', fee: 60, distKm: 3.5 },
+  { id: 'area-7', name: 'Lamabazar', fee: 50, distKm: 2.5 },
+  { id: 'area-8', name: 'Shibganj', fee: 70, distKm: 4.8 },
+  { id: 'area-9', name: 'Upashohor', fee: 80, distKm: 5.2 },
+  { id: 'area-10', name: 'Akhalia / SUST Campus', fee: 70, distKm: 5.0 },
+  { id: 'area-11', name: 'Tilagarh / MC College', fee: 90, distKm: 6.1 },
+  { id: 'area-12', name: 'South Surma / Kadamtoli', fee: 90, distKm: 6.5 },
+  { id: 'area-13', name: 'Airport Road / Osmani Airport', fee: 100, distKm: 7.5 },
+];
+
+// Helper to ensure delivery settings has valid formula, WV46+W8 Sylhet GPS defaults, and custom delivery areas
 function normalizeDeliverySettings(raw) {
   const ds = raw ? (raw.toObject ? raw.toObject() : raw) : {};
+  let customAreas = [];
+  if (Array.isArray(ds.customAreas) && ds.customAreas.length > 0) {
+    customAreas = ds.customAreas.map((a, idx) => ({
+      id: String(a.id || `area-${idx + 1}-${Date.now()}`),
+      name: String(a.name || '').trim(),
+      fee: Math.max(0, typeof a.fee === 'number' ? a.fee : (parseFloat(a.fee) || 40)),
+      distKm: a.distKm !== undefined && a.distKm !== null && !isNaN(Number(a.distKm)) ? Number(a.distKm) : undefined,
+    })).filter(a => a.name.length > 0);
+  } else {
+    customAreas = DEFAULT_SYLHET_AREAS;
+  }
+
   return {
     baseFee: typeof ds.baseFee === 'number' ? ds.baseFee : 40,
     baseKm: typeof ds.baseKm === 'number' ? ds.baseKm : 2,
@@ -353,6 +381,7 @@ function normalizeDeliverySettings(raw) {
     restaurantLat: typeof ds.restaurantLat === 'number' && ds.restaurantLat !== 0 ? ds.restaurantLat : 24.90725,
     restaurantLng: typeof ds.restaurantLng === 'number' && ds.restaurantLng !== 0 ? ds.restaurantLng : 91.8608,
     locationName: ds.locationName || 'WV46+W8, Sylhet (Subidbazar Point)',
+    customAreas,
   };
 }
 
@@ -465,10 +494,21 @@ app.get('/api/settings/delivery', async (req, res) => {
 
 app.put('/api/settings/delivery', authenticateJWT, async (req, res) => {
   try {
-    const { baseFee, baseKm, extraPerKm, restaurantLat, restaurantLng, locationName } = req.body;
+    const { baseFee, baseKm, extraPerKm, restaurantLat, restaurantLng, locationName, customAreas } = req.body;
     if ([baseFee, baseKm, extraPerKm].some(v => typeof v !== 'number' || v < 0)) {
       return res.status(400).json({ error: 'Invalid delivery settings: fees must be non-negative numbers' });
     }
+
+    let sanitizedAreas = [];
+    if (Array.isArray(customAreas)) {
+      sanitizedAreas = customAreas.map((a, idx) => ({
+        id: String(a.id || `area-${idx + 1}-${Date.now()}`),
+        name: String(a.name || '').trim(),
+        fee: Math.max(0, typeof a.fee === 'number' ? a.fee : (parseFloat(a.fee) || 40)),
+        distKm: a.distKm !== undefined && a.distKm !== null && !isNaN(Number(a.distKm)) ? Number(a.distKm) : undefined,
+      })).filter(a => a.name.length > 0);
+    }
+
     const updateObj = {
       baseFee: Number(baseFee),
       baseKm: Number(baseKm) > 0 ? Number(baseKm) : 2,
@@ -476,14 +516,16 @@ app.put('/api/settings/delivery', authenticateJWT, async (req, res) => {
       restaurantLat: typeof restaurantLat === 'number' && restaurantLat !== 0 ? restaurantLat : 24.90725,
       restaurantLng: typeof restaurantLng === 'number' && restaurantLng !== 0 ? restaurantLng : 91.8608,
       locationName: locationName || 'WV46+W8, Sylhet (Subidbazar Point)',
+      customAreas: sanitizedAreas,
     };
     const updated = await RestaurantSettings.findOneAndUpdate(
       { key: 'main' },
       { $set: { deliverySettings: updateObj } },
       { upsert: true, new: true }
     );
-    io.emit('REMOTE_ACTION', { type: 'UPDATE_DELIVERY_SETTINGS', payload: updated.deliverySettings });
-    res.json({ success: true, deliverySettings: updated.deliverySettings });
+    const normalized = normalizeDeliverySettings(updated.deliverySettings);
+    io.emit('REMOTE_ACTION', { type: 'UPDATE_DELIVERY_SETTINGS', payload: normalized });
+    res.json({ success: true, deliverySettings: normalized });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update delivery settings' });
   }

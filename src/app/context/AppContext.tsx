@@ -348,6 +348,29 @@ export interface DeletedOrder {
 
 // ─── Delivery Settings ────────────────────────────────────────────────────────
 
+export interface CustomDeliveryArea {
+  id: string;
+  name: string;
+  fee: number;
+  distKm?: number;
+}
+
+export const DEFAULT_SYLHET_CUSTOM_AREAS: CustomDeliveryArea[] = [
+  { id: 'area-1', name: 'Subidbazar / Mitali Complex (Restaurant Area)', fee: 40, distKm: 0.5 },
+  { id: 'area-2', name: 'Amberkhana Point', fee: 40, distKm: 1.2 },
+  { id: 'area-3', name: 'Pathantula / Modina Market', fee: 40, distKm: 1.8 },
+  { id: 'area-4', name: 'Chowhatta / Rikabibazar', fee: 50, distKm: 2.3 },
+  { id: 'area-5', name: 'Zindabazar', fee: 50, distKm: 2.8 },
+  { id: 'area-6', name: 'Kumarpara / Mira Bazar', fee: 60, distKm: 3.5 },
+  { id: 'area-7', name: 'Lamabazar', fee: 50, distKm: 2.5 },
+  { id: 'area-8', name: 'Shibganj', fee: 70, distKm: 4.8 },
+  { id: 'area-9', name: 'Upashohor', fee: 80, distKm: 5.2 },
+  { id: 'area-10', name: 'Akhalia / SUST Campus', fee: 70, distKm: 5.0 },
+  { id: 'area-11', name: 'Tilagarh / MC College', fee: 90, distKm: 6.1 },
+  { id: 'area-12', name: 'South Surma / Kadamtoli', fee: 90, distKm: 6.5 },
+  { id: 'area-13', name: 'Airport Road / Osmani Airport', fee: 100, distKm: 7.5 },
+];
+
 export interface DeliverySettings {
   baseFee: number;    // ৳ charge for first baseKm
   baseKm: number;     // km covered by baseFee (default: 2)
@@ -355,6 +378,7 @@ export interface DeliverySettings {
   restaurantLat: number;  // Restaurant GPS latitude
   restaurantLng: number;  // Restaurant GPS longitude
   locationName?: string;  // Restaurant location name / Plus code
+  customAreas?: CustomDeliveryArea[]; // Customizable Sylhet delivery areas & amounts
 }
 
 /**
@@ -407,6 +431,7 @@ export const DEFAULT_DELIVERY_SETTINGS: DeliverySettings = {
   restaurantLat: FIXED_RESTAURANT_LOCATION.lat,   // Fixed GPS: 24.90725 (WV46+W8 Sylhet)
   restaurantLng: FIXED_RESTAURANT_LOCATION.lng,   // Fixed GPS: 91.8608  (WV46+W8 Sylhet)
   locationName: 'WV46+W8, Sylhet (Subidbazar Point)',
+  customAreas: DEFAULT_SYLHET_CUSTOM_AREAS,
 };
 
 // ─── Pizza Box Auto-Packaging Engine ──────────────────────────────────────────
@@ -1059,6 +1084,11 @@ function reducer(state: AppState, action: Action): AppState {
         deliverySettings: action.payload.deliverySettings ? {
           ...DEFAULT_DELIVERY_SETTINGS,
           ...action.payload.deliverySettings,
+          customAreas: Array.isArray(action.payload.deliverySettings.customAreas) && action.payload.deliverySettings.customAreas.length > 0
+            ? action.payload.deliverySettings.customAreas
+            : (state.deliverySettings?.customAreas && state.deliverySettings.customAreas.length > 0
+                ? state.deliverySettings.customAreas
+                : DEFAULT_SYLHET_CUSTOM_AREAS),
           restaurantLat: typeof action.payload.deliverySettings.restaurantLat === 'number' && action.payload.deliverySettings.restaurantLat !== 0
             ? action.payload.deliverySettings.restaurantLat
             : DEFAULT_DELIVERY_SETTINGS.restaurantLat,
@@ -1649,7 +1679,14 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, isInitialLoading: action.payload };
 
     case 'UPDATE_DELIVERY_SETTINGS':
-      return { ...state, deliverySettings: action.payload };
+      return {
+        ...state,
+        deliverySettings: {
+          ...state.deliverySettings,
+          ...action.payload,
+          customAreas: action.payload.customAreas ?? state.deliverySettings?.customAreas ?? DEFAULT_SYLHET_CUSTOM_AREAS,
+        }
+      };
 
     case 'UPDATE_PIXEL_SETTINGS':
       return { ...state, pixelSettings: action.payload };

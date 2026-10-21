@@ -71,11 +71,20 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
     onClose();
   };
 
+  const deliveryAreas = useMemo(() => {
+    return (state.deliverySettings?.customAreas && state.deliverySettings.customAreas.length > 0)
+      ? state.deliverySettings.customAreas
+      : SYLHET_AREAS;
+  }, [state.deliverySettings?.customAreas]);
+
   const handleSelectArea = (areaName: string) => {
     setArea(areaName);
-    const found = SYLHET_AREAS.find(a => a.name === areaName);
+    const found = deliveryAreas.find(a => a.name === areaName);
     if (found) {
-      setFee(calcDeliveryFee(found.distKm, state.deliverySettings));
+      const feeVal = (found as any).fee !== undefined
+        ? (found as any).fee
+        : calcDeliveryFee(found.distKm || state.deliverySettings.baseKm, state.deliverySettings);
+      setFee(feeVal);
     }
   };
 
@@ -464,11 +473,14 @@ export function TakeHomeDeliveryModal({ isOpen, onClose, onOrderCreated }: TakeH
                   onChange={e => handleSelectArea(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs bg-white text-gray-900 focus:outline-none focus:border-emerald-500 font-medium"
                 >
-                  {SYLHET_AREAS.map(a => {
-                    const dynamicFee = calcDeliveryFee(a.distKm, state.deliverySettings);
+                  {deliveryAreas.map(a => {
+                    const feeVal = (a as any).fee !== undefined
+                      ? (a as any).fee
+                      : calcDeliveryFee(a.distKm || state.deliverySettings.baseKm, state.deliverySettings);
+                    const distText = a.distKm ? ` (~${a.distKm} km)` : '';
                     return (
-                      <option key={a.name} value={a.name}>
-                        {a.name} (~{a.distKm} km — ৳{dynamicFee})
+                      <option key={(a as any).id || a.name} value={a.name}>
+                        {a.name}{distText} — ৳{feeVal}
                       </option>
                     );
                   })}

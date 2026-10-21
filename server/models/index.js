@@ -398,6 +398,7 @@ const RestaurantSettingsSchema = new mongoose.Schema({
     restaurantLat: { type: Number, default: 24.90725 }, // Pizzora GPS Lat (WV46+W8 Sylhet)
     restaurantLng: { type: Number, default: 91.8608 },  // Pizzora GPS Lng (WV46+W8 Sylhet)
     locationName:  { type: String, default: 'WV46+W8, Sylhet (Subidbazar Point)' },
+    customAreas:   { type: Array, default: [] },        // Custom delivery areas [{ id, name, fee, distKm }]
   },
   pixelSettings: {
     enabled: { type: Boolean, default: true },
