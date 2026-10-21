@@ -566,59 +566,73 @@ export function DeliverySettingsPanel() {
             }}
           >
             {/* Section Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-gray-100">
-              <div className="flex items-start gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-gray-100">
+              <div className="flex items-center gap-3.5 min-w-0">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #111, #333)', color: 'white' }}
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-sm"
+                  style={{
+                    background: 'linear-gradient(135deg, #F9002B, #C8001F)',
+                    boxShadow: '0 4px 14px rgba(249,0,43,0.22)'
+                  }}
                 >
-                  <Building2 size={20} />
+                  <MapPin size={22} className="text-white" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '17px', color: '#111' }}>
-                      Sylhet Delivery Areas & Custom Amounts
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h3
+                      style={{
+                        fontFamily: 'var(--font-heading)',
+                        fontWeight: 800,
+                        fontSize: '18px',
+                        color: '#111827',
+                        letterSpacing: '-0.2px'
+                      }}
+                    >
+                      Sylhet Delivery Areas & Rates
                     </h3>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-[#F9002B]">
-                      {(form.customAreas || []).length} Active
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-red-50 text-[#F9002B] border border-red-200/80 shadow-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#F9002B] animate-pulse" />
+                      {(form.customAreas || []).length} Active Zones
                     </span>
                   </div>
-                  <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
-                    Controls the <strong>"Or Select Your Sylhet Delivery Area:"</strong> dropdown on the customer website.
+                  <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                    Powers the <span className="font-semibold text-gray-700">"Select Sylhet Delivery Area"</span> checkout dropdown
                   </p>
                 </div>
               </div>
 
               {/* Quick Actions */}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
                 <button
                   type="button"
                   onClick={handleResetDefaults}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-xs font-semibold hover:bg-gray-50 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200/90 bg-white hover:bg-gray-50 text-gray-700 text-xs font-bold transition-all shadow-xs hover:border-gray-300 active:scale-95 cursor-pointer"
                   title="Reload 13 default Sylhet areas"
                 >
-                  <RotateCcw size={12} />
-                  <span>Sylhet Presets</span>
+                  <RotateCcw size={13} className="text-gray-500" />
+                  <span>Default Presets</span>
                 </button>
                 {(form.customAreas || []).length > 0 && (
                   <button
                     type="button"
                     onClick={handleClearAll}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-100 text-red-600 text-xs font-semibold hover:bg-red-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-100 bg-red-50/70 hover:bg-red-100 text-[#F9002B] text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
                     title="Clear all areas"
                   >
-                    <Trash2 size={12} />
-                    <span>Clear</span>
+                    <Trash2 size={13} />
+                    <span>Clear All</span>
                   </button>
                 )}
               </div>
             </div>
 
             {/* Quick Add Area Form */}
-            <form onSubmit={handleAddArea} className="mt-5 p-4 rounded-xl bg-gray-50 border border-gray-200">
+            <form onSubmit={handleAddArea} className="mt-5 p-4 rounded-xl border border-red-100/70 bg-gradient-to-r from-red-50/40 via-white to-gray-50/60 shadow-xs">
               <div className="flex items-center gap-2 mb-3">
-                <Sparkles size={14} className="text-[#F9002B]" />
-                <span className="text-xs font-bold text-gray-800 uppercase tracking-wider" style={{ fontFamily: 'var(--font-heading)' }}>
+                <div className="w-5 h-5 rounded-md bg-red-100 text-[#F9002B] flex items-center justify-center shrink-0">
+                  <Plus size={13} />
+                </div>
+                <span className="text-xs font-extrabold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'var(--font-heading)' }}>
                   Add New Delivery Location & Charge
                 </span>
               </div>
