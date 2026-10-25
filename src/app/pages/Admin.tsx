@@ -1535,11 +1535,14 @@ export function Admin() {
                 {adminRole === 'admin' ? (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const next = !isSafeMode;
                       toggleSafeMode();
-                      showNotification(`Safe Mode: ${!isSafeMode ? 'ON' : 'OFF'}`, 'info');
+                      showNotification(`Safe Mode: ${next ? 'ON' : 'OFF'}`, 'info');
                     }}
-                    className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-600/20 hover:bg-red-600/30 text-red-300/80 hover:text-red-200 border border-red-500/30 transition-all cursor-pointer select-none"
+                    className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-600/20 hover:bg-red-600/30 text-red-300/80 hover:text-red-200 border border-red-500/30 transition-all cursor-pointer select-none relative z-30"
                     title="Toggle Safe Mode"
                   >
                     Safe Mode: {isSafeMode ? 'ON' : 'OFF'}

@@ -1770,53 +1770,8 @@ export const SOCKET_URL = getBackendUrl();
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatchLocal] = useReducer(reducer, initialState);
 
-  // Safe Mode: limits monthly visible sales to 10k Tk across orders, cash register, sales & analytics
-  const [isSafeMode, setIsSafeMode] = React.useState<boolean>(() => {
-    try {
-      return localStorage.getItem('pizzora_safe_mode') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const setSafeMode = React.useCallback((val: boolean) => {
-    setIsSafeMode(val);
-    try {
-      localStorage.setItem('pizzora_safe_mode', val ? 'true' : 'false');
-    } catch (e) {}
-    dispatch({ type: 'SET_SAFE_MODE', payload: val });
-  }, []);
-
-  const toggleSafeMode = React.useCallback(() => {
-    setIsSafeMode(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem('pizzora_safe_mode', next ? 'true' : 'false');
-      } catch (e) {}
-      dispatch({ type: 'SET_SAFE_MODE', payload: next });
-      return next;
-    });
-  }, []);
-
-  const safeModeDataset = React.useMemo(() => {
-    if (!isSafeMode) return null;
-    return getSafeModeDataset(state.orders, state.tableOrders, state.cashRegister, state.expenses);
-  }, [isSafeMode, state.orders, state.tableOrders, state.cashRegister, state.expenses]);
-
-  const effectiveState = React.useMemo<AppState>(() => {
-    if (!isSafeMode || !safeModeDataset) return state;
-    return {
-      ...state,
-      orders: safeModeDataset.safeOrders,
-      tableOrders: safeModeDataset.safeTableOrders,
-      cashRegister: safeModeDataset.safeCashRegister,
-      expenses: safeModeDataset.safeExpenses,
-      analytics: safeModeDataset.safeAnalytics,
-    };
-  }, [state, isSafeMode, safeModeDataset]);
-
   // Custom dispatch that broadcasts actions to the server
-  const dispatch = async (action: Action) => {
+  const dispatch = React.useCallback(async (action: Action) => {
     dispatchLocal(action);
 
     // Actions that shouldn't be broadcasted (purely local UI state or user-specific session state or REST-handled actions)
@@ -1860,10 +1815,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const queue = JSON.parse(localStorage.getItem('pizzora_offline_queue') || '[]');
         queue.push(action);
         localStorage.setItem('pizzora_offline_queue', JSON.stringify(queue));
-        dispatchLocal({ type: 'SET_NOTIFICATION', payload: { message: 'Saved offline. Will sync when reconnected.', type: 'info' } });
       }
     }
-  };
+  }, [state.isSocketConnected]);
+
+  // Safe Mode: limits monthly visible sales to 10k Tk across orders, cash register, sales & analytics
+  const [isSafeMode, setIsSafeMode] = React.useState<boolean>(() => {
+    try {
+      return localStorage.getItem('pizzora_safe_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const setSafeMode = React.useCallback((val: boolean) => {
+    setIsSafeMode(val);
+    try {
+      localStorage.setItem('pizzora_safe_mode', val ? 'true' : 'false');
+    } catch (e) {}
+    dispatchLocal({ type: 'SET_SAFE_MODE', payload: val });
+    dispatch({ type: 'SET_SAFE_MODE', payload: val }).catch(() => {});
+  }, [dispatch]);
+
+  const toggleSafeMode = React.useCallback(() => {
+    setIsSafeMode(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('pizzora_safe_mode', next ? 'true' : 'false');
+      } catch (e) {}
+      dispatchLocal({ type: 'SET_SAFE_MODE', payload: next });
+      dispatch({ type: 'SET_SAFE_MODE', payload: next }).catch(() => {});
+      return next;
+    });
+  }, [dispatch]);
+
+  const safeModeDataset = React.useMemo(() => {
+    if (!isSafeMode) return null;
+    try {
+      return getSafeModeDataset(state.orders, state.tableOrders, state.cashRegister, state.expenses);
+    } catch (err) {
+      console.error('Failed to compute safeModeDataset, falling back to state:', err);
+      return null;
+    }
+  }, [isSafeMode, state.orders, state.tableOrders, state.cashRegister, state.expenses]);
+
+  const effectiveState = React.useMemo<AppState>(() => {
+    if (!isSafeMode || !safeModeDataset) return state;
+    return {
+      ...state,
+      orders: safeModeDataset.safeOrders || state.orders,
+      tableOrders: safeModeDataset.safeTableOrders || state.tableOrders,
+      cashRegister: safeModeDataset.safeCashRegister || state.cashRegister,
+      expenses: safeModeDataset.safeExpenses || state.expenses,
+      analytics: safeModeDataset.safeAnalytics || state.analytics,
+    };
+  }, [state, isSafeMode, safeModeDataset]);
 
   const processOfflineQueue = async () => {
     const queueString = localStorage.getItem('pizzora_offline_queue');

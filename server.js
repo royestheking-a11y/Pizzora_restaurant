@@ -575,7 +575,7 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
       orders, reservations, messages, cateringRequests, tables,
       tableOrders, wasteRecords, employees, payrollRecords,
       expenses, cashRegister, inventory, stockMovements, users,
-      deletedOrders
+      deletedOrders, settings
     ] = await Promise.all([
       // Load all current month's orders + any still-active orders (guarantees Month, Week, Today match)
       Order.find({
@@ -968,7 +968,7 @@ io.use((socket, next) => {
 const publicActions = [
   'PLACE_ORDER', 'PLACE_TABLE_ORDER', 'UPDATE_TABLE_ORDER', 'UPDATE_TABLE_ORDER_STATUS', 'ADD_RESERVATION', 'ADD_MESSAGE',
   'ADD_CATERING', 'ADD_REVIEW', 'HELPFUL_REVIEW', 'SET_TABLE_STATUS',
-  'ADD_TABLE', 'UPDATE_TABLE', 'DELETE_TABLE'
+  'ADD_TABLE', 'UPDATE_TABLE', 'DELETE_TABLE', 'SET_SAFE_MODE'
 ];
 
 function checkPermanentError(err) {
