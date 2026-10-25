@@ -628,6 +628,68 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
 app.get('/api/analytics', authenticateJWT, async (req, res) => {
   try {
     const start = Date.now();
+    const settings = await RestaurantSettings.findOne({ key: 'main' }).lean();
+
+    if (settings && settings.safeMode === true) {
+      // Safe Mode Analytics: Restaurant opened in July 2026.
+      // 4 active months (July, August, September, October), strictly under 10k per month (~৳38.9k total).
+      const dhakaOffset = 6 * 60 * 60 * 1000;
+      const dhakaStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+      const [year, month] = dhakaStr.split('-').map(Number);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const currentDay = parseInt(dhakaStr.split('-')[2], 10) || 25;
+
+      const months = Array.from({ length: 12 }, (_, i) => {
+        const d = new Date(Date.UTC(year, i, 1));
+        const name = d.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', year: 'numeric' });
+        if (i === 6) return { name, sales: 9650, orders: 30, monthIndex: i }; // July
+        if (i === 7) return { name, sales: 9720, orders: 31, monthIndex: i }; // August
+        if (i === 8) return { name, sales: 9810, orders: 31, monthIndex: i }; // September
+        if (i === 9) return { name, sales: 9654, orders: 31, monthIndex: i }; // October
+        return { name, sales: 0, orders: 0, monthIndex: i };
+      });
+
+      const monthDays = Array.from({ length: daysInMonth }, (_, i) => {
+        const dNum = i + 1;
+        const d = new Date(Date.UTC(year, month - 1, dNum));
+        const name = d.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
+        const hasPassed = dNum <= currentDay;
+        const sales = hasPassed ? Math.round(9654 / currentDay) : 0;
+        const orders = hasPassed ? 1 : 0;
+        return { name, sales, orders, dateIndex: dNum };
+      });
+
+      const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const weeklyChart = daysOfWeek.map((name, i) => ({
+        name,
+        sales: 340 + ((i * 37) % 60),
+        orders: 1,
+        dayIndex: (i + 1) % 7,
+      }));
+
+      const dailyChart = [
+        { name: '12:00', sales: 180, orders: 1 },
+        { name: '15:00', sales: 0, orders: 0 },
+        { name: '19:00', sales: 170, orders: 1 },
+        { name: '21:00', sales: 0, orders: 0 },
+      ];
+
+      return res.json({
+        success: true,
+        totalRevenue: 38834,
+        totalCustomers: 123,
+        todayRevenue: 350,
+        weeklyRevenue: 2420,
+        monthlyRevenue: 9654,
+        yearlyRevenue: 38834,
+        dailyChart,
+        weeklyChart,
+        monthlyChart: monthDays,
+        yearlyChart: months,
+        processTimeMs: Date.now() - start,
+      });
+    }
+
     // Only fetch minimal fields needed for analytics to save memory
     const orders = await Order.find(
       { status: { $in: ['Delivered', 'Paid'] } },

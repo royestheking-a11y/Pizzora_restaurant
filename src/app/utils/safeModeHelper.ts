@@ -69,6 +69,114 @@ export interface SafeModeDataset {
   safeAnalytics: any;
 }
 
+const HISTORICAL_CUSTOMERS = [
+  { name: 'Arif Hossain', phone: '+8801712345678', address: 'Pizzora Dine-in' },
+  { name: 'Farhana Islam', phone: '+8801823456789', address: 'Banani Block D, Dhaka' },
+  { name: 'Tanvir Ahmed', phone: '+8801934567890', address: 'Pizzora Takeaway' },
+  { name: 'Nusrat Jahan', phone: '+8801645678901', address: 'Gulshan-1, Dhaka' },
+  { name: 'Kamrul Hasan', phone: '+8801556789012', address: 'Pizzora Dine-in' },
+  { name: 'Mehedi Hasan', phone: '+8801767890123', address: 'Mirpur-10, Dhaka' },
+  { name: 'Sabrina Akter', phone: '+8801878901234', address: 'Pizzora Takeaway' },
+  { name: 'Rakib Mia', phone: '+8801989012345', address: 'Uttara Sector 7, Dhaka' },
+  { name: 'Sultana Razia', phone: '+8801690123456', address: 'Dhanmondi 27, Dhaka' },
+  { name: 'Mahmudul Haque', phone: '+8801501234567', address: 'Pizzora Dine-in' },
+  { name: 'Shahriar Kabir', phone: '+8801711223344', address: 'Pizzora Takeaway' },
+  { name: 'Rifat Al Mamun', phone: '+8801822334455', address: 'Mohakhali DOHS, Dhaka' },
+  { name: 'Tasmia Rahman', phone: '+8801933445566', address: 'Pizzora Dine-in' },
+  { name: 'Nazmul Huda', phone: '+8801644556677', address: 'Bashundhara R/A, Dhaka' },
+  { name: 'Sumaiya Khan', phone: '+8801555667788', address: 'Pizzora Takeaway' },
+];
+
+const HISTORICAL_MENU_PRESETS = [
+  { name: 'Chicken Classic Pizza', size: '10″', price: 320 },
+  { name: 'Beef Feast Pizza', size: '10″', price: 360 },
+  { name: 'BBQ Temptation Pizza', size: '10″', price: 340 },
+  { name: 'Spicy Chicken Pizza', size: '10″', price: 310 },
+  { name: 'Cheese Delight Pizza', size: '10″', price: 290 },
+];
+
+/**
+ * Generates realistic historical safe orders for prior operational months
+ * (July, August, September 2026) so multi-month analytics reflect ~৳38,900 across 4 months.
+ */
+export function generateHistoricalSafeOrders(): Order[] {
+  function generateMonthOrders(
+    year: number,
+    monthIndex: number,
+    startDay: number,
+    endDay: number,
+    count: number,
+    targetTotal: number,
+    prefix: string
+  ): Order[] {
+    const list: Order[] = [];
+    const span = endDay - startDay + 1;
+    let running = 0;
+
+    for (let i = 0; i < count; i++) {
+      const cust = HISTORICAL_CUSTOMERS[i % HISTORICAL_CUSTOMERS.length];
+      const preset = HISTORICAL_MENU_PRESETS[i % HISTORICAL_MENU_PRESETS.length];
+      const day = startDay + Math.floor((i / count) * span);
+      const hour = 6 + (i % 8); // 12:00 to 19:00 Dhaka time (UTC+6)
+      const min = (i * 17) % 60;
+
+      const remainingOrders = count - i;
+      const remainingBudget = targetTotal - running;
+      let orderTotal: number;
+      if (remainingOrders === 1) {
+        orderTotal = remainingBudget;
+      } else {
+        const avg = remainingBudget / remainingOrders;
+        orderTotal = Math.round(avg + ((i % 5) - 2) * 20);
+      }
+      running += orderTotal;
+
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const createdAt = `${year}-${pad(monthIndex + 1)}-${pad(day)}T${pad(hour)}:${pad(min)}:00.000Z`;
+      const num = `PIZ-${prefix}${pad(i + 1)}`;
+      const paymentMethod = (i % 6 === 0) ? 'bKash' : (i % 11 === 0 ? 'Card' : 'Cash');
+      const orderType = cust.address.includes('Dine-in') ? 'Dine-in' : (cust.address.includes('Takeaway') ? 'Takeaway' : 'Delivery');
+
+      list.push({
+        id: `ORD-HIST-${year}${pad(monthIndex + 1)}-${pad(i + 1)}`,
+        orderNumber: num,
+        invoiceNumber: num,
+        customerName: cust.name,
+        phone: cust.phone,
+        address: cust.address,
+        orderType,
+        items: [
+          {
+            menuItem: {
+              id: `item-hist-${i % HISTORICAL_MENU_PRESETS.length}`,
+              name: preset.name,
+              price: orderTotal,
+              category: 'Pizza',
+            } as any,
+            quantity: 1,
+            selectedSize: preset.size,
+            totalPrice: orderTotal,
+          },
+        ],
+        total: orderTotal,
+        subtotal: orderTotal,
+        status: 'Delivered',
+        paymentMethod: paymentMethod as any,
+        createdAt,
+        estimatedTime: '30 mins',
+      });
+    }
+    return list;
+  }
+
+  // Restaurant operational start: July 20, 2026
+  const july = generateMonthOrders(2026, 6, 20, 31, 30, 9650, '70');
+  const august = generateMonthOrders(2026, 7, 1, 31, 31, 9720, '80');
+  const september = generateMonthOrders(2026, 8, 1, 30, 31, 9810, '90');
+
+  return [...july, ...august, ...september];
+}
+
 /**
  * Filter orders such that completed sales in every month are capped at ~10,000 Tk.
  * Spreads order selection across days of each month so daily and weekly charts remain authentic.
@@ -84,10 +192,12 @@ export function filterOrdersForSafeMode(
   safeTableOrderIds: Set<string>;
 } {
   if ((!orders || orders.length === 0) && (!tableOrders || tableOrders.length === 0)) {
+    const historical = generateHistoricalSafeOrders();
+    const histIds = new Set(historical.map(o => o.id));
     return {
-      safeOrders: [],
+      safeOrders: historical,
       safeTableOrders: [],
-      safeOrderIds: new Set(),
+      safeOrderIds: histIds,
       safeTableOrderIds: new Set(),
     };
   }
@@ -248,6 +358,24 @@ export function filterOrdersForSafeMode(
   const safeOrders = (orders || []).filter(o => selectedOrderIds.has(o.id));
   const safeTableOrders = (tableOrders || []).filter(to => selectedTableOrderIds.has(to.id));
 
+  // Ensure all 4 operational months (July, August, September, October 2026) are represented
+  // If the server only supplied the current month (October), supplement with realistic historical safe orders.
+  const coveredMonths = new Set<string>();
+  safeOrders.forEach(o => {
+    const ts = parseDhakaTimestamp(o.createdAt);
+    if (ts > 0) coveredMonths.add(toDhakaMonthKey(ts));
+  });
+
+  const historicalOrders = generateHistoricalSafeOrders();
+  historicalOrders.forEach(hist => {
+    const ts = parseDhakaTimestamp(hist.createdAt);
+    const mKey = toDhakaMonthKey(ts);
+    if (!coveredMonths.has(mKey)) {
+      safeOrders.push(hist);
+      selectedOrderIds.add(hist.id);
+    }
+  });
+
   return {
     safeOrders,
     safeTableOrders,
@@ -258,6 +386,8 @@ export function filterOrdersForSafeMode(
 
 /**
  * Filter Cash Register sessions so that reports match the Safe Mode orders exactly.
+ * Balances drawer float without depositing opening balances into the bank,
+ * ensuring total monthly bank deposits align seamlessly with cash sales.
  */
 export function filterCashRegisterForSafeMode(
   sessions: CashRegisterEntry[],
@@ -329,33 +459,63 @@ export function filterCashRegisterForSafeMode(
       return;
     }
 
-    if (daySales && daySales.total > 0) {
-      const opening = session.openingBalance || 0;
-      const cash = daySales.cash;
-      const expectedDrawer = opening + cash;
-      const cost = Math.min(session.cost || 0, Math.floor(cash * 0.2));
-      const shoppingCash = Math.min(session.shoppingCash || 0, Math.floor(cash * 0.15));
-      const bankDeposit = Math.max(0, expectedDrawer - cost - shoppingCash);
+    let cash = 0;
+    let breakdown = {
+      total: 0,
+      cash: 0,
+      bkash: 0,
+      nagad: 0,
+      card: 0,
+      other: 0,
+      complimentary: 0,
+      staffTabDue: 0,
+      staffTabCashCollected: 0,
+    };
 
-      result.push({
-        ...session,
-        totalCashSales: cash,
-        salesBreakdown: {
-          total: daySales.total,
-          cash: daySales.cash,
-          bkash: daySales.bkash,
-          nagad: daySales.nagad,
-          card: daySales.card,
-          other: daySales.other,
-          complimentary: 0,
-          staffTabDue: 0,
-          staffTabCashCollected: 0,
-        },
-        cost,
-        shoppingCash,
-        bankDeposit,
-      });
+    if (daySales && daySales.total > 0) {
+      cash = daySales.cash;
+      breakdown = {
+        total: daySales.total,
+        cash: daySales.cash,
+        bkash: daySales.bkash,
+        nagad: daySales.nagad,
+        card: daySales.card,
+        other: daySales.other,
+        complimentary: 0,
+        staffTabDue: 0,
+        staffTabCashCollected: 0,
+      };
+    } else {
+      cash = 0;
+      breakdown = {
+        total: 0,
+        cash: 0,
+        bkash: 0,
+        nagad: 0,
+        card: 0,
+        other: 0,
+        complimentary: 0,
+        staffTabDue: 0,
+        staffTabCashCollected: 0,
+      };
     }
+
+    const cost = Math.min(session.cost || 0, Math.floor(cash * 0.15));
+    const shoppingCash = Math.min(session.shoppingCash || 0, Math.floor(cash * 0.15));
+    // In safe mode closed sessions, opening balance stays in drawer as float.
+    // Daily bank deposit is solely net cash sales minus costs and shopping.
+    const bankDeposit = Math.max(0, cash - cost - shoppingCash);
+
+    result.push({
+      ...session,
+      openingBalance: 0,
+      totalCashSales: cash,
+      salesBreakdown: breakdown,
+      cost,
+      shoppingCash,
+      bankDeposit,
+      status: 'Closed',
+    });
   });
 
   // Ensure every date with safe sales has a corresponding balanced closed session in Cash Register
@@ -364,19 +524,17 @@ export function filterCashRegisterForSafeMode(
     if (!coveredDates.has(dateStr)) {
       const daySales = safeOrdersByDate[dateStr];
       if (daySales.total > 0) {
-        const opening = 2000;
         const cash = daySales.cash;
-        const expectedDrawer = opening + cash;
         const cost = Math.min(Math.floor(cash * 0.15), 500);
         const shoppingCash = Math.min(Math.floor(cash * 0.15), 500);
-        const bankDeposit = Math.max(0, expectedDrawer - cost - shoppingCash);
+        const bankDeposit = Math.max(0, cash - cost - shoppingCash);
 
         result.push({
           id: `CS-SAFE-${dateStr.replace(/-/g, '')}`,
           date: dateStr,
           openedAt: `${dateStr}T10:00:00.000Z`,
           closedAt: `${dateStr}T23:00:00.000Z`,
-          openingBalance: opening,
+          openingBalance: 0,
           totalCashSales: cash,
           salesBreakdown: {
             total: daySales.total,
