@@ -310,6 +310,7 @@ app.get('/api/state/public', async (req, res) => {
       tables: await RestaurantTable.find().sort({ tableNumber: 1 }),
       deliverySettings: normalizeDeliverySettings(settings?.deliverySettings),
       pixelSettings: normalizePixelSettings(settings?.pixelSettings),
+      isSafeMode: Boolean(settings?.isSafeMode),
     };
     res.json(state);
   } catch (error) {
@@ -531,6 +532,31 @@ app.put('/api/settings/delivery', authenticateJWT, async (req, res) => {
   }
 });
 
+// ── Safe Mode Settings API ───────────────────────────────────────────────────
+app.get('/api/settings/safemode', async (req, res) => {
+  try {
+    const settings = await RestaurantSettings.findOne({ key: 'main' });
+    res.json({ isSafeMode: Boolean(settings?.isSafeMode) });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch safe mode status' });
+  }
+});
+
+app.put('/api/settings/safemode', authenticateJWT, async (req, res) => {
+  try {
+    const isSafe = Boolean(req.body.isSafeMode);
+    await RestaurantSettings.findOneAndUpdate(
+      { key: 'main' },
+      { $set: { isSafeMode: isSafe } },
+      { upsert: true, new: true }
+    );
+    io.emit('REMOTE_ACTION', { type: 'SET_SAFE_MODE', payload: isSafe });
+    res.json({ success: true, isSafeMode: isSafe });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update safe mode status' });
+  }
+});
+
 app.get('/api/state/admin', authenticateJWT, async (req, res) => {
   try {
     // Only load today's orders + any still-active orders (not yet Delivered/Cancelled).
@@ -581,14 +607,16 @@ app.get('/api/state/admin', authenticateJWT, async (req, res) => {
       InventoryItem.find().sort({ name: 1 }),       // All inventory items
       StockMovement.find().sort({ date: -1 }),      // All stock movements
       UserAccount.find().sort({ createdAt: -1 }),
-      DeletedOrder.find({}).sort({ deletedAt: -1 }).limit(500)
+      DeletedOrder.find({}).sort({ deletedAt: -1 }).limit(500),
+      RestaurantSettings.findOne({ key: 'main' })
     ]);
 
     res.json({
       orders, reservations, messages, cateringRequests, tables,
       tableOrders, wasteRecords, employees, payrollRecords,
       expenses, cashRegister, inventory, stockMovements, users,
-      deletedOrders
+      deletedOrders,
+      isSafeMode: Boolean(settings?.isSafeMode)
     });
   } catch (error) {
     console.error("Failed to load admin state", error);
@@ -1580,6 +1608,15 @@ async function processDbAction(action) {
         { upsert: true, new: true }
       );
       break;
+
+    // Safe Mode Settings
+    case 'SET_SAFE_MODE':
+      await RestaurantSettings.findOneAndUpdate(
+        { key: 'main' },
+        { $set: { isSafeMode: Boolean(action.payload) } },
+        { upsert: true, new: true }
+      );
+      break;
   }
 }
 
@@ -1943,7 +1980,7 @@ app.post('/api/dispatch', async (req, res) => {
     }
 
     await processDbAction(action);
-    if (action.type === 'UPDATE_DELIVERY_SETTINGS' || action.type === 'UPDATE_PIXEL_SETTINGS') {
+    if (action.type === 'UPDATE_DELIVERY_SETTINGS' || action.type === 'UPDATE_PIXEL_SETTINGS' || action.type === 'SET_SAFE_MODE') {
       io.emit('REMOTE_ACTION', action);
     } else {
       io.to('adminRoom').emit('REMOTE_ACTION', action);
@@ -1971,7 +2008,7 @@ io.on('connection', (socket) => {
       await processDbAction(action);
       
       // Broadcast settings to all clients, admin actions to admins
-      if (action.type === 'UPDATE_DELIVERY_SETTINGS' || action.type === 'UPDATE_PIXEL_SETTINGS') {
+      if (action.type === 'UPDATE_DELIVERY_SETTINGS' || action.type === 'UPDATE_PIXEL_SETTINGS' || action.type === 'SET_SAFE_MODE') {
         io.emit('REMOTE_ACTION', action);
       } else {
         socket.to('adminRoom').emit('REMOTE_ACTION', action);

@@ -4,7 +4,8 @@ import { io, Socket } from 'socket.io-client';
 import { MenuItem, menuItems as defaultMenuItems, galleryImages as defaultGalleryImages, GalleryImage, Chef, chefs as defaultChefs } from '../data/restaurantData';
 import { pickActivePresentItem, normalizeProductKey } from '../utils/inventoryIntelligence';
 import { PixelSettings, DEFAULT_PIXEL_SETTINGS, pixelService } from '../utils/pixelService';
-export type { MenuItem, GalleryImage, Chef, PixelSettings };
+import { getSafeModeDataset, SafeModeDataset } from '../utils/safeModeHelper';
+export type { MenuItem, GalleryImage, Chef, PixelSettings, SafeModeDataset };
 
 // ─── Existing Types ────────────────────────────────────────────────────────────
 
@@ -727,7 +728,9 @@ type Action =
   // Delivery Settings
   | { type: 'UPDATE_DELIVERY_SETTINGS'; payload: DeliverySettings }
   // Pixel Settings
-  | { type: 'UPDATE_PIXEL_SETTINGS'; payload: PixelSettings };
+  | { type: 'UPDATE_PIXEL_SETTINGS'; payload: PixelSettings }
+  // Safe Mode Setting
+  | { type: 'SET_SAFE_MODE'; payload: boolean };
 
 // ─── Default Carousel Slides ──────────────────────────────────────────────────
 
@@ -1691,6 +1694,9 @@ function reducer(state: AppState, action: Action): AppState {
     case 'UPDATE_PIXEL_SETTINGS':
       return { ...state, pixelSettings: action.payload };
 
+    case 'SET_SAFE_MODE':
+      return state;
+
     default:
       return state;
   }
@@ -1726,6 +1732,10 @@ interface AppContextType {
   deleteOrderWithCleanup: (orderOrId: any, reason?: string) => Promise<{ success: boolean; error?: string }>;
   restoreDeletedOrder: (deletedOrderId: string) => Promise<{ success: boolean; error?: string }>;
   purgeDeletedOrder: (deletedOrderId: string) => Promise<{ success: boolean; error?: string }>;
+  isSafeMode: boolean;
+  setSafeMode: (enabled: boolean) => void;
+  toggleSafeMode: () => void;
+  rawState: AppState;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -1759,6 +1769,51 @@ export const SOCKET_URL = getBackendUrl();
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatchLocal] = useReducer(reducer, initialState);
+
+  // Safe Mode: limits monthly visible sales to 10k Tk across orders, cash register, sales & analytics
+  const [isSafeMode, setIsSafeMode] = React.useState<boolean>(() => {
+    try {
+      return localStorage.getItem('pizzora_safe_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const setSafeMode = React.useCallback((val: boolean) => {
+    setIsSafeMode(val);
+    try {
+      localStorage.setItem('pizzora_safe_mode', val ? 'true' : 'false');
+    } catch (e) {}
+    dispatch({ type: 'SET_SAFE_MODE', payload: val });
+  }, []);
+
+  const toggleSafeMode = React.useCallback(() => {
+    setIsSafeMode(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('pizzora_safe_mode', next ? 'true' : 'false');
+      } catch (e) {}
+      dispatch({ type: 'SET_SAFE_MODE', payload: next });
+      return next;
+    });
+  }, []);
+
+  const safeModeDataset = React.useMemo(() => {
+    if (!isSafeMode) return null;
+    return getSafeModeDataset(state.orders, state.tableOrders, state.cashRegister, state.expenses);
+  }, [isSafeMode, state.orders, state.tableOrders, state.cashRegister, state.expenses]);
+
+  const effectiveState = React.useMemo<AppState>(() => {
+    if (!isSafeMode || !safeModeDataset) return state;
+    return {
+      ...state,
+      orders: safeModeDataset.safeOrders,
+      tableOrders: safeModeDataset.safeTableOrders,
+      cashRegister: safeModeDataset.safeCashRegister,
+      expenses: safeModeDataset.safeExpenses,
+      analytics: safeModeDataset.safeAnalytics,
+    };
+  }, [state, isSafeMode, safeModeDataset]);
 
   // Custom dispatch that broadcasts actions to the server
   const dispatch = async (action: Action) => {
@@ -1890,6 +1945,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // Receive actions dispatched by other clients
       socket.on('REMOTE_ACTION', (action: Action) => {
+        if (action.type === 'SET_SAFE_MODE') {
+          const isSafe = Boolean(action.payload);
+          setIsSafeMode(isSafe);
+          try {
+            localStorage.setItem('pizzora_safe_mode', isSafe ? 'true' : 'false');
+          } catch (e) {}
+        }
         dispatchLocal(action);
       });
 
@@ -1929,6 +1991,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
             })
             .then(adminData => {
               const fullData = { ...publicData, ...adminData };
+              if (typeof fullData.isSafeMode === 'boolean') {
+                setIsSafeMode(fullData.isSafeMode);
+                try {
+                  localStorage.setItem('pizzora_safe_mode', fullData.isSafeMode ? 'true' : 'false');
+                } catch (e) {}
+              }
               localStorage.setItem('pizzora_state_cache', JSON.stringify(fullData));
               dispatchLocal({ type: 'LOAD_FROM_STORAGE', payload: fullData });
 
@@ -1936,6 +2004,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
               refreshAnalytics();
             });
         } else {
+          if (typeof publicData?.isSafeMode === 'boolean') {
+            setIsSafeMode(publicData.isSafeMode);
+            try {
+              localStorage.setItem('pizzora_safe_mode', publicData.isSafeMode ? 'true' : 'false');
+            } catch (e) {}
+          }
           localStorage.setItem('pizzora_state_cache', JSON.stringify(publicData));
           dispatchLocal({ type: 'LOAD_FROM_STORAGE', payload: publicData });
         }
@@ -2327,7 +2401,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider
       value={{
-        state,
+        state: effectiveState,
+        rawState: state,
+        isSafeMode,
+        setSafeMode,
+        toggleSafeMode,
         dispatch,
         addToCart,
         removeFromCart,
@@ -2391,6 +2469,10 @@ const fallbackAppContext: AppContextType = {
   deleteOrderWithCleanup: async () => ({ success: false, error: 'Context unavailable' }),
   restoreDeletedOrder: async () => ({ success: false, error: 'Context unavailable' }),
   purgeDeletedOrder: async () => ({ success: false, error: 'Context unavailable' }),
+  isSafeMode: false,
+  setSafeMode: () => {},
+  toggleSafeMode: () => {},
+  rawState: initialState,
 };
 
 export function useApp(): AppContextType {

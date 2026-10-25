@@ -420,5 +420,6 @@ const RestaurantSettingsSchema = new mongoose.Schema({
     trackContact: { type: Boolean, default: true },
     customHeadScript: { type: String, default: '' },
   },
+  isSafeMode: { type: Boolean, default: false },
 }, { strict: false });
 export const RestaurantSettings = mongoose.model('RestaurantSettings', RestaurantSettingsSchema);
