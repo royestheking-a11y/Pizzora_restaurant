@@ -617,28 +617,7 @@ export function CashRegisterManagement() {
   return (
     <div className="space-y-6 animate-fade-in" style={{ fontFamily: 'var(--font-body)' }}>
 
-      {isAdmin && isSafeMode && (
-        <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <ShieldCheck size={18} className="text-emerald-600 shrink-0" />
-            <div>
-              <p className="font-extrabold text-[13px] text-emerald-900">
-                Cash Register in Safe Mode (Natural Sales Under 10k Tk/Month)
-              </p>
-              <p className="text-emerald-700 text-[11.5px] mt-0.5">
-                Register reports and drawer collections naturally vary between 7k and 9.8k Tk to match Safe Mode orders strictly under 10k Tk/month. Click Turn Off to see full real register collections.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => toggleSafeMode()}
-            className="ml-3 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-all shadow-xs shrink-0 cursor-pointer"
-          >
-            Turn Off Safe Mode
-          </button>
-        </div>
-      )}
+
 
       {/* ── Page Header & Quick Controls ── */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-1">

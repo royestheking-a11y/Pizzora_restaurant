@@ -1532,9 +1532,23 @@ export function Admin() {
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r from-red-600/30 to-rose-600/20 text-red-400 border border-red-500/30 shadow-[0_0_8px_rgba(249,0,43,0.2)]">
-                  POS OS
-                </span>
+                {adminRole === 'admin' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toggleSafeMode();
+                      showNotification(`Safe Mode: ${!isSafeMode ? 'ON' : 'OFF'}`, 'info');
+                    }}
+                    className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-600/20 hover:bg-red-600/30 text-red-300/80 hover:text-red-200 border border-red-500/30 transition-all cursor-pointer select-none"
+                    title="Toggle Safe Mode"
+                  >
+                    Safe Mode: {isSafeMode ? 'ON' : 'OFF'}
+                  </button>
+                ) : (
+                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r from-red-600/30 to-rose-600/20 text-red-400 border border-red-500/30 shadow-[0_0_8px_rgba(249,0,43,0.2)]">
+                    POS OS
+                  </span>
+                )}
                 {/* Close button — mobile only */}
                 <button
                   className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors hover:bg-white/10 text-white/70"
@@ -1640,51 +1654,7 @@ export function Admin() {
               )}
             </button>
 
-            {/* Safe Mode Sidebar Switch Card (Admin only) */}
-            {adminRole === 'admin' && (
-              <div
-                className={`p-2.5 rounded-xl border transition-all ${
-                  isSafeMode
-                    ? 'bg-emerald-950/40 border-emerald-500/40 shadow-sm shadow-emerald-950/30'
-                    : 'bg-black/20 border-white/5'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <ShieldCheck size={15} className={isSafeMode ? 'text-emerald-400 shrink-0' : 'text-gray-400 shrink-0'} />
-                    <div className="min-w-0">
-                      <p className={`text-[11px] font-black tracking-tight truncate ${isSafeMode ? 'text-emerald-300' : 'text-gray-300'}`}>
-                        Safe Mode (&lt;10k/mo)
-                      </p>
-                      <p className="text-[9.5px] text-gray-400 font-medium">
-                        {isSafeMode ? 'Active (natural 7k–9.8k)' : 'Inactive (Full data)'}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      toggleSafeMode();
-                      if (isSafeMode) {
-                        showNotification('Safe Mode Deactivated: Showing full restaurant sales & orders.', 'info');
-                      } else {
-                        showNotification('Safe Mode Activated: Natural sales under 10k/month (7k–9.8k Tk) enabled.', 'success');
-                      }
-                    }}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      isSafeMode ? 'bg-emerald-500' : 'bg-gray-700'
-                    }`}
-                    title="Toggle Safe Mode"
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                        isSafeMode ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-            )}
+
 
             {/* Colorful Counter POS Button (Vibrant Golden-Yellow) */}
             <button
@@ -1753,40 +1723,7 @@ export function Admin() {
               </div>
             </div>
             <div className="flex items-center gap-2.5 flex-shrink-0">
-              {/* Safe Mode Toggle Button (Admin only) */}
-              {adminRole === 'admin' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    toggleSafeMode();
-                    if (isSafeMode) {
-                      showNotification('Safe Mode Deactivated: Showing full restaurant sales & orders.', 'info');
-                    } else {
-                      showNotification('Safe Mode Activated: Natural sales under 10k/month (7k–9.8k Tk) enabled.', 'success');
-                    }
-                  }}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-[0.98] border ${
-                    isSafeMode
-                      ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100 shadow-emerald-500/10'
-                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                  style={{ fontFamily: 'var(--font-heading)' }}
-                  title={
-                    isSafeMode
-                      ? 'Safe Mode is ON: Natural dynamic sales strictly under 10,000 Tk/month (7k–9.8k). Click to view Full Real Data.'
-                      : 'Safe Mode is OFF: Showing Full Real Data. Click to turn ON Safe Mode (under 10k/mo cap).'
-                  }
-                >
-                  <span className="relative flex h-2.5 w-2.5">
-                    {isSafeMode && (
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    )}
-                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isSafeMode ? 'bg-emerald-500' : 'bg-gray-400'}`}></span>
-                  </span>
-                  <ShieldCheck size={14} className={isSafeMode ? 'text-emerald-600' : 'text-gray-500'} />
-                  <span>Safe Mode: <strong className={isSafeMode ? 'text-emerald-700 font-extrabold' : 'text-gray-700'}>{isSafeMode ? 'ON (<10k/mo)' : 'OFF (Full)'}</strong></span>
-                </button>
-              )}
+
 
               {/* View Website (Upper header, placed right by the watch) */}
               <a
@@ -1828,31 +1765,7 @@ export function Admin() {
             {/* ══ DASHBOARD ══════════════════════════════════ */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
-                {adminRole === 'admin' && isSafeMode && (
-                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs shadow-xs">
-                    <div className="flex items-center gap-2.5">
-                      <ShieldCheck size={18} className="text-emerald-600 shrink-0" />
-                      <div>
-                        <p className="font-extrabold text-[13px] text-emerald-900">
-                          Safe Mode Active — Natural Sales Under 10k Tk/Month
-                        </p>
-                        <p className="text-emerald-700 text-[11.5px] mt-0.5">
-                          Monthly sales naturally vary between 7k and 9.8k Tk so every month looks organic and authentic while staying strictly under 10k Tk. All displayed data is from real orders.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        toggleSafeMode();
-                        showNotification('Safe Mode Deactivated: Showing full restaurant sales & orders.', 'info');
-                      }}
-                      className="ml-3 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-all shadow-xs shrink-0 cursor-pointer"
-                    >
-                      Turn Off Safe Mode
-                    </button>
-                  </div>
-                )}
+
 
                 {/* Stats Cards — Row 1 (Core Financial & Queue Metrics) */}
                 <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -2382,31 +2295,7 @@ export function Admin() {
                   </div>
                 </div>
 
-                {adminRole === 'admin' && isSafeMode && (
-                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs shadow-xs">
-                    <div className="flex items-center gap-2.5">
-                      <ShieldCheck size={18} className="text-emerald-600 shrink-0" />
-                      <div>
-                        <p className="font-extrabold text-[13px] text-emerald-900">
-                          Sales Report in Safe Mode (Natural Sales Under 10k Tk/Month)
-                        </p>
-                        <p className="text-emerald-700 text-[11.5px] mt-0.5">
-                          Charts and sales metrics reflect selected real orders dynamically varied between 7k and 9.8k Tk per month. Click Turn Off to see full real totals.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        toggleSafeMode();
-                        showNotification('Safe Mode Deactivated: Full sales report restored.', 'info');
-                      }}
-                      className="ml-3 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-all shadow-xs shrink-0 cursor-pointer"
-                    >
-                      Turn Off Safe Mode
-                    </button>
-                  </div>
-                )}
+
 
                 {/* Data Calculation */}
                 {state.isInitialLoading ? (
