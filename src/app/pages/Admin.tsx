@@ -1540,12 +1540,16 @@ export function Admin() {
                       e.stopPropagation();
                       const next = !isSafeMode;
                       toggleSafeMode();
-                      showNotification(`Safe Mode: ${next ? 'ON' : 'OFF'}`, 'info');
+                      showNotification(`Safe Mode: ${next ? 'ON' : 'OFF'}`, next ? 'success' : 'info');
                     }}
-                    className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-600/20 hover:bg-red-600/30 text-red-300/80 hover:text-red-200 border border-red-500/30 transition-all cursor-pointer select-none relative z-30"
-                    title="Toggle Safe Mode"
+                    className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border transition-all cursor-pointer select-none relative z-30 ${
+                      isSafeMode
+                        ? 'bg-gradient-to-r from-emerald-600/30 to-teal-600/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.25)]'
+                        : 'bg-gradient-to-r from-red-600/30 to-rose-600/20 text-red-400 border-red-500/30 shadow-[0_0_8px_rgba(249,0,43,0.2)]'
+                    }`}
+                    title={isSafeMode ? 'Safe Mode is ON (Click to turn OFF)' : 'Safe Mode is OFF (Click to turn ON)'}
                   >
-                    Safe Mode: {isSafeMode ? 'ON' : 'OFF'}
+                    Safe Mode
                   </button>
                 ) : (
                   <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r from-red-600/30 to-rose-600/20 text-red-400 border border-red-500/30 shadow-[0_0_8px_rgba(249,0,43,0.2)]">
