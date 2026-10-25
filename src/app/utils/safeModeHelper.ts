@@ -147,15 +147,14 @@ export function generateHistoricalSafeOrders(): Order[] {
         orderType,
         items: [
           {
-            menuItem: {
+            item: {
               id: `item-hist-${i % HISTORICAL_MENU_PRESETS.length}`,
               name: preset.name,
               price: orderTotal,
               category: 'Pizza',
             } as any,
             quantity: 1,
-            selectedSize: preset.size,
-            totalPrice: orderTotal,
+            size: preset.size,
           },
         ],
         total: orderTotal,
