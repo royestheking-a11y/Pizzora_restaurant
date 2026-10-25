@@ -630,7 +630,7 @@ app.get('/api/analytics', authenticateJWT, async (req, res) => {
     const start = Date.now();
     const settings = await RestaurantSettings.findOne({ key: 'main' }).lean();
 
-    if (settings && settings.safeMode === true) {
+    if (settings && (settings.isSafeMode === true || settings.safeMode === true)) {
       // Safe Mode Analytics: Restaurant opened in July 2026.
       // 4 active months (July, August, September, October), strictly under 10k per month (~৳38.9k total).
       const dhakaOffset = 6 * 60 * 60 * 1000;
